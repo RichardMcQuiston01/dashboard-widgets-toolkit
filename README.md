@@ -263,6 +263,37 @@ grid simply lays out normally. The same helper is exported from the core as
 `fillColumnSpans(items, columns)` for custom layouts, and `WidgetCard` takes
 `fill` and `columnSpan` props.
 
+**Loading data after the page renders.** Render the dashboard first and let
+each widget's data arrive on its own. `useWidgets` returns placeholders
+immediately (so first paint and server rendering never wait), starts every
+provider after mount, and replaces each card as its own data arrives:
+
+```tsx
+import { Dashboard, useWidgets } from '@richardmcquiston01/dashboard-widgets-toolkit/react';
+
+const { widgets, refresh } = useWidgets(definitions, providers, context, {
+  timeoutMs: 8000, // a provider that takes longer becomes an error card
+  refreshMs: 60_000, // optional polling; skips widgets still loading
+});
+
+return <Dashboard widgets={widgets} onRetry={(key) => refresh(key)} />;
+```
+
+Providers receive an `AbortSignal` as a third argument (`(context, definition,
+{ signal })`); pass it to `fetch` so a timeout, a refresh or leaving the page
+stops the request. Existing two-argument providers keep working.
+
+- `loadWhen: 'visible'` also waits until a card is near the viewport. Attach
+  the returned `gridRef` to an element around the dashboard.
+- `cache` (your own `{ get, set }` storage: memory, `localStorage`, ...) shows
+  the last payload instantly as `stale` while a fresh load runs. Cached
+  payloads are validated again, and a failing cache never fails a widget.
+- Keep `definitions`, `providers`, `context` and `cache` referentially stable
+  (module constants or `useMemo`); a changed value restarts loading.
+- Not using React? `createWidgetLoader` (core) is the same logic with
+  `subscribe`/`getSnapshot`, `load`, `refresh` and `dispose`; `resolveWidget`
+  and `resolveWidgets` accept `timeoutMs`, `signal` and `cache` too.
+
 **Charts.** `GRAPH` widgets render as inline SVG with `role="img"`, a
 `<title>` and a `<desc>` summarising the series (latest, high and low), a
 legend when there are two or more series, a hover and keyboard (arrow keys)

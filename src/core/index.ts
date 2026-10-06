@@ -9,6 +9,7 @@ export * from './definition.js';
 export * from './format.js';
 export * from './grid.js';
 export * from './layout.js';
+export * from './loader.js';
 export * from './payload.js';
 export * from './resolve.js';
 export * from './result.js';

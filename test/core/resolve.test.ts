@@ -5,12 +5,14 @@ import {
   defineWidget,
   type WidgetDefinition,
 } from '../../src/core/definition.js';
-import { emptyWidget } from '../../src/core/payload.js';
+import { emptyWidget, type WidgetPayload } from '../../src/core/payload.js';
 import {
   loadingWidgets,
   resolvePayload,
+  resolveWidget,
   resolveWidgets,
   widgetsFor,
+  type WidgetCache,
   type WidgetContext,
   type WidgetProviders,
 } from '../../src/core/resolve.js';
@@ -210,5 +212,127 @@ void describe('widgetsFor and loadingWidgets', () => {
     assert.deepEqual(loadingWidgets(definitions.slice(0, 1)), [
       { definition: definitions[0], status: 'loading' },
     ]);
+  });
+});
+
+void describe('resolveWidget options', () => {
+  const textDefinition: WidgetDefinition = defineWidget({
+    key: 'note',
+    title: 'Note',
+    kind: 'TEXT',
+  });
+  const note: WidgetPayload = { kind: 'TEXT', value: 'hi', label: 'hi' };
+
+  function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  void it('gives the provider an abort signal and stamps updatedAt', async () => {
+    let received: AbortSignal | undefined;
+    const before: number = Date.now();
+    const resolved = await resolveWidget(
+      textDefinition,
+      (_context, _definition, options) => {
+        received = options.signal;
+        return note;
+      },
+      {}
+    );
+    assert.ok(received !== undefined && received.aborted === false);
+    assert.ok(resolved.status === 'ok');
+    assert.ok((resolved.updatedAt ?? 0) >= before);
+  });
+
+  void it('aborts the signal and reports a timeout', async () => {
+    let received: AbortSignal | undefined;
+    const resolved = await resolveWidget(
+      textDefinition,
+      async (_context, _definition, options) => {
+        received = options.signal;
+        await sleep(100);
+        return note;
+      },
+      {},
+      { timeoutMs: 15 }
+    );
+    assert.ok(resolved.status === 'error');
+    assert.equal(
+      resolved.error,
+      'Widget "note": provider timed out after 15 ms.'
+    );
+    assert.equal(received?.aborted, true);
+  });
+
+  void it('reports a cancelled load, before or after it started', async () => {
+    const early = new AbortController();
+    early.abort();
+    const before = await resolveWidget(
+      textDefinition,
+      () => note,
+      {},
+      {
+        signal: early.signal,
+      }
+    );
+    assert.ok(before.status === 'error');
+    assert.match(before.error, /loading was cancelled before it started/);
+
+    const later = new AbortController();
+    const pending = resolveWidget(
+      textDefinition,
+      () => new Promise<WidgetPayload>(() => undefined),
+      {},
+      { signal: later.signal }
+    );
+    later.abort();
+    const after = await pending;
+    assert.ok(after.status === 'error');
+    assert.equal(after.error, 'Widget "note": loading was cancelled.');
+  });
+
+  void it('stores successful payloads under the cache key', async () => {
+    const stored = new Map<string, unknown>();
+    const cache: WidgetCache = {
+      get: () => undefined,
+      set: (key, entry) => {
+        stored.set(key, entry.payload);
+      },
+    };
+    await resolveWidget(textDefinition, () => note, {}, { cache });
+    assert.deepEqual(stored.get('note'), note);
+    await resolveWidget(
+      textDefinition,
+      () => note,
+      {},
+      {
+        cache,
+        cacheKey: (definition) => `shop-1:${definition.key}`,
+      }
+    );
+    assert.deepEqual(stored.get('shop-1:note'), note);
+  });
+
+  void it('does not cache failures, and a failing cache does not fail the widget', async () => {
+    const stored: string[] = [];
+    const cache: WidgetCache = {
+      get: () => undefined,
+      set: (key) => {
+        stored.push(key);
+        throw new Error('quota exceeded');
+      },
+    };
+    const failed = await resolveWidget(
+      textDefinition,
+      () => {
+        throw new Error('nope');
+      },
+      {},
+      { cache }
+    );
+    assert.equal(failed.status, 'error');
+    assert.deepEqual(stored, []);
+    const ok = await resolveWidget(textDefinition, () => note, {}, { cache });
+    assert.equal(ok.status, 'ok');
+    assert.deepEqual(stored, ['note']);
   });
 });
