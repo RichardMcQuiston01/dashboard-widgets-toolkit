@@ -608,6 +608,8 @@
 }
 
 :where(.dwt-detail-dialog) {
+  /* CSS resets (Tailwind's preflight) zero margins, which un-centers a modal. */
+  margin: auto;
   box-sizing: border-box;
   width: min(960px, 100vw - 32px);
   max-height: calc(100vh - 32px);
