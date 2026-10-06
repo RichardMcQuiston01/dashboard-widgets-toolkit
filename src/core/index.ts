@@ -6,6 +6,7 @@
 
 export * from './compat.js';
 export * from './definition.js';
+export * from './detail.js';
 export * from './format.js';
 export * from './grid.js';
 export * from './layout.js';
