@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
   defaultDetailQuery,
+  deriveDetailData,
   parseDetailQuery,
   queryRows,
   resolveDetailOptions,
@@ -263,5 +264,55 @@ void describe('detail option on definitions', () => {
         wrongType.error,
         /detail must be true, false or an options object, got string/
       );
+  });
+});
+
+void describe('deriveDetailData', () => {
+  void it('turns a complete TABLE into detail data', () => {
+    const derived = deriveDetailData({
+      kind: 'TABLE',
+      columns: [{ label: 'Name' }, { label: 'Sold', numeric: true }],
+      rows: [[{ text: 'Jig', href: '/jig' }, { text: '7' }]],
+    });
+    assert.deepEqual(derived?.columns, [
+      { key: 'c0', label: 'Name' },
+      { key: 'c1', label: 'Sold', numeric: true },
+    ]);
+    assert.equal(derived?.rows[0]?.[0]?.href, '/jig');
+  });
+
+  void it('refuses a TABLE with a footer, since rows were left out', () => {
+    assert.equal(
+      deriveDetailData({
+        kind: 'TABLE',
+        columns: [{ label: 'A' }],
+        rows: [],
+        footer: 'and 12 more',
+      }),
+      undefined
+    );
+  });
+
+  void it('turns a BAR_LIST into label and value columns', () => {
+    const derived = deriveDetailData(
+      {
+        kind: 'BAR_LIST',
+        items: [
+          { label: 'US', value: 1200 },
+          { label: 'DE', value: 3, display: '3 orders' },
+        ],
+      },
+      'en-US'
+    );
+    assert.equal(derived?.rows[0]?.[1]?.text, '1,200');
+    assert.equal(derived?.rows[0]?.[1]?.value, 1200);
+    assert.equal(derived?.rows[1]?.[1]?.text, '3 orders');
+  });
+
+  void it('has nothing for kinds that need a provider', () => {
+    assert.equal(
+      deriveDetailData({ kind: 'TEXT', label: 'a', value: 'b' }),
+      undefined
+    );
   });
 });

@@ -6,6 +6,8 @@
  */
 
 import type { WidgetDefinition } from './definition.js';
+import { formatValue, type Locale } from './format.js';
+import type { WidgetData } from './payload.js';
 import type { ProviderOptions, WidgetContext } from './resolve.js';
 import { err, ok, type Result } from './result.js';
 import { isSafeHref } from './url.js';
@@ -491,4 +493,45 @@ export function validateDetailData(
     return err(`${subject}: ${problems.join(' ')}`);
   }
   return ok(data as DetailData);
+}
+
+/* Derived details --------------------------------------------------------- */
+
+/**
+ * The detail data for a widget whose card payload is already complete, so a
+ * detail view needs no provider: a TABLE without a `footer` (a footer means
+ * rows were left out) and a BAR_LIST. Returns undefined for everything else
+ * (alert lists, gauges, KPIs, text and charts): those need a detail provider.
+ */
+export function deriveDetailData(
+  data: WidgetData,
+  locale?: Locale
+): DetailData | undefined {
+  if (data.kind === 'TABLE') {
+    if (data.footer !== undefined) return undefined;
+    return {
+      columns: data.columns.map((column, index) => ({
+        key: `c${index}`,
+        label: column.label,
+        ...(column.numeric === undefined ? {} : { numeric: column.numeric }),
+      })),
+      rows: data.rows,
+    };
+  }
+  if (data.kind === 'BAR_LIST') {
+    return {
+      columns: [
+        { key: 'label', label: 'Name' },
+        { key: 'value', label: 'Value', numeric: true },
+      ],
+      rows: data.items.map((item) => [
+        { text: item.label },
+        {
+          text: item.display ?? formatValue(item.value, 'number', { locale }),
+          value: item.value,
+        },
+      ]),
+    };
+  }
+  return undefined;
 }

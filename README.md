@@ -262,14 +262,33 @@ twice its width, under 560px it takes the whole row. `fill: 'width'` still
 works, sharing the twelfths left over in a row. The validator rejects
 anything but an integer from 2 to 12.
 
-**Detail view (core only so far).** Set `detail: true` (or
-`{ title, pageSize, mode: 'client' | 'server' }`) on a definition to mark a
-widget as having a full list behind it. The core already provides what a view
-needs: `queryRows(data, query, locale)` filters, sorts and pages a
-`DetailData` table in memory (case- and accent-insensitive, numeric-aware),
-`serializeDetailQuery` / `parseDetailQuery` keep the query in a URL, and
-`validateDetailData` checks what your detail provider returns. The React view
-(a "View" button and dialog) follows; see
+**Detail view.** Set `detail: true` (or `{ title, pageSize, mode }`) on a
+definition and `Dashboard` adds a "View" eye button to the card (the title is
+clickable too). It opens a modal dialog with search, per-column filters,
+sortable headers and paging. Where the data comes from:
+
+```tsx
+<Dashboard
+  widgets={widgets}
+  loadDetail={(definition, { signal, query }) => fetchAllRows(definition.key, signal)}
+/>
+```
+
+- `loadDetail` (close over your own context; the package never fetches)
+  returns a `DetailData` table: columns with a `key`, rows of cells with
+  `text` and an optional `value` used for sorting and filtering.
+- Without it, a TABLE with no `footer` and a BAR_LIST show their own card data;
+  other widgets get no View button until you pass `loadDetail`.
+- `onOpenDetail={(key) => navigate(...)}` replaces the built-in dialog so you
+  can open your own page.
+- The pieces are exported for your own layout: `WidgetDetail` (controlled by
+  a `DetailQuery`), `WidgetDetailDialog` and `useDetailData`. In the core,
+  `queryRows` does the filtering, sorting and paging (case- and
+  accent-insensitive, numeric-aware), `serializeDetailQuery` /
+  `parseDetailQuery` keep the query in a URL, and `validateDetailData` checks
+  what your loader returns.
+
+Server-side paging and URL deep links are next; see
 [docs/design/detail-view.md](./docs/design/detail-view.md).
 
 **Filling space.** By default each card is only as big as its content, so a

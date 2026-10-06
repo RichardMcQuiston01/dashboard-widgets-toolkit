@@ -14,6 +14,12 @@ export interface WidgetCardProps {
   readonly minimized?: boolean;
   /** Shows the minimize/expand toggle when given. */
   readonly onToggleMinimized?: () => void;
+  /**
+   * Opens the widget's detail view. Adds a "View" icon button to the header
+   * actions and makes the title clickable (for mouse and touch; the button is
+   * the accessible control).
+   */
+  readonly onView?: () => void;
   /** Default 'ok', which renders `children`. */
   readonly status?: 'ok' | 'loading' | 'empty' | 'error';
   readonly emptyText?: string;
@@ -52,6 +58,7 @@ export function WidgetCard({
   actions,
   minimized = false,
   onToggleMinimized,
+  onView,
   status = 'ok',
   emptyText,
   error,
@@ -136,7 +143,18 @@ export function WidgetCard({
             id={`${id}-title`}
             className={slot('cardTitle', 'dwt-card-title')}
           >
-            {title}
+            {onView === undefined ? (
+              title
+            ) : (
+              <button
+                type="button"
+                tabIndex={-1}
+                className="dwt-card-title-button"
+                onClick={onView}
+              >
+                {title}
+              </button>
+            )}
           </Heading>
           {description !== undefined && !minimized && (
             <p className={slot('cardDescription', 'dwt-card-description')}>
@@ -144,8 +162,36 @@ export function WidgetCard({
             </p>
           )}
         </div>
-        {(actions !== undefined || onToggleMinimized !== undefined) && (
+        {(actions !== undefined ||
+          onToggleMinimized !== undefined ||
+          onView !== undefined) && (
           <div className={slot('cardActions', 'dwt-card-actions')}>
+            {onView !== undefined && (
+              <button
+                type="button"
+                className={slot('button', 'dwt-button', 'dwt-icon-button')}
+                aria-label={labels.view(title)}
+                title={labels.view(title)}
+                onClick={onView}
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  width="16"
+                  height="16"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path
+                    d="M1 8s2.6-4.5 7-4.5S15 8 15 8s-2.6 4.5-7 4.5S1 8 1 8Z"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="8" cy="8" r="2.1" fill="currentColor" />
+                </svg>
+              </button>
+            )}
             {actions}
             {onToggleMinimized !== undefined && (
               <button
@@ -202,6 +248,8 @@ export interface ResolvedWidgetCardProps {
   readonly actions?: ReactNode;
   readonly minimized?: boolean;
   readonly onToggleMinimized?: () => void;
+  /** See `WidgetCardProps.onView`. */
+  readonly onView?: () => void;
   readonly onRetry?: () => void;
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
