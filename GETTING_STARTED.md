@@ -311,10 +311,13 @@ Where the data comes from:
 - `loadDetail` (close over your own context; the package never fetches)
   returns a `DetailData` table: columns with a `key`, rows of cells with
   `text` and an optional `value` used for sorting and filtering. It is called
-  for **every** widget that sets `detail`, so branch on `definition.key`.
+  for every widget that sets `detail`, so branch on `definition.key`.
+- Return `undefined` for a widget you have no extra data for. A TABLE with no
+  `footer` and a BAR_LIST then show their own card data; for any other widget
+  (or a TABLE with a footer, whose card holds only some of the rows) the
+  dialog reports that there is no detail data.
 - Without `loadDetail`, a TABLE with no `footer` and a BAR_LIST show their own
-  card data; other widgets get no View button. Once you pass `loadDetail` it
-  takes over for all of them, those two included.
+  card data and other widgets get no View button.
 - `onOpenDetail={(key) => navigate(...)}` replaces the built-in dialog so you
   can open your own page.
 - The pieces are exported for your own layout: `WidgetDetail` (controlled by
