@@ -1,0 +1,550 @@
+/*
+ * @richardmcquiston01/dashboard-widgets-toolkit: optional styles.
+ *
+ * Everything is driven by --dwt-* custom properties, set at zero
+ * specificity with :where(), so an app overrides any of them (or any
+ * .dwt-* rule) without !important. Dark mode follows the OS setting unless
+ * the page sets data-theme="light"; data-theme="dark" or a "dark" class on
+ * <html> forces it.
+ *
+ * Chart colours are the dataviz reference palette: eight categorical slots
+ * validated for colour-vision deficiency, each stepped separately for the
+ * dark surface (not an automatic flip).
+ */
+
+:where(.dwt-dashboard, .dwt-card) {
+  color-scheme: light;
+  --dwt-font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --dwt-surface: #fcfcfb;
+  --dwt-page: #f9f9f7;
+  --dwt-text: #0b0b0b;
+  --dwt-text-secondary: #52514e;
+  --dwt-text-muted: #6b6a66;
+  --dwt-border: rgba(11, 11, 11, 0.1);
+  --dwt-grid: #e1e0d9;
+  --dwt-baseline: #c3c2b7;
+  --dwt-crosshair: #898781;
+  --dwt-link: #1c5cab;
+  --dwt-good: #006300;
+  --dwt-bad: #d03b3b;
+  --dwt-meter-track: #cde2fb;
+  --dwt-bar-track: #f0efec;
+  --dwt-button-hover: rgba(11, 11, 11, 0.06);
+  --dwt-focus: #2a78d6;
+  --dwt-series-1: #2a78d6;
+  --dwt-series-2: #eb6834;
+  --dwt-series-3: #1baf7a;
+  --dwt-series-4: #eda100;
+  --dwt-series-5: #e87ba4;
+  --dwt-series-6: #008300;
+  --dwt-series-7: #4a3aa7;
+  --dwt-series-8: #e34948;
+  --dwt-radius: 8px;
+  --dwt-gap: 16px;
+  --dwt-padding: 16px;
+  --dwt-min-column: 280px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) :where(.dwt-dashboard, .dwt-card) {
+    color-scheme: dark;
+    --dwt-surface: #1a1a19;
+    --dwt-page: #0d0d0d;
+    --dwt-text: #ffffff;
+    --dwt-text-secondary: #c3c2b7;
+    --dwt-text-muted: #a3a29b;
+    --dwt-border: rgba(255, 255, 255, 0.1);
+    --dwt-grid: #2c2c2a;
+    --dwt-baseline: #383835;
+    --dwt-crosshair: #898781;
+    --dwt-link: #86b6ef;
+    --dwt-good: #0ca30c;
+    --dwt-bad: #e66767;
+    --dwt-meter-track: #104281;
+    --dwt-bar-track: #383835;
+    --dwt-button-hover: rgba(255, 255, 255, 0.08);
+    --dwt-focus: #3987e5;
+    --dwt-series-1: #3987e5;
+    --dwt-series-2: #d95926;
+    --dwt-series-3: #199e70;
+    --dwt-series-4: #c98500;
+    --dwt-series-5: #d55181;
+    --dwt-series-6: #008300;
+    --dwt-series-7: #9085e9;
+    --dwt-series-8: #e66767;
+  }
+}
+
+:root:where([data-theme='dark'], .dark) :where(.dwt-dashboard, .dwt-card) {
+  color-scheme: dark;
+  --dwt-surface: #1a1a19;
+  --dwt-page: #0d0d0d;
+  --dwt-text: #ffffff;
+  --dwt-text-secondary: #c3c2b7;
+  --dwt-text-muted: #a3a29b;
+  --dwt-border: rgba(255, 255, 255, 0.1);
+  --dwt-grid: #2c2c2a;
+  --dwt-baseline: #383835;
+  --dwt-crosshair: #898781;
+  --dwt-link: #86b6ef;
+  --dwt-good: #0ca30c;
+  --dwt-bad: #e66767;
+  --dwt-meter-track: #104281;
+  --dwt-bar-track: #383835;
+  --dwt-button-hover: rgba(255, 255, 255, 0.08);
+  --dwt-focus: #3987e5;
+  --dwt-series-1: #3987e5;
+  --dwt-series-2: #d95926;
+  --dwt-series-3: #199e70;
+  --dwt-series-4: #c98500;
+  --dwt-series-5: #d55181;
+  --dwt-series-6: #008300;
+  --dwt-series-7: #9085e9;
+  --dwt-series-8: #e66767;
+}
+
+/* Layout ---------------------------------------------------------------- */
+
+:where(.dwt-dashboard) {
+  font-family: var(--dwt-font);
+  color: var(--dwt-text);
+}
+
+:where(.dwt-grid) {
+  display: grid;
+  gap: var(--dwt-gap);
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, var(--dwt-min-column)), 1fr)
+  );
+  align-items: start;
+}
+
+:where(.dwt-card--size-large) {
+  grid-column: span 2;
+}
+
+:where(.dwt-card--size-full) {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  :where(.dwt-card--size-large) {
+    grid-column: auto;
+  }
+}
+
+:where(.dwt-hidden-bar) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+}
+
+:where(.dwt-hidden-label) {
+  color: var(--dwt-text-secondary);
+}
+
+/* Card ------------------------------------------------------------------ */
+
+:where(.dwt-card) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--dwt-padding);
+  background: var(--dwt-surface);
+  color: var(--dwt-text);
+  border: 1px solid var(--dwt-border);
+  border-radius: var(--dwt-radius);
+  font-family: var(--dwt-font);
+}
+
+:where(.dwt-card-header) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+:where(.dwt-card-heading) {
+  min-width: 0;
+}
+
+:where(.dwt-card-title) {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+:where(.dwt-card-description) {
+  margin: 2px 0 0;
+  color: var(--dwt-text-secondary);
+  font-size: 0.75rem;
+}
+
+:where(.dwt-card-actions) {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+:where(.dwt-card-body) {
+  flex: 1;
+  margin-top: 12px;
+  font-size: 0.875rem;
+}
+
+:where(.dwt-card--minimized .dwt-card-body) {
+  display: none;
+}
+
+:where(.dwt-card-footer) {
+  margin-top: 12px;
+}
+
+:where(.dwt-button) {
+  font: inherit;
+  font-size: 0.8125rem;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--dwt-border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+:where(.dwt-button:hover:not(:disabled)) {
+  background: var(--dwt-button-hover);
+}
+
+:where(.dwt-button:disabled) {
+  opacity: 0.4;
+  cursor: default;
+}
+
+:where(.dwt-icon-button) {
+  border-color: transparent;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 2px 6px;
+}
+
+:where(
+  .dwt-button:focus-visible,
+  .dwt-chart-svg:focus-visible,
+  .dwt-link:focus-visible,
+  .dwt-table-twin summary:focus-visible
+) {
+  outline: 2px solid var(--dwt-focus);
+  outline-offset: 2px;
+}
+
+:where(.dwt-status, .dwt-empty, .dwt-note) {
+  margin: 0;
+  color: var(--dwt-text-secondary);
+}
+
+:where(.dwt-note) {
+  margin-top: 8px;
+  font-size: 0.75rem;
+}
+
+:where(.dwt-error) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+:where(.dwt-error-message) {
+  margin: 0;
+  color: var(--dwt-text-secondary);
+}
+
+:where(.dwt-link, .dwt-alert-title:is(a)) {
+  color: var(--dwt-link);
+  text-decoration: none;
+}
+
+:where(.dwt-link:hover, a.dwt-alert-title:hover) {
+  text-decoration: underline;
+}
+
+/* Figures (TEXT, KPI, GAUGE) --------------------------------------------- */
+
+:where(.dwt-figure) {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+:where(.dwt-figure-label) {
+  margin: 0;
+  color: var(--dwt-text-secondary);
+  font-size: 0.8125rem;
+}
+
+:where(.dwt-kpi-meta) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+}
+
+:where(.dwt-delta) {
+  font-weight: 600;
+  color: var(--dwt-text-secondary);
+}
+
+:where(.dwt-delta--good) {
+  color: var(--dwt-good);
+}
+
+:where(.dwt-delta--bad) {
+  color: var(--dwt-bad);
+}
+
+:where(.dwt-delta-arrow) {
+  font-size: 0.625rem;
+}
+
+:where(.dwt-delta-comparison, .dwt-hint) {
+  font-weight: 400;
+  color: var(--dwt-text-secondary);
+}
+
+:where(.dwt-meter) {
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+:where(.dwt-meter-fill) {
+  height: 100%;
+  border-radius: 999px;
+}
+
+:where(.dwt-gauge-caption) {
+  margin: 8px 0 0;
+}
+
+:where(.dwt-gauge-value) {
+  font-weight: 600;
+}
+
+/* Tables ---------------------------------------------------------------- */
+
+:where(.dwt-table-wrap) {
+  overflow-x: auto;
+}
+
+:where(.dwt-table) {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+:where(.dwt-table th, .dwt-table td) {
+  padding: 4px 8px 4px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--dwt-grid);
+}
+
+:where(.dwt-table thead th) {
+  color: var(--dwt-text-secondary);
+  font-weight: 600;
+}
+
+:where(.dwt-table tbody th) {
+  font-weight: 400;
+}
+
+:where(.dwt-table .dwt-numeric) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lists ----------------------------------------------------------------- */
+
+:where(.dwt-bar-list, .dwt-alert-list, .dwt-legend, .dwt-tooltip-rows) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+:where(.dwt-bar-row) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  margin-bottom: 8px;
+}
+
+:where(.dwt-bar-label) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.dwt-bar-value) {
+  color: var(--dwt-text-secondary);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+:where(.dwt-bar-track) {
+  grid-column: 1 / -1;
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+:where(.dwt-bar-fill) {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+:where(.dwt-alert-row) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--dwt-grid);
+}
+
+:where(.dwt-alert-row:first-child) {
+  border-top: 0;
+}
+
+:where(.dwt-thumbnail) {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--dwt-bar-track);
+}
+
+:where(.dwt-alert-main) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+:where(.dwt-alert-title) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+:where(.dwt-alert-detail) {
+  color: var(--dwt-text-secondary);
+  font-size: 0.75rem;
+}
+
+:where(.dwt-alert-value) {
+  flex-shrink: 0;
+  color: var(--dwt-text-secondary);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* Charts ---------------------------------------------------------------- */
+
+:where(.dwt-chart) {
+  margin: 0;
+}
+
+:where(.dwt-legend) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  color: var(--dwt-text-secondary);
+}
+
+:where(.dwt-legend-item) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+:where(.dwt-chart-frame) {
+  position: relative;
+}
+
+:where(.dwt-chart-svg) {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  font-family: var(--dwt-font);
+}
+
+:where(.dwt-axis-label) {
+  font-variant-numeric: tabular-nums;
+}
+
+:where(.dwt-tooltip) {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+  padding: 4px 8px;
+  background: var(--dwt-surface);
+  border: 1px solid var(--dwt-border);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+:where(.dwt-tooltip-label) {
+  margin: 0 0 2px;
+  color: var(--dwt-text-secondary);
+}
+
+:where(.dwt-tooltip-row) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+:where(.dwt-tooltip-value) {
+  color: var(--dwt-text);
+  font-variant-numeric: tabular-nums;
+}
+
+:where(.dwt-tooltip-series) {
+  color: var(--dwt-text-secondary);
+}
+
+:where(.dwt-table-twin) {
+  margin-top: 8px;
+}
+
+:where(.dwt-table-twin summary) {
+  cursor: pointer;
+  color: var(--dwt-text-secondary);
+  font-size: 0.75rem;
+}
+
+:where(.dwt-table-twin .dwt-table) {
+  margin-top: 8px;
+}
+
+@media (forced-colors: active) {
+  :where(.dwt-meter, .dwt-bar-track) {
+    border: 1px solid CanvasText;
+  }
+}
