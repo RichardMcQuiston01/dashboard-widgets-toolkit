@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.4.1
+
+### Patch Changes
+
+- 6499360: Keep the detail view dialog centered under CSS resets that zero every
+  element's margin (for example Tailwind's preflight).
+
 ## 0.4.0
 
 ### Minor Changes
