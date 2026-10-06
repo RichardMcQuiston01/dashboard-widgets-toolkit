@@ -2,3 +2,10 @@ node_modules
 .next
 out
 package-lock.json
+dist
+coverage
+bun.lock
+CHANGELOG.md
+.changeset/*.md
+# Keeps the fixed Author, donation and Copyright sections byte-for-byte.
+README.md
