@@ -22,20 +22,16 @@ const {
 } = require('@richardmcquiston01/dashboard-widgets-toolkit/core');
 ```
 
-## Commands
+## Working on the package
 
-```bash
-bun install
-bun run typecheck
-bun run lint
-bun run format:check
-bun run test
-bun run build      # dist/: ESM (.js), CommonJS (.cjs), .d.ts/.d.cts, styles.css
-```
+Contributing to the toolkit itself (not using it)? The scripts and
+conventions are in [CLAUDE.md](./CLAUDE.md).
 
 ## Usage
 
-**Core: define widgets, register providers, resolve.** Each provider gets
+### Core: define widgets, register providers, resolve
+
+Each provider gets
 your context and returns a payload (or throws). One failing provider never
 breaks the dashboard: it comes back as an `error` widget with the reason.
 
@@ -92,7 +88,7 @@ const providers: WidgetProviders<ShopContext> = {
     };
   },
   'low-stock': async ({ shopId }) => {
-    const rows = await loadLowStock(shopId);
+    const rows = await loadLowStock(shopId); // your code
     return {
       kind: 'ALERT_LIST',
       items: rows.slice(0, 5).map((row) => ({
@@ -106,7 +102,7 @@ const providers: WidgetProviders<ShopContext> = {
     };
   },
   monthly: async ({ shopId }) => {
-    const months = await loadMonthly(shopId);
+    const months = await loadMonthly(shopId); // your code
     if (months.length === 0) return emptyWidget('No orders synced yet.');
     return {
       kind: 'GRAPH',
@@ -150,22 +146,27 @@ if (!result.ok) console.warn(result.error);
 const widget = resolvePayload(definition, json); // ok, empty, or error with that message
 ```
 
-**React: render a dashboard with the viewer's layout.**
+### React: render a dashboard with the viewer's layout
 
 ```tsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  EMPTY_LAYOUT,
   parseLayout,
   serializeLayout,
+  type DashboardLayout,
   type ResolvedWidget,
 } from '@richardmcquiston01/dashboard-widgets-toolkit';
 import { Dashboard } from '@richardmcquiston01/dashboard-widgets-toolkit/react';
 import '@richardmcquiston01/dashboard-widgets-toolkit/styles.css'; // optional
 
 export function ShopDashboard({ widgets }: { widgets: ResolvedWidget[] }) {
-  const [layout, setLayout] = useState(() =>
-    parseLayout(localStorage.getItem('layout'))
-  );
+  // Read storage after mount, so the same code also works when rendered on
+  // the server (there is no `localStorage` there).
+  const [layout, setLayout] = useState<DashboardLayout>(EMPTY_LAYOUT);
+  useEffect(() => {
+    setLayout(parseLayout(localStorage.getItem('layout')));
+  }, []);
   return (
     <Dashboard
       widgets={widgets}
@@ -176,7 +177,7 @@ export function ShopDashboard({ widgets }: { widgets: ResolvedWidget[] }) {
       }}
       locale="en-US"
       linkTarget="_blank"
-      onRetry={(key) => refetch(key)}
+      onRetry={(key) => refetch(key)} // your code: reload that widget
     />
   );
 }
@@ -186,9 +187,9 @@ export function ShopDashboard({ widgets }: { widgets: ResolvedWidget[] }) {
 appended by `sortOrder`, hidden ones removed), and gives each card move
 earlier/later, hide and minimize buttons, plus a "Hidden:" bar to bring
 widgets back. A minimized widget leaves the grid (so it stops taking space)
-and waits in a "Minimized:" bar until the viewer expands it. Without `onLayoutChange` it is read-only. Use `loadingWidgets`
-for placeholders while data loads, and `WidgetGrid` for a plain grid with no
-layout controls.
+and waits in a "Minimized:" bar until the viewer expands it. Without
+`onLayoutChange` it is read-only. Use `loadingWidgets` for placeholders while
+data loads, and `WidgetGrid` for a plain grid with no layout controls.
 
 Links open in the same tab unless you set `linkTarget` (for example
 `"_blank"`); links that open a new tab get a small external-link icon and
@@ -196,7 +197,9 @@ Links open in the same tab unless you set `linkTarget` (for example
 
 ## Examples
 
-**Layout functions on their own** (pure; the input is never mutated):
+### Layout functions on their own
+
+Pure; the input is never mutated:
 
 ```ts
 import {
@@ -218,7 +221,9 @@ layout = toggleMinimized(layout, 'revenue');
 visibleWidgets(definitions, layout).map((d) => d.key); // ['revenue', 'monthly']
 ```
 
-**KPI deltas and formatting** with an explicit locale:
+### KPI deltas and formatting
+
+With an explicit locale:
 
 ```ts
 import {
@@ -232,7 +237,9 @@ kpiDelta(120, 100, { locale: 'en-US' });
 kpiDelta(120, 100, { higherIsBetter: false })?.sentiment; // 'bad' (e.g. refunds)
 ```
 
-**Styling with Tailwind (or any classes).** Components keep their `dwt-*`
+### Styling with Tailwind (or any classes)
+
+Components keep their `dwt-*`
 classes and append yours per slot. Skip `styles.css` entirely, or keep it and
 override its custom properties:
 
@@ -256,7 +263,9 @@ override its custom properties:
 Dark mode follows the OS setting unless the page sets `data-theme="light"`;
 `data-theme="dark"` or a `dark` class on `<html>` forces it.
 
-**Widget width.** Give a widget a `width` to say how much of the row it
+### Widget width
+
+Give a widget a `width` to say how much of the row it
 takes, in twelfths (like a 12-column grid): an integer from 2 to 12. A table
 with many columns might want half the row:
 
@@ -280,28 +289,32 @@ When any widget in a grid sets `width`, the grid becomes 12 columns
 without a `width` use one from their `defaultSize` (small 3, medium 4, large
 6, full 12). Narrow grids give widgets more room: under 900px a widget gets
 twice its width, under 560px it takes the whole row. `fill: 'width'` still
-works, sharing the twelfths left over in a row. The validator rejects
-anything but an integer from 2 to 12.
+works, sharing the twelfths left over in a row (the core helper for custom
+layouts is `fillWidthSpans(items)`). The validator rejects anything but an
+integer from 2 to 12.
 
-**Detail view.** Set `detail: true` (or `{ title, pageSize, mode }`) on a
-definition and `Dashboard` adds a "View" eye button to the card (the title is
-clickable too). It opens a modal dialog with search, per-column filters,
-sortable headers and paging. Where the data comes from:
+### Detail view
+
+Set `detail: true` (or `{ title, pageSize }`) on a definition and `Dashboard`
+adds a "View" eye button to the card (the title is clickable too). It opens a
+modal dialog with search, per-column filters, sortable headers and paging.
+Where the data comes from:
 
 ```tsx
+// fetchAllRows is your code: it returns a DetailData (columns and rows).
 <Dashboard
   widgets={widgets}
-  loadDetail={(definition, { signal, query }) =>
-    fetchAllRows(definition.key, signal)
-  }
+  loadDetail={(definition, { signal }) => fetchAllRows(definition.key, signal)}
 />
 ```
 
 - `loadDetail` (close over your own context; the package never fetches)
   returns a `DetailData` table: columns with a `key`, rows of cells with
-  `text` and an optional `value` used for sorting and filtering.
-- Without it, a TABLE with no `footer` and a BAR_LIST show their own card data;
-  other widgets get no View button until you pass `loadDetail`.
+  `text` and an optional `value` used for sorting and filtering. It is called
+  for **every** widget that sets `detail`, so branch on `definition.key`.
+- Without `loadDetail`, a TABLE with no `footer` and a BAR_LIST show their own
+  card data; other widgets get no View button. Once you pass `loadDetail` it
+  takes over for all of them, those two included.
 - `onOpenDetail={(key) => navigate(...)}` replaces the built-in dialog so you
   can open your own page.
 - The pieces are exported for your own layout: `WidgetDetail` (controlled by
@@ -311,10 +324,14 @@ sortable headers and paging. Where the data comes from:
   `parseDetailQuery` keep the query in a URL, and `validateDetailData` checks
   what your loader returns.
 
-Server-side paging and URL deep links are next; see
+Only client mode exists today: `loadDetail` returns every row and the toolkit
+sorts, filters and pages them in memory. The `mode: 'server'` option,
+server-side paging and URL deep links are planned, not built; see
 [docs/design/detail-view.md](./docs/design/detail-view.md).
 
-**Filling space.** By default each card is only as big as its content, so a
+### Filling space
+
+By default each card is only as big as its content, so a
 short card beside a tall one leaves a gap. Set `fill` on a widget definition
 to have it use the free space in its grid row:
 
@@ -348,7 +365,9 @@ grid simply lays out normally. The same helper is exported from the core as
 `fillColumnSpans(items, columns)` for custom layouts, and `WidgetCard` takes
 `fill` and `columnSpan` props.
 
-**Loading data after the page renders.** Render the dashboard first and let
+### Loading data after the page renders
+
+Render the dashboard first and let
 each widget's data arrive on its own. `useWidgets` returns placeholders
 immediately (so first paint and server rendering never wait), starts every
 provider after mount, and replaces each card as its own data arrives:
@@ -382,7 +401,30 @@ stops the request. Existing two-argument providers keep working.
   `subscribe`/`getSnapshot`, `load`, `refresh` and `dispose`; `resolveWidget`
   and `resolveWidgets` accept `timeoutMs`, `signal` and `cache` too.
 
-**Charts.** `GRAPH` widgets render as inline SVG with `role="img"`, a
+### Changing the text
+
+Every piece of interface text (buttons, the "Hidden:" and "Minimized:" bars,
+the detail view, loading and empty messages) comes from `labels`, so you can
+translate or reword it. Pass only what you change; the rest keeps its default
+(`DEFAULT_LABELS` lists them all). Labels that name a widget are functions:
+
+```tsx
+<Dashboard
+  widgets={widgets}
+  labels={{
+    hide: (title) => `Ocultar ${title}`,
+    hiddenWidgets: 'Ocultos:',
+    retry: 'Reintentar',
+  }}
+/>
+```
+
+`WidgetSettingsProvider` takes the same `locale`, `linkTarget`, `classNames`
+and `labels` once for everything inside it.
+
+### Charts
+
+`GRAPH` widgets render as inline SVG with `role="img"`, a
 `<title>` and a `<desc>` summarizing the series (latest, high and low), a
 legend when there are two or more series, a hover and keyboard (arrow keys)
 tooltip, and a collapsible "View as table" with every value. Colors are CSS
