@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId, type CSSProperties, type ReactNode } from 'react';
 
 import type { WidgetFill, WidgetSize } from '../core/definition.js';
 import { fillsHeight, fillsWidth } from '../core/grid.js';
@@ -29,6 +29,8 @@ export interface WidgetCardProps {
    * width-filling card the columns left over in its row.
    */
   readonly columnSpan?: number;
+  /** 12-column width (see `WidgetDefinition.width`); sets `--dwt-width`. */
+  readonly width?: number;
   /**
    * The widget's key, rendered as `data-widget-key` so `useWidgets` can tell
    * which card scrolled into view. `ResolvedWidgetCard` sets it for you.
@@ -58,6 +60,7 @@ export function WidgetCard({
   size,
   fill,
   columnSpan,
+  width,
   widgetKey,
   headingLevel = 2,
   className,
@@ -116,9 +119,16 @@ export function WidgetCard({
         className
       )}
       {...(widgetKey === undefined ? {} : { 'data-widget-key': widgetKey })}
-      {...(columnSpan === undefined
+      {...(columnSpan === undefined && width === undefined
         ? {}
-        : { style: { gridColumn: `span ${columnSpan}` } })}
+        : {
+            style: {
+              ...(width === undefined ? {} : { '--dwt-width': width }),
+              ...(columnSpan === undefined
+                ? {}
+                : { gridColumn: `span ${columnSpan}` }),
+            } as CSSProperties,
+          })}
     >
       <header className={slot('cardHeader', 'dwt-card-header')}>
         <div className="dwt-card-heading">
@@ -187,6 +197,8 @@ export interface ResolvedWidgetCardProps {
   readonly widget: DashboardWidget;
   /** See `WidgetCardProps.columnSpan`. */
   readonly columnSpan?: number;
+  /** 12-column width (see `WidgetDefinition.width`); sets `--dwt-width`. */
+  readonly width?: number;
   readonly actions?: ReactNode;
   readonly minimized?: boolean;
   readonly onToggleMinimized?: () => void;

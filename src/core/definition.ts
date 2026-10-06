@@ -33,6 +33,14 @@ export interface WidgetDefinition {
   /** False hides it from every user. Default true. */
   readonly active?: boolean;
   readonly defaultSize?: WidgetSize;
+  /**
+   * Share of the row the widget takes, in twelfths: an integer from 2 to 12
+   * (6 is half the row, 12 the whole row). When any widget in a grid sets
+   * it, the grid becomes 12 columns wide and widgets without a `width` use
+   * the one their `defaultSize` implies (see `widthForSize`). Narrow grids
+   * give widgets more room automatically.
+   */
+  readonly width?: number;
   /** Fill free space in the row (height, width or both). Default: none. */
   readonly fill?: WidgetFill;
 }

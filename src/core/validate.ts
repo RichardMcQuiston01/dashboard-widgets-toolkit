@@ -18,6 +18,7 @@ import {
   type WidgetKind,
   type WidgetPayload,
 } from './payload.js';
+import { MAX_WIDGET_WIDTH, MIN_WIDGET_WIDTH, isWidgetWidth } from './grid.js';
 import { err, ok, type Result } from './result.js';
 import { isSafeHref, isSafeImageUrl } from './url.js';
 
@@ -424,6 +425,11 @@ export function validateWidgetDefinition(
   optionalBoolean(value, 'active', '', problems);
   if (value['defaultSize'] !== undefined) {
     requireOneOf(value, 'defaultSize', WIDGET_SIZES, '', problems);
+  }
+  if (value['width'] !== undefined && !isWidgetWidth(value['width'])) {
+    problems.push(
+      `width must be an integer from ${MIN_WIDGET_WIDTH} to ${MAX_WIDGET_WIDTH} (twelfths of the row), got ${typeof value['width'] === 'number' ? String(value['width']) : describeType(value['width'])}.`
+    );
   }
   if (value['fill'] !== undefined) {
     requireOneOf(value, 'fill', WIDGET_FILLS, '', problems);
