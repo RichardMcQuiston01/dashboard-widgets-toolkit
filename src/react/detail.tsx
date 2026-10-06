@@ -26,11 +26,13 @@ import { useSlotClassName, useWidgetSettings } from './settings.js';
 /**
  * Loads a widget's full detail data. Close over your own context (a Prisma
  * client, a fetch) here; the package never fetches. See `DetailProvider`.
+ * Return `undefined` for a widget you have no extra data for: the card's own
+ * data is used when it is complete (see `deriveDetailData`).
  */
 export type DetailLoader = (
   definition: WidgetDefinition,
   options: DetailProviderOptions
-) => DetailData | Promise<DetailData>;
+) => DetailData | undefined | Promise<DetailData | undefined>;
 
 export interface WidgetDetailProps {
   /** Table caption: the widget's title. */
@@ -384,31 +386,45 @@ export interface DetailLoadState {
 /**
  * Loads a widget's detail data while `enabled`: calls `load` with an abort
  * signal (aborted on close, retry or unmount), validates the result and
- * reports loading, ok or error. `reload` runs it again.
+ * reports loading, ok or error. When `load` is missing or returns
+ * `undefined`, `fallback` (for example the card's own complete data) is used
+ * instead. `reload` runs it again. Keep `load` and `fallback` referentially
+ * stable (`useCallback` / `useMemo`): a new value restarts the load.
  */
 export function useDetailData(
   definition: WidgetDefinition,
   load: DetailLoader | undefined,
-  enabled: boolean
+  enabled: boolean,
+  fallback?: DetailData
 ): { readonly state: DetailLoadState; readonly reload: () => void } {
   const [state, setState] = useState<DetailLoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!enabled || load === undefined) return undefined;
+    if (!enabled) return undefined;
     const controller = new AbortController();
     setState({ status: 'loading' });
     Promise.resolve()
       .then(() =>
-        load(definition, {
-          signal: controller.signal,
-          query: defaultDetailQuery(),
-        })
+        load === undefined
+          ? undefined
+          : load(definition, {
+              signal: controller.signal,
+              query: defaultDetailQuery(),
+            })
       )
       .then((raw) => {
         if (controller.signal.aborted) return;
+        const data: DetailData | undefined = raw ?? fallback;
+        if (data === undefined) {
+          setState({
+            status: 'error',
+            error: `Widget "${definition.key}" detail: no data. The loader returned nothing for this widget and its card does not hold the full data (use a loader that returns rows, or a TABLE without a footer or a BAR_LIST).`,
+          });
+          return;
+        }
         const checked = validateDetailData(
-          raw,
+          data,
           `Widget "${definition.key}" detail`
         );
         setState(
@@ -427,7 +443,7 @@ export function useDetailData(
         });
       });
     return () => controller.abort();
-  }, [enabled, load, definition, attempt]);
+  }, [enabled, load, fallback, definition, attempt]);
 
   return { state, reload: () => setAttempt((count) => count + 1) };
 }

@@ -207,9 +207,10 @@ export interface DashboardProps extends WidgetSettings {
   readonly onRetry?: (key: string) => void;
   /**
    * Loads the full data for a widget's detail view (widgets whose definition
-   * sets `detail`). Close over your own context. Without it, TABLE widgets
-   * with no footer and BAR_LIST widgets show their card data; other widgets
-   * get no View button.
+   * sets `detail`). Close over your own context. Return `undefined` for a
+   * widget you have no extra data for: a TABLE with no footer or a BAR_LIST
+   * then shows its card data. Without `loadDetail`, those two still work and
+   * other widgets get no View button.
    */
   readonly loadDetail?: DetailLoader;
   /**
@@ -236,13 +237,20 @@ function DetailHost({
   const options = resolveDetailOptions(definition);
   const pageSize: number = options?.pageSize ?? 25;
   const [query, setQuery] = useState<DetailQuery>(defaultDetailQuery(pageSize));
-  const derived: DetailData | undefined =
-    widget.status === 'ok' ? deriveDetailData(widget.data, locale) : undefined;
-  const load: DetailLoader | undefined = useMemo(
-    () => loadDetail ?? (derived === undefined ? undefined : () => derived),
-    [loadDetail, derived]
+  // Memoized: a fresh object each render would restart the load every time.
+  const derived: DetailData | undefined = useMemo(
+    () =>
+      widget.status === 'ok'
+        ? deriveDetailData(widget.data, locale)
+        : undefined,
+    [widget, locale]
   );
-  const { state, reload } = useDetailData(definition, load, true);
+  const { state, reload } = useDetailData(
+    definition,
+    loadDetail,
+    true,
+    derived
+  );
   const title: string = options?.title ?? definition.title;
   return (
     <WidgetDetailDialog title={title} open onClose={onClose}>
@@ -250,12 +258,7 @@ function DetailHost({
         title={title}
         query={query}
         onQueryChange={setQuery}
-        status={load === undefined ? 'error' : state.status}
-        {...(load === undefined
-          ? {
-              error: `Widget "${definition.key}" has no detail data: pass loadDetail, or use a TABLE without a footer or a BAR_LIST.`,
-            }
-          : {})}
+        status={state.status}
         {...(state.data === undefined ? {} : { data: state.data })}
         {...(state.error === undefined ? {} : { error: state.error })}
         onRetry={reload}
