@@ -240,6 +240,23 @@ override its custom properties:
 Dark mode follows the OS setting unless the page sets `data-theme="light"`;
 `data-theme="dark"` or a `dark` class on `<html>` forces it.
 
+**Widget width.** Give a widget a `width` to say how much of the row it
+takes, in twelfths (like a 12-column grid): an integer from 2 to 12. A table
+with many columns might want half the row:
+
+```ts
+defineWidget({ key: 'top-products', title: 'Most popular products', kind: 'TABLE', width: 8 });
+defineWidget({ key: 'ratings', title: 'Rating breakdown', kind: 'BAR_LIST', width: 4 });
+```
+
+When any widget in a grid sets `width`, the grid becomes 12 columns
+(`dwt-grid--twelve`) and each card spans `--dwt-width` columns. Widgets
+without a `width` use one from their `defaultSize` (small 3, medium 4, large
+6, full 12). Narrow grids give widgets more room: under 900px a widget gets
+twice its width, under 560px it takes the whole row. `fill: 'width'` still
+works, sharing the twelfths left over in a row. The validator rejects
+anything but an integer from 2 to 12.
+
 **Filling space.** By default each card is only as big as its content, so a
 short card beside a tall one leaves a gap. Set `fill` on a widget definition
 to have it use the free space in its grid row:

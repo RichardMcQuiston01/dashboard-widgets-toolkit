@@ -5,6 +5,49 @@ export interface GridItem {
   readonly key: string;
   readonly defaultSize?: WidgetSize;
   readonly fill?: WidgetFill;
+  readonly width?: number;
+}
+
+/** Columns in a grid that uses widget `width`. */
+export const WIDTH_COLUMNS = 12;
+/** Smallest and largest `width`, in twelfths of a row. */
+export const MIN_WIDGET_WIDTH = 2;
+export const MAX_WIDGET_WIDTH = 12;
+
+/** Whether `value` is a valid widget `width`: an integer from 2 to 12. */
+export function isWidgetWidth(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= MIN_WIDGET_WIDTH &&
+    value <= MAX_WIDGET_WIDTH
+  );
+}
+
+/** The width (in twelfths) a `defaultSize` stands for. Default `medium`. */
+export function widthForSize(size: WidgetSize | undefined): number {
+  switch (size) {
+    case 'small':
+      return 3;
+    case 'large':
+      return 6;
+    case 'full':
+      return 12;
+    default:
+      return 4;
+  }
+}
+
+/** The 12-column width of an item: its `width`, else from its size. */
+export function itemWidth(item: GridItem): number {
+  return isWidgetWidth(item.width)
+    ? item.width
+    : widthForSize(item.defaultSize);
+}
+
+/** Whether a grid of `items` should use 12 columns (any item sets `width`). */
+export function usesWidthColumns(items: readonly GridItem[]): boolean {
+  return items.some((item) => item.width !== undefined);
 }
 
 /** Whether the widget should take the columns left over in its row. */
@@ -45,6 +88,26 @@ export function fillColumnSpans(
   columns: number,
   largeSpan = 2
 ): Map<string, number> {
+  return placeAndFill(items, columns, (item, trackCount) =>
+    baseColumnSpan(item.defaultSize, trackCount, largeSpan)
+  );
+}
+
+/**
+ * Like `fillColumnSpans` for a 12-column grid: each item starts at its
+ * `width` (see `itemWidth`) and width-fillers share the leftover twelfths.
+ */
+export function fillWidthSpans(
+  items: readonly GridItem[]
+): Map<string, number> {
+  return placeAndFill(items, WIDTH_COLUMNS, itemWidth);
+}
+
+function placeAndFill(
+  items: readonly GridItem[],
+  columns: number,
+  spanOf: (item: GridItem, trackCount: number) => number
+): Map<string, number> {
   const trackCount: number = Math.max(1, Math.floor(columns));
   const spans = new Map<string, number>();
   let row: { item: GridItem; span: number }[] = [];
@@ -65,11 +128,7 @@ export function fillColumnSpans(
   }
 
   for (const item of items) {
-    const span: number = baseColumnSpan(
-      item.defaultSize,
-      trackCount,
-      largeSpan
-    );
+    const span: number = Math.min(spanOf(item, trackCount), trackCount);
     if (used + span > trackCount && row.length > 0) closeRow();
     row.push({ item, span });
     used += span;

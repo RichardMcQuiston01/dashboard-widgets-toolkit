@@ -132,6 +132,29 @@
   grid-column: 1 / -1;
 }
 
+/* Twelve-column grid: used when any widget sets `width`. A widget spans
+   --dwt-width twelfths; narrower grids give widgets more room. */
+:where(.dwt-grid--twelve) {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  container-type: inline-size;
+}
+
+:where(.dwt-grid--twelve > .dwt-card) {
+  grid-column: span var(--dwt-width, 4);
+}
+
+@container (max-width: 900px) {
+  :where(.dwt-grid--twelve > .dwt-card) {
+    grid-column: span min(12, calc(var(--dwt-width, 4) * 2));
+  }
+}
+
+@container (max-width: 560px) {
+  :where(.dwt-grid--twelve > .dwt-card) {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 640px) {
   :where(.dwt-card--size-large) {
     grid-column: auto;

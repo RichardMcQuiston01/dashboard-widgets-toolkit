@@ -87,6 +87,24 @@ void describe('WidgetCard', () => {
     assert.match(markup, /dwt-card--minimized/);
   });
 
+  void it('uses a 12-column grid when a widget sets width', () => {
+    const wide: DashboardWidget = {
+      status: 'ok',
+      definition: { key: 'w', title: 'W', kind: 'TEXT', width: 8 },
+      data: { kind: 'TEXT', label: 'L', value: 'hi' },
+    };
+    const plain: DashboardWidget = {
+      status: 'ok',
+      definition: { key: 'p', title: 'P', kind: 'TEXT' },
+      data: { kind: 'TEXT', label: 'L', value: 'hi' },
+    };
+    const markup = html(<WidgetGrid widgets={[wide, plain]} />);
+    assert.match(markup, /dwt-grid--twelve/);
+    assert.match(markup, /--dwt-width:8/);
+    assert.match(markup, /--dwt-width:4/);
+    assert.doesNotMatch(html(<WidgetGrid widgets={[plain]} />), /twelve/);
+  });
+
   void it('adds fill classes and an explicit column span', () => {
     const markup = renderToStaticMarkup(
       <WidgetCard title="T" fill="both" columnSpan={3} />

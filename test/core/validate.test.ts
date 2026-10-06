@@ -213,6 +213,18 @@ void describe('validateWidgetDefinition', () => {
     assert.ok(result.ok);
   });
 
+  void it('accepts a width of 2 to 12 and names a bad one', () => {
+    const base = { key: 'x', title: 'X', kind: 'TEXT' } as const;
+    assert.ok(validateWidgetDefinition({ ...base, width: 6 }).ok);
+    assert.ok(validateWidgetDefinition({ ...base, width: 12 }).ok);
+    for (const width of [1, 13, 4.5, '6']) {
+      const result = validateWidgetDefinition({ ...base, width });
+      assert.equal(result.ok, false);
+      if (result.ok) continue;
+      assert.match(result.error, /width must be an integer from 2 to 12/);
+    }
+  });
+
   void it('names the definition and each problem', () => {
     const result = validateWidgetDefinition({
       key: 'x',
