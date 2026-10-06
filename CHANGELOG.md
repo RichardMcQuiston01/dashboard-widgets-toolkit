@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## 0.4.0
+
+### Minor Changes
+
+- d34fd83: Detail view, core part (phase 1 of `docs/design/detail-view.md`; no UI yet).
+  Widget definitions gain `detail` (`true` or `{ title, pageSize, mode }`), and
+  the core adds the data and query types (`DetailData`, `DetailQuery`,
+  `DetailProvider`), `queryRows` (accent- and case-insensitive filtering,
+  locale-aware and numeric sorting, paging), `serializeDetailQuery` and
+  `parseDetailQuery` for URLs, `validateDetailData`, `resolveDetailOptions` and
+  `defaultDetailQuery`. `validateWidgetDefinition` checks `detail`.
+- 69e07b1: Detail view, React part (client mode). Widgets with `detail` set get a "View"
+  eye button (and a clickable title); `Dashboard` opens a modal dialog with
+  search, column filters, sortable headers (`aria-sort`) and paging. New
+  `Dashboard` props `loadDetail` and `onOpenDetail`; new exports `WidgetDetail`,
+  `WidgetDetailDialog`, `useDetailData`, and core `deriveDetailData` (TABLE
+  without a footer and BAR_LIST need no loader). `WidgetCard` takes `onView`.
+  New labels (`view`, `close`, `search`, `filterBy`, `sortBy`, `noResults`,
+  `showingRows`, `previousPage`, `nextPage`, `pageOf`, `pagination`) and a
+  `detail` class slot.
+- 38d977f: Polish the card controls: icon buttons are now bordered 28px squares with the
+  icon centered; minimized widgets move out of the grid into a "Minimized:" bar
+  (new label `minimizedWidgets`) instead of leaving an empty card; links that
+  open in a new tab get an external-link icon with hidden text (new label
+  `opensInNewTab`); and all text and labels use American English ("Minimize",
+  "color", "canceled").
+- 20e7fe7: Add `width` to widget definitions: an integer from 2 to 12 (twelfths of the
+  row). A grid with any `width` becomes 12 columns, reflowing on narrow
+  containers. Adds `isWidgetWidth`, `widthForSize`, `itemWidth` and
+  `fillWidthSpans` to the core, and validation of `width`.
+
 ## 0.3.0
 
 ### Minor Changes
