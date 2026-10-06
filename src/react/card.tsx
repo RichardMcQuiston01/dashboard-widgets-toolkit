@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from 'react';
 
-import type { WidgetSize } from '../core/definition.js';
+import type { WidgetFill, WidgetSize } from '../core/definition.js';
+import { fillsHeight, fillsWidth } from '../core/grid.js';
 import type { DashboardWidget } from '../core/resolve.js';
 import { WidgetContent } from './renderers.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
@@ -21,6 +22,13 @@ export interface WidgetCardProps {
   readonly onRetry?: () => void;
   readonly footer?: ReactNode;
   readonly size?: WidgetSize;
+  /** Fill free space in the grid row (height, width or both). */
+  readonly fill?: WidgetFill;
+  /**
+   * Explicit grid column span, set by `Dashboard` and `WidgetGrid` to give a
+   * width-filling card the columns left over in its row.
+   */
+  readonly columnSpan?: number;
   /** 2 to 6; default 2. */
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
@@ -43,6 +51,8 @@ export function WidgetCard({
   onRetry,
   footer,
   size,
+  fill,
+  columnSpan,
   headingLevel = 2,
   className,
   children,
@@ -95,8 +105,13 @@ export function WidgetCard({
         `dwt-card--${status}`,
         minimized && 'dwt-card--minimized',
         size !== undefined && `dwt-card--size-${size}`,
+        fillsHeight(fill) && 'dwt-card--fill-height',
+        fillsWidth(fill) && 'dwt-card--fill-width',
         className
       )}
+      {...(columnSpan === undefined
+        ? {}
+        : { style: { gridColumn: `span ${columnSpan}` } })}
     >
       <header className={slot('cardHeader', 'dwt-card-header')}>
         <div className="dwt-card-heading">
@@ -163,6 +178,8 @@ export function widgetTitle(widget: DashboardWidget): string {
 
 export interface ResolvedWidgetCardProps {
   readonly widget: DashboardWidget;
+  /** See `WidgetCardProps.columnSpan`. */
+  readonly columnSpan?: number;
   readonly actions?: ReactNode;
   readonly minimized?: boolean;
   readonly onToggleMinimized?: () => void;
@@ -188,6 +205,7 @@ export function ResolvedWidgetCard({
       {...(definition.defaultSize === undefined
         ? {}
         : { size: definition.defaultSize })}
+      {...(definition.fill === undefined ? {} : { fill: definition.fill })}
       {...(widget.status === 'empty' ? { emptyText: widget.emptyText } : {})}
       {...(widget.status === 'error' ? { error: widget.error } : {})}
     >

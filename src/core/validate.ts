@@ -5,7 +5,11 @@
  * `Widget "top-products" (TABLE): rows[2][0].text must be a string, got number.`
  */
 
-import { WIDGET_SIZES, type WidgetDefinition } from './definition.js';
+import {
+  WIDGET_FILLS,
+  WIDGET_SIZES,
+  type WidgetDefinition,
+} from './definition.js';
 import {
   MAX_GRAPH_SERIES,
   VALUE_FORMATS,
@@ -420,6 +424,9 @@ export function validateWidgetDefinition(
   optionalBoolean(value, 'active', '', problems);
   if (value['defaultSize'] !== undefined) {
     requireOneOf(value, 'defaultSize', WIDGET_SIZES, '', problems);
+  }
+  if (value['fill'] !== undefined) {
+    requireOneOf(value, 'fill', WIDGET_FILLS, '', problems);
   }
   if (problems.length > 0) {
     return err(formatProblems(subject, problems));
