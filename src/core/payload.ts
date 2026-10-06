@@ -57,7 +57,7 @@ export interface KpiWidgetData {
   readonly label: string;
   /** Short context under the value, e.g. "Incl. shipping and tax". */
   readonly hint?: string;
-  /** Whether a rise is good news (default true). Colours the change. */
+  /** Whether a rise is good news (default true). Colors the change. */
   readonly higherIsBetter?: boolean;
 }
 

@@ -8,7 +8,7 @@
 `@richardmcquiston01/dashboard-widgets-toolkit` is a framework-agnostic
 dashboard widget toolkit: typed widget definitions and data payloads (KPI,
 gauge, table, bar list, alert list, chart), user layout (order, hide,
-minimise), and React renderers. Bring your own data providers.
+minimize), and React renderers. Bring your own data providers.
 
 It has three parts:
 
@@ -179,10 +179,15 @@ export function ShopDashboard({ widgets }: { widgets: ResolvedWidget[] }) {
 
 `Dashboard` orders widgets by the saved layout (saved order first, new widgets
 appended by `sortOrder`, hidden ones removed), and gives each card move
-earlier/later, hide and minimise buttons, plus a "Hidden:" bar to bring
-widgets back. Without `onLayoutChange` it is read-only. Use `loadingWidgets`
+earlier/later, hide and minimize buttons, plus a "Hidden:" bar to bring
+widgets back. A minimized widget leaves the grid (so it stops taking space)
+and waits in a "Minimized:" bar until the viewer expands it. Without `onLayoutChange` it is read-only. Use `loadingWidgets`
 for placeholders while data loads, and `WidgetGrid` for a plain grid with no
 layout controls.
+
+Links open in the same tab unless you set `linkTarget` (for example
+`"_blank"`); links that open a new tab get a small external-link icon and
+"(opens in a new tab)" for screen readers (label `opensInNewTab`).
 
 ### Examples
 
@@ -232,7 +237,7 @@ override its custom properties:
 
 ```css
 .dwt-dashboard {
-  --dwt-series-1: #567d62; /* your brand colour for single-series charts */
+  --dwt-series-1: #567d62; /* your brand color for single-series charts */
   --dwt-radius: 4px;
 }
 ```
@@ -312,11 +317,11 @@ stops the request. Existing two-argument providers keep working.
   and `resolveWidgets` accept `timeoutMs`, `signal` and `cache` too.
 
 **Charts.** `GRAPH` widgets render as inline SVG with `role="img"`, a
-`<title>` and a `<desc>` summarising the series (latest, high and low), a
+`<title>` and a `<desc>` summarizing the series (latest, high and low), a
 legend when there are two or more series, a hover and keyboard (arrow keys)
-tooltip, and a collapsible "View as table" with every value. Colours are CSS
+tooltip, and a collapsible "View as table" with every value. Colors are CSS
 custom properties (`--dwt-series-1` … `--dwt-series-8`) with built-in
-defaults from a palette checked for colour-vision deficiency in light and
+defaults from a palette checked for color-vision deficiency in light and
 dark modes; a graph may have at most eight series.
 
 ## Maker Toolkit compatibility
@@ -342,7 +347,7 @@ the definition mirrors its `widget` table:
   `fromLegacyDefinition()` maps a served definition.
 - `KPI`, `BAR_LIST` and `ALERT_LIST` are new kinds. Add them to the
   `WidgetViewType` enum before seeding widgets that use them.
-- The desktop app's `dashboard-layout.ts` (order, hidden, minimised) is
+- The desktop app's `dashboard-layout.ts` (order, hidden, minimized) is
   `layout.ts` here, with the same JSON shape, so saved layouts carry over.
   It now appends new widgets by `sortOrder` and tolerates corrupt values per
   field.

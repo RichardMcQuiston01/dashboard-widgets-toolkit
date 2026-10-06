@@ -7,8 +7,8 @@
  * the page sets data-theme="light"; data-theme="dark" or a "dark" class on
  * <html> forces it.
  *
- * Chart colours are the dataviz reference palette: eight categorical slots
- * validated for colour-vision deficiency, each stepped separately for the
+ * Chart colors are the dataviz reference palette: eight categorical slots
+ * validated for color-vision deficiency, each stepped separately for the
  * dark surface (not an automatic flip).
  */
 
@@ -253,10 +253,30 @@
 }
 
 :where(.dwt-icon-button) {
-  border-color: transparent;
-  min-width: 28px;
-  min-height: 28px;
-  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  line-height: 1;
+  background: var(--dwt-surface, transparent);
+  border-color: var(--dwt-border);
+}
+
+:where(.dwt-external-icon) {
+  margin-left: 0.25em;
+  vertical-align: -0.1em;
+}
+
+:where(.dwt-visually-hidden) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 :where(

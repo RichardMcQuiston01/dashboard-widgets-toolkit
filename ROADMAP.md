@@ -14,7 +14,7 @@
 - **Drag-and-drop reordering** in `Dashboard`, on top of `moveWidget`, with
   the move buttons kept as the keyboard-accessible path.
 - **Widget sizes in the layout.** Let viewers resize a widget (grid column
-  and row spans) and persist it alongside order, hidden and minimised, with
+  and row spans) and persist it alongside order, hidden and minimized, with
   `defaultSize` as the starting point.
 - **Sparkline kind** (`SPARKLINE`), and an optional sparkline on `KPI` tiles
   (12 points, current period in the accent).
@@ -23,7 +23,7 @@
   stale-while-revalidate hook), still without the package fetching anything
   itself.
 - **Texture fill** for bars (45°/135°) under `forced-colors`, print or an
-  accessibility setting, as a second channel after colour.
+  accessibility setting, as a second channel after color.
 
 See [docs/design/widget-extensions.md](./docs/design/widget-extensions.md) for
 the design of drag-and-drop, lazy loading, data sources and adapters.

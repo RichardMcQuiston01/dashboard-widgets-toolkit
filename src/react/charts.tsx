@@ -81,7 +81,7 @@ function yFor(domain: NiceDomain, value: number): number {
   return MARGIN.top + INNER_HEIGHT * ((domain.max - value) / range);
 }
 
-/** Bar charts centre each label in a slot; lines span the full width. */
+/** Bar charts center each label in a slot; lines span the full width. */
 function xFor(chartType: 'bar' | 'line', count: number, index: number): number {
   if (chartType === 'bar') {
     const slot: number = INNER_WIDTH / Math.max(1, count);

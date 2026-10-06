@@ -47,6 +47,9 @@ export interface DashboardLabels {
   readonly moveEarlier: (title: string) => string;
   readonly moveLater: (title: string) => string;
   readonly hiddenWidgets: string;
+  readonly minimizedWidgets: string;
+  /** Added to the accessible name of links that open in a new tab. */
+  readonly opensInNewTab: string;
   readonly allHidden: string;
   readonly noWidgets: string;
   readonly andMore: (count: number) => string;
@@ -60,11 +63,13 @@ export const DEFAULT_LABELS: DashboardLabels = {
   viewAsTable: 'View as table',
   hide: (title) => `Hide ${title}`,
   show: (title) => `Show ${title}`,
-  minimize: (title) => `Minimise ${title}`,
+  minimize: (title) => `Minimize ${title}`,
   expand: (title) => `Expand ${title}`,
   moveEarlier: (title) => `Move ${title} earlier`,
   moveLater: (title) => `Move ${title} later`,
   hiddenWidgets: 'Hidden:',
+  minimizedWidgets: 'Minimized:',
+  opensInNewTab: '(opens in a new tab)',
   allHidden: 'Every widget is hidden. Show one from the list above.',
   noWidgets: 'No widgets to show.',
   andMore: (count) => `and ${count} more`,

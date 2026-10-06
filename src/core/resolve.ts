@@ -118,7 +118,7 @@ export interface ResolveOptions {
    * provider's signal and yields an `error` widget naming the key.
    */
   readonly timeoutMs?: number;
-  /** Cancels loading; affected widgets resolve as `error` (cancelled). */
+  /** Cancels loading; affected widgets resolve as `error` (canceled). */
   readonly signal?: AbortSignal;
   /** Where to store successful payloads (see `WidgetCache`). */
   readonly cache?: WidgetCache;
@@ -181,7 +181,7 @@ export function cacheKeyFor(
     : options.cacheKey(definition);
 }
 
-/** Thrown inside the resolver when a load is cancelled or times out. */
+/** Thrown inside the resolver when a load is canceled or times out. */
 class LoadInterruption extends Error {}
 
 /**
@@ -204,7 +204,7 @@ export async function resolveWidget<C extends WidgetContext>(
   if (options.signal?.aborted === true) {
     return failedWidget(
       definition,
-      `Widget ${quotedKey}: loading was cancelled before it started.`
+      `Widget ${quotedKey}: loading was canceled before it started.`
     );
   }
 
@@ -251,7 +251,7 @@ export async function resolveWidget<C extends WidgetContext>(
         definition,
         timedOut
           ? `Widget ${quotedKey}: provider timed out after ${timeoutMs} ms.`
-          : `Widget ${quotedKey}: loading was cancelled.`
+          : `Widget ${quotedKey}: loading was canceled.`
       );
     }
     return failedWidget(
