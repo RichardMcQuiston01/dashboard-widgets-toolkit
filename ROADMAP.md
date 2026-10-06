@@ -25,6 +25,9 @@
 - **Texture fill** for bars (45°/135°) under `forced-colors`, print or an
   accessibility setting, as a second channel after colour.
 
+See [docs/design/widget-extensions.md](./docs/design/widget-extensions.md) for
+the design of drag-and-drop, lazy loading, data sources and adapters.
+
 ## Never
 
 - Data fetching, storage or database code in the package. Consumers supply
