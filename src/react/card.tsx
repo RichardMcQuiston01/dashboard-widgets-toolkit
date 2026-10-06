@@ -29,6 +29,11 @@ export interface WidgetCardProps {
    * width-filling card the columns left over in its row.
    */
   readonly columnSpan?: number;
+  /**
+   * The widget's key, rendered as `data-widget-key` so `useWidgets` can tell
+   * which card scrolled into view. `ResolvedWidgetCard` sets it for you.
+   */
+  readonly widgetKey?: string;
   /** 2 to 6; default 2. */
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
@@ -53,6 +58,7 @@ export function WidgetCard({
   size,
   fill,
   columnSpan,
+  widgetKey,
   headingLevel = 2,
   className,
   children,
@@ -109,6 +115,7 @@ export function WidgetCard({
         fillsWidth(fill) && 'dwt-card--fill-width',
         className
       )}
+      {...(widgetKey === undefined ? {} : { 'data-widget-key': widgetKey })}
       {...(columnSpan === undefined
         ? {}
         : { style: { gridColumn: `span ${columnSpan}` } })}
@@ -197,6 +204,7 @@ export function ResolvedWidgetCard({
   return (
     <WidgetCard
       {...props}
+      widgetKey={definition.key}
       title={widgetTitle(widget)}
       status={widget.status}
       {...(definition.description === undefined

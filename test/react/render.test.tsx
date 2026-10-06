@@ -13,6 +13,7 @@ import {
   WidgetContent,
   WidgetGrid,
   WidgetSettingsProvider,
+  useWidgets,
   barPath,
   buildChartModel,
   widgetTitle,
@@ -538,5 +539,50 @@ void describe('WidgetGrid and Dashboard', () => {
       />
     );
     assert.doesNotMatch(markup, /href=/);
+  });
+});
+
+void describe('useWidgets (server rendering)', () => {
+  void it('renders loading placeholders and starts no provider', () => {
+    let calls = 0;
+    const definitions: WidgetDefinition[] = [
+      { key: 'a', title: 'Alpha', kind: 'TEXT', sortOrder: 1 },
+      { key: 'b', title: 'Beta', kind: 'TEXT', sortOrder: 2 },
+      {
+        key: 'c',
+        title: 'Hidden',
+        kind: 'TEXT',
+        sortOrder: 3,
+        roles: ['admin'],
+      },
+    ];
+    const providers = {
+      a: () => (calls++, { kind: 'TEXT' as const, value: '1', label: 'a' }),
+      b: () => (calls++, { kind: 'TEXT' as const, value: '2', label: 'b' }),
+    };
+    const context = { roles: ['member'] };
+    function Page(): React.ReactElement {
+      const { widgets } = useWidgets(definitions, providers, context);
+      return <WidgetGrid widgets={widgets} />;
+    }
+    const markup = html(<Page />);
+    assert.equal(calls, 0);
+    assert.match(markup, /dwt-card--loading/);
+    assert.match(markup, /Alpha/);
+    assert.match(markup, /Beta/);
+    assert.doesNotMatch(markup, /Hidden/);
+    assert.equal((markup.match(/data-widget-key=/g) ?? []).length, 2);
+    assert.match(markup, /data-widget-key="a"/);
+  });
+
+  void it('leaves a bare WidgetCard without a data-widget-key', () => {
+    assert.doesNotMatch(
+      renderToStaticMarkup(<WidgetCard title="T" />),
+      /data-widget-key/
+    );
+    assert.match(
+      renderToStaticMarkup(<WidgetCard title="T" widgetKey="k" />),
+      /data-widget-key="k"/
+    );
   });
 });

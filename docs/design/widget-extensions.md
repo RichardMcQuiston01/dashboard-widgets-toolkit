@@ -322,8 +322,9 @@ Behaviour:
   the loads start after mount (in effects), so the page is interactive first.
   Each widget then resolves independently, so cards appear as they finish.
 - `loadWhen: 'visible'` (optional) observes each card (`IntersectionObserver`) and runs its
-  provider on first approach to the viewport. Hidden and minimised widgets do
-  not load until shown.
+  provider on first approach to the viewport. Hidden widgets are not rendered,
+  so they do not load until shown; minimised cards are still in the page, so
+  in v1 they load like any other card.
 - `refresh(key)` aborts that widget's in-flight call, then re-runs it. This is
   also what the error card's Retry should call.
 - Unmount, or a changed `context`, aborts everything in flight; results from a
@@ -331,6 +332,38 @@ Behaviour:
 - `refreshMs` polls visible widgets only, and pauses while the tab is hidden
   (`document.visibilityState`).
 - Server rendering returns `loading` placeholders; nothing runs on the server.
+
+### Implementation notes (phase 1)
+
+What shipped differs from the sketch above in these ways:
+
+- **D7 resolved with option A.** `types/core-runtime.d.ts` declares the few
+  `AbortSignal`, `AbortController` and timer members the core uses. Only
+  `tsconfig.json` includes it, so the React and test compilations keep the real
+  DOM and Node types and there are no duplicate globals. Core, React and test
+  compiles, lint and the build all pass.
+- **The logic lives in the core.** `createWidgetLoader` (core) does the
+  loading, aborting, caching and de-duplication; `useWidgets` is a thin React
+  wrapper. This made the hard parts testable without a DOM and keeps a future
+  Vue layer small (Q2).
+- **`loadWhen: 'mount' | 'visible'` replaces `lazy`.** `'mount'` is the
+  default and is itself asynchronous: first render shows placeholders and the
+  loads start in effects. The name now says what it controls.
+- **Providers are not called when a load was cancelled before it got a turn,**
+  so a dashboard torn down in the same tick starts no requests. This also
+  makes React StrictMode's mount, unmount, mount cycle call each provider once.
+- **Polling skips widgets still loading** (`refresh(undefined, { skipInFlight:
+true })`), because a provider slower than the interval would otherwise be
+  restarted forever. An explicit `refresh()` still restarts.
+- **Stale data on failure:** if the fresh load fails, the error replaces the
+  stale data (so a failure is never hidden). Revisit if users want "keep
+  showing stale data and mark it".
+- **`gridRef` goes on any element around the cards** (a wrapper `div` works)
+  because `Dashboard` renders its own grid element. Cards carry
+  `data-widget-key` so the observer can tell which one scrolled into view.
+- **Stability requirement:** `definitions`, `providers`, `context` and `cache`
+  must be referentially stable, as with any React hook that restarts work when
+  its inputs change.
 
 ### Testing
 
@@ -653,17 +686,17 @@ Phases 1 and 3 do not depend on each other and could be built in parallel.
 
 ## 9. Decisions and open questions
 
-| ID  | Question                                                                     | Recommendation                                                        |
-| --- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| D1  | Where do concrete transports (HTTP poller, WebSocket, SSE) live?             | Companion package; core keeps contracts only                          |
-| D2  | In-house pointer drag-and-drop, or integrate a library?                      | In-house, plus `useDashboardOrder` for bring-your-own                 |
-| D3  | Should providers get a third `options` argument or a richer context?         | Third argument; context stays the consumer's type                     |
-| D4  | Should `resolveWidgets` stay single-shot, with progressive flow in the hook? | Yes; avoids a second, subtly different resolver                       |
-| D5  | Shipping `toKpi`, `toTable` and the other builders in core                   | Yes; they are pure and runtime-neutral                                |
-| D6  | Streaming and polling together under one hook, or two?                       | One hook (`useWidgets`), keyed by provider versus stream              |
-| D7  | How does the core get `AbortSignal` and timer types without the DOM lib?     | Ambient declaration used only by the core's own compile; spike first  |
-| Q1  | Should viewers also resize widgets (ROADMAP "widget sizes in the layout")?   | Out of scope here; it interacts with drag-and-drop, so design it next |
-| Q2  | Do we need a Vue port of the hook and drag-and-drop?                         | Defer; keep the logic in pure core functions so a Vue layer is thin   |
+| ID  | Question                                                                                                  | Recommendation                                                        |
+| --- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| D1  | Where do concrete transports (HTTP poller, WebSocket, SSE) live?                                          | Companion package; core keeps contracts only                          |
+| D2  | In-house pointer drag-and-drop, or integrate a library?                                                   | In-house, plus `useDashboardOrder` for bring-your-own                 |
+| D3  | Should providers get a third `options` argument or a richer context?                                      | Third argument; context stays the consumer's type                     |
+| D4  | Should `resolveWidgets` stay single-shot, with progressive flow in the hook?                              | Yes; avoids a second, subtly different resolver                       |
+| D5  | Shipping `toKpi`, `toTable` and the other builders in core                                                | Yes; they are pure and runtime-neutral                                |
+| D6  | Streaming and polling together under one hook, or two?                                                    | One hook (`useWidgets`), keyed by provider versus stream              |
+| D7  | How does the core get `AbortSignal` and timer types without the DOM lib? (Resolved in phase 1: option A.) | Ambient declaration used only by the core's own compile; spike first  |
+| Q1  | Should viewers also resize widgets (ROADMAP "widget sizes in the layout")?                                | Out of scope here; it interacts with drag-and-drop, so design it next |
+| Q2  | Do we need a Vue port of the hook and drag-and-drop?                                                      | Defer; keep the logic in pure core functions so a Vue layer is thin   |
 
 ## 10. Alternatives considered
 

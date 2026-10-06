@@ -35,6 +35,11 @@ export {
   WidgetContent,
 } from './renderers.js';
 export {
+  useWidgets,
+  type UseWidgetsOptions,
+  type UseWidgetsResult,
+} from './use-widgets.js';
+export {
   DEFAULT_LABELS,
   WidgetSettingsProvider,
   joinClassNames,

@@ -24,10 +24,25 @@ export interface WidgetContext {
   readonly roles?: readonly string[];
 }
 
-/** Loads one widget's payload. May be sync or async; may throw. */
+/** What the resolver hands every provider, after the context and definition. */
+export interface ProviderOptions {
+  /**
+   * Aborted when the widget times out, is refreshed, or the dashboard is torn
+   * down. Pass it to `fetch` (or any cancellable call) to stop the work; a
+   * provider that ignores it is still abandoned, just not stopped.
+   */
+  readonly signal: AbortSignal;
+}
+
+/**
+ * Loads one widget's payload. May be sync or async; may throw. The third
+ * argument is optional to use: a provider that takes only `(context,
+ * definition)` keeps working.
+ */
 export type WidgetProvider<C = WidgetContext> = (
   context: C,
-  definition: WidgetDefinition
+  definition: WidgetDefinition,
+  options: ProviderOptions
 ) => WidgetPayload | Promise<WidgetPayload>;
 
 /** Providers keyed by widget key. */
@@ -39,6 +54,10 @@ export interface OkWidget {
   readonly definition: WidgetDefinition;
   readonly status: 'ok';
   readonly data: WidgetData;
+  /** When the data was produced (epoch ms), set when a provider resolved it. */
+  readonly updatedAt?: number;
+  /** True while cached data is shown and a fresh load is still running. */
+  readonly stale?: boolean;
 }
 
 export interface EmptyWidget {
@@ -69,6 +88,24 @@ export type DashboardWidget = ResolvedWidget | LoadingWidget;
 
 export type WidgetStatus = DashboardWidget['status'];
 
+/** A payload the cache holds, with when it was stored (epoch ms). */
+export interface CachedPayload {
+  readonly payload: unknown;
+  readonly storedAt: number;
+}
+
+/**
+ * Consumer-supplied storage for widget payloads (memory, localStorage, a
+ * database). The package never stores anything itself. Payloads read back
+ * are validated again, so a corrupt entry cannot break a widget.
+ */
+export interface WidgetCache {
+  get(
+    key: string
+  ): CachedPayload | undefined | Promise<CachedPayload | undefined>;
+  set(key: string, entry: CachedPayload): void | Promise<void>;
+}
+
 export interface ResolveOptions {
   /**
    * Validate each provider's payload with `validateWidgetData` (and check
@@ -76,6 +113,17 @@ export interface ResolveOptions {
    * trusted, typed providers.
    */
   readonly validate?: boolean;
+  /**
+   * Give each provider this many milliseconds. A timeout aborts the
+   * provider's signal and yields an `error` widget naming the key.
+   */
+  readonly timeoutMs?: number;
+  /** Cancels loading; affected widgets resolve as `error` (cancelled). */
+  readonly signal?: AbortSignal;
+  /** Where to store successful payloads (see `WidgetCache`). */
+  readonly cache?: WidgetCache;
+  /** Cache key for a widget. Default: the widget's `key`. */
+  readonly cacheKey?: (definition: WidgetDefinition) => string;
 }
 
 /**
@@ -123,29 +171,113 @@ export function loadingWidgets(
   return definitions.map((definition) => ({ definition, status: 'loading' }));
 }
 
-/** Runs one widget's provider, capturing a throw or bad payload as an error. */
+/** The cache key for a widget under these options. */
+export function cacheKeyFor(
+  definition: WidgetDefinition,
+  options: ResolveOptions
+): string {
+  return options.cacheKey === undefined
+    ? definition.key
+    : options.cacheKey(definition);
+}
+
+/** Thrown inside the resolver when a load is cancelled or times out. */
+class LoadInterruption extends Error {}
+
+/**
+ * Runs one widget's provider, capturing a throw, a timeout, a cancellation or
+ * a bad payload as an error widget. Never rejects.
+ */
 export async function resolveWidget<C extends WidgetContext>(
   definition: WidgetDefinition,
   provider: WidgetProvider<C> | undefined,
   context: C,
   options: ResolveOptions = {}
 ): Promise<ResolvedWidget> {
+  const quotedKey: string = JSON.stringify(definition.key);
   if (provider === undefined) {
     return failedWidget(
       definition,
-      `Widget ${JSON.stringify(definition.key)}: no provider is registered for this key.`
+      `Widget ${quotedKey}: no provider is registered for this key.`
     );
   }
-  let payload: WidgetPayload;
-  try {
-    payload = await provider(context, definition);
-  } catch (cause: unknown) {
+  if (options.signal?.aborted === true) {
     return failedWidget(
       definition,
-      `Widget ${JSON.stringify(definition.key)}: provider failed: ${describeUnknownError(cause)}`
+      `Widget ${quotedKey}: loading was cancelled before it started.`
     );
   }
-  return resolvePayload(definition, payload, options);
+
+  const controller = new AbortController();
+  const onExternalAbort = (): void => controller.abort(options.signal?.reason);
+  options.signal?.addEventListener('abort', onExternalAbort, { once: true });
+
+  let timedOut = false;
+  const timeoutMs: number | undefined =
+    options.timeoutMs !== undefined && options.timeoutMs > 0
+      ? options.timeoutMs
+      : undefined;
+  const timer: ReturnType<typeof setTimeout> | undefined =
+    timeoutMs === undefined
+      ? undefined
+      : setTimeout(() => {
+          timedOut = true;
+          controller.abort(new Error(`Timed out after ${timeoutMs} ms.`));
+        }, timeoutMs);
+
+  // Rejects when the load is aborted, so a provider that ignores its signal
+  // is still abandoned instead of holding the widget in "loading".
+  const interrupted = new Promise<never>((_resolve, reject) => {
+    controller.signal.addEventListener(
+      'abort',
+      () => reject(new LoadInterruption()),
+      { once: true }
+    );
+  });
+
+  let payload: WidgetPayload;
+  try {
+    payload = await Promise.race([
+      Promise.resolve().then(() => {
+        // Cancelled before the provider got a turn: never call it.
+        if (controller.signal.aborted) throw new LoadInterruption();
+        return provider(context, definition, { signal: controller.signal });
+      }),
+      interrupted,
+    ]);
+  } catch (cause: unknown) {
+    if (cause instanceof LoadInterruption) {
+      return failedWidget(
+        definition,
+        timedOut
+          ? `Widget ${quotedKey}: provider timed out after ${timeoutMs} ms.`
+          : `Widget ${quotedKey}: loading was cancelled.`
+      );
+    }
+    return failedWidget(
+      definition,
+      `Widget ${quotedKey}: provider failed: ${describeUnknownError(cause)}`
+    );
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+    options.signal?.removeEventListener('abort', onExternalAbort);
+  }
+
+  const resolved: ResolvedWidget = resolvePayload(definition, payload, options);
+  if (resolved.status !== 'ok') return resolved;
+
+  const storedAt: number = Date.now();
+  if (options.cache !== undefined) {
+    try {
+      await options.cache.set(cacheKeyFor(definition, options), {
+        payload: resolved.data,
+        storedAt,
+      });
+    } catch {
+      // A failing cache must never fail the widget.
+    }
+  }
+  return { ...resolved, updatedAt: storedAt };
 }
 
 /**
