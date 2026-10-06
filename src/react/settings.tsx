@@ -27,7 +27,8 @@ export type DashboardClassSlot =
   | 'chart'
   | 'legend'
   | 'tooltip'
-  | 'tableTwin';
+  | 'tableTwin'
+  | 'detail';
 
 /**
  * Extra classes per slot, appended to the `dwt-*` class (never replacing
@@ -50,6 +51,19 @@ export interface DashboardLabels {
   readonly minimizedWidgets: string;
   /** Added to the accessible name of links that open in a new tab. */
   readonly opensInNewTab: string;
+  /** The card's View button, opening the detail view. */
+  readonly view: (title: string) => string;
+  readonly close: string;
+  readonly search: string;
+  readonly filterBy: (column: string) => string;
+  readonly sortBy: (column: string) => string;
+  readonly noResults: string;
+  /** e.g. "Showing 1–25 of 312 results". */
+  readonly showingRows: (from: number, to: number, total: number) => string;
+  readonly previousPage: string;
+  readonly nextPage: string;
+  readonly pageOf: (page: number, pageCount: number) => string;
+  readonly pagination: string;
   readonly allHidden: string;
   readonly noWidgets: string;
   readonly andMore: (count: number) => string;
@@ -70,6 +84,17 @@ export const DEFAULT_LABELS: DashboardLabels = {
   hiddenWidgets: 'Hidden:',
   minimizedWidgets: 'Minimized:',
   opensInNewTab: '(opens in a new tab)',
+  view: (title) => `View ${title}`,
+  close: 'Close',
+  search: 'Search',
+  filterBy: (column) => `Filter ${column}`,
+  sortBy: (column) => `Sort by ${column}`,
+  noResults: 'No matching results.',
+  showingRows: (from, to, total) => `Showing ${from}–${to} of ${total} results`,
+  previousPage: 'Previous',
+  nextPage: 'Next',
+  pageOf: (page, pageCount) => `Page ${page} of ${pageCount}`,
+  pagination: 'Pagination',
   allHidden: 'Every widget is hidden. Show one from the list above.',
   noWidgets: 'No widgets to show.',
   andMore: (count) => `and ${count} more`,

@@ -28,7 +28,20 @@ import {
   type DashboardLayout,
 } from '../core/layout.js';
 import type { DashboardWidget } from '../core/resolve.js';
+import {
+  defaultDetailQuery,
+  deriveDetailData,
+  resolveDetailOptions,
+  type DetailData,
+  type DetailQuery,
+} from '../core/detail.js';
 import { ResolvedWidgetCard } from './card.js';
+import {
+  WidgetDetail,
+  WidgetDetailDialog,
+  useDetailData,
+  type DetailLoader,
+} from './detail.js';
 import {
   WidgetSettingsProvider,
   useSlotClassName,
@@ -192,8 +205,63 @@ export interface DashboardProps extends WidgetSettings {
    */
   readonly onLayoutChange?: (layout: DashboardLayout) => void;
   readonly onRetry?: (key: string) => void;
+  /**
+   * Loads the full data for a widget's detail view (widgets whose definition
+   * sets `detail`). Close over your own context. Without it, TABLE widgets
+   * with no footer and BAR_LIST widgets show their card data; other widgets
+   * get no View button.
+   */
+  readonly loadDetail?: DetailLoader;
+  /**
+   * Called with the widget key when the viewer opens a detail view, instead
+   * of the built-in dialog: navigate to your own page.
+   */
+  readonly onOpenDetail?: (key: string) => void;
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
+}
+
+/** The built-in dialog for one widget's detail view. */
+function DetailHost({
+  widget,
+  loadDetail,
+  onClose,
+}: {
+  readonly widget: DashboardWidget;
+  readonly loadDetail: DetailLoader | undefined;
+  readonly onClose: () => void;
+}): ReactNode {
+  const { locale } = useWidgetSettings();
+  const { definition } = widget;
+  const options = resolveDetailOptions(definition);
+  const pageSize: number = options?.pageSize ?? 25;
+  const [query, setQuery] = useState<DetailQuery>(defaultDetailQuery(pageSize));
+  const derived: DetailData | undefined =
+    widget.status === 'ok' ? deriveDetailData(widget.data, locale) : undefined;
+  const load: DetailLoader | undefined = useMemo(
+    () => loadDetail ?? (derived === undefined ? undefined : () => derived),
+    [loadDetail, derived]
+  );
+  const { state, reload } = useDetailData(definition, load, true);
+  const title: string = options?.title ?? definition.title;
+  return (
+    <WidgetDetailDialog title={title} open onClose={onClose}>
+      <WidgetDetail
+        title={title}
+        query={query}
+        onQueryChange={setQuery}
+        status={load === undefined ? 'error' : state.status}
+        {...(load === undefined
+          ? {
+              error: `Widget "${definition.key}" has no detail data: pass loadDetail, or use a TABLE without a footer or a BAR_LIST.`,
+            }
+          : {})}
+        {...(state.data === undefined ? {} : { data: state.data })}
+        {...(state.error === undefined ? {} : { error: state.error })}
+        onRetry={reload}
+      />
+    </WidgetDetailDialog>
+  );
 }
 
 function DashboardInner({
@@ -201,6 +269,8 @@ function DashboardInner({
   layout = EMPTY_LAYOUT,
   onLayoutChange,
   onRetry,
+  loadDetail,
+  onOpenDetail,
   headingLevel,
   className,
 }: DashboardProps): ReactNode {
@@ -222,6 +292,7 @@ function DashboardInner({
   const shown: WidgetDefinition[] = editable
     ? visible.filter((definition) => !isMinimized(layout, definition.key))
     : visible;
+  const [detailKey, setDetailKey] = useState<string | undefined>(undefined);
   const gridRef = useRef<HTMLDivElement>(null);
   const twelve: boolean = usesWidthColumns(shown);
   const spans: ReadonlyMap<string, number> = useFillSpans(
@@ -325,10 +396,24 @@ function DashboardInner({
                 </button>
               </>
             ) : undefined;
+            const viewable: boolean =
+              resolveDetailOptions(definition) !== undefined &&
+              (onOpenDetail !== undefined ||
+                loadDetail !== undefined ||
+                (widget.status === 'ok' &&
+                  deriveDetailData(widget.data) !== undefined));
             return (
               <ResolvedWidgetCard
                 key={key}
                 widget={widget}
+                {...(viewable
+                  ? {
+                      onView: () =>
+                        onOpenDetail === undefined
+                          ? setDetailKey(key)
+                          : onOpenDetail(key),
+                    }
+                  : {})}
                 {...spanProps(spans, key)}
                 {...widthProps(twelve, definition)}
                 minimized={isMinimized(layout, key)}
@@ -347,6 +432,14 @@ function DashboardInner({
             );
           })}
         </div>
+      )}
+      {detailKey !== undefined && byKey.get(detailKey) !== undefined && (
+        <DetailHost
+          key={detailKey}
+          widget={byKey.get(detailKey) as DashboardWidget}
+          loadDetail={loadDetail}
+          onClose={() => setDetailKey(undefined)}
+        />
       )}
     </div>
   );

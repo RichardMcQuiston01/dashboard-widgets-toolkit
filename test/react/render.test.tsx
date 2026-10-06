@@ -10,6 +10,7 @@ import {
   Dashboard,
   GraphWidget,
   WidgetCard,
+  WidgetDetail,
   WidgetContent,
   WidgetGrid,
   WidgetLink,
@@ -465,6 +466,144 @@ const widgets: DashboardWidget[] = [
   },
   { definition: definitions[3]!, status: 'loading' },
 ];
+
+void describe('detail view', () => {
+  const data = {
+    columns: [
+      { key: 'name', label: 'Name', filterable: true },
+      { key: 'sold', label: 'Sold', numeric: true },
+    ],
+    rows: [
+      [
+        { text: 'Jig', href: '/jig' },
+        { text: '7', value: 7 },
+      ],
+      [{ text: 'Coaster' }, { text: '12', value: 12 }],
+    ],
+  };
+  const query = {
+    page: 1,
+    pageSize: 1,
+    sort: { column: 'sold', direction: 'desc' },
+  } as const;
+
+  void it('renders a sortable table with aria-sort, a summary and paging', () => {
+    const markup = html(
+      <WidgetDetail
+        title="Products"
+        data={data}
+        query={query}
+        onQueryChange={() => undefined}
+      />
+    );
+    assert.match(
+      markup,
+      /<caption class="dwt-visually-hidden">Products<\/caption>/
+    );
+    assert.match(markup, /aria-sort="descending"/);
+    assert.match(markup, /Showing 1–1 of 2 results/);
+    assert.match(markup, /Coaster/);
+    assert.doesNotMatch(markup, /Jig/);
+    assert.match(markup, /Page 1 of 2/);
+    assert.match(markup, /aria-label="Filter Name"|Filter Name/);
+    assert.match(markup, /aria-label="Sort by Sold"/);
+  });
+
+  void it('shows loading, error with retry, and no-results states', () => {
+    const noop = (): void => undefined;
+    const loading = html(
+      <WidgetDetail
+        title="P"
+        status="loading"
+        query={query}
+        onQueryChange={noop}
+      />
+    );
+    assert.match(loading, /Loading…/);
+    const failed = html(
+      <WidgetDetail
+        title="P"
+        status="error"
+        error="boom"
+        onRetry={noop}
+        query={query}
+        onQueryChange={noop}
+      />
+    );
+    assert.match(failed, /role="alert"/);
+    assert.match(failed, />Retry</);
+    const none = html(
+      <WidgetDetail
+        title="P"
+        data={data}
+        query={{ page: 1, pageSize: 5, search: 'zzz' }}
+        onQueryChange={noop}
+      />
+    );
+    assert.match(none, /No matching results\./);
+  });
+
+  void it('reports a query that names a missing column', () => {
+    const markup = html(
+      <WidgetDetail
+        title="P"
+        data={data}
+        query={{
+          page: 1,
+          pageSize: 5,
+          sort: { column: 'price', direction: 'asc' },
+        }}
+        onQueryChange={() => undefined}
+      />
+    );
+    assert.match(markup, /sort column &quot;price&quot; does not exist/);
+  });
+
+  void it('adds a View button and clickable title to a card with onView', () => {
+    const markup = html(<WidgetCard title="Top" onView={() => undefined} />);
+    assert.match(markup, /aria-label="View Top"/);
+    assert.match(markup, /dwt-card-title-button/);
+    assert.doesNotMatch(html(<WidgetCard title="Top" />), /View Top/);
+  });
+
+  void it('Dashboard offers View only for widgets with detail data', () => {
+    const table: DashboardWidget = {
+      status: 'ok',
+      definition: { key: 't', title: 'Complete', kind: 'TABLE', detail: true },
+      data: {
+        kind: 'TABLE',
+        columns: [{ label: 'A' }],
+        rows: [[{ text: 'x' }]],
+      },
+    };
+    const truncated: DashboardWidget = {
+      status: 'ok',
+      definition: { key: 'u', title: 'Truncated', kind: 'TABLE', detail: true },
+      data: {
+        kind: 'TABLE',
+        columns: [{ label: 'A' }],
+        rows: [[{ text: 'x' }]],
+        footer: 'and 9 more',
+      },
+    };
+    const plain: DashboardWidget = {
+      status: 'ok',
+      definition: { key: 'p', title: 'Plain', kind: 'TABLE' },
+      data: { kind: 'TABLE', columns: [{ label: 'A' }], rows: [] },
+    };
+    const markup = html(<Dashboard widgets={[table, truncated, plain]} />);
+    assert.match(markup, /aria-label="View Complete"/);
+    assert.doesNotMatch(markup, /View Truncated/);
+    assert.doesNotMatch(markup, /View Plain/);
+    const withLoader = html(
+      <Dashboard
+        widgets={[truncated]}
+        loadDetail={() => ({ columns: [], rows: [] })}
+      />
+    );
+    assert.match(withLoader, /aria-label="View Truncated"/);
+  });
+});
 
 void describe('WidgetGrid and Dashboard', () => {
   void it('widgetTitle adds the alert total', () => {
