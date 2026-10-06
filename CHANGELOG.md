@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 0.2.0
+
+### Minor Changes
+
+- 46a38d2: Add an optional `fill` setting (`'height' | 'width' | 'both'`) to widget
+  definitions. `height` stretches a card to the height of its grid row;
+  `width` widens it to take the columns left over in its row, which
+  `Dashboard` and `WidgetGrid` compute from the rendered grid. New core exports:
+  `WIDGET_FILLS`, `WidgetFill`, `fillColumnSpans`, `baseColumnSpan`,
+  `fillsWidth`, `fillsHeight`. `WidgetCard` gains `fill` and `columnSpan` props,
+  and `validateWidgetDefinition` checks `fill`.
+
 ## 0.1.0
 
 ### Minor Changes

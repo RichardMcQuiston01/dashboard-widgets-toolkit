@@ -86,6 +86,30 @@ void describe('WidgetCard', () => {
     assert.match(markup, /dwt-card--minimized/);
   });
 
+  void it('adds fill classes and an explicit column span', () => {
+    const markup = renderToStaticMarkup(
+      <WidgetCard title="T" fill="both" columnSpan={3} />
+    );
+    assert.match(markup, /dwt-card--fill-height/);
+    assert.match(markup, /dwt-card--fill-width/);
+    assert.match(markup, /style="grid-column:span 3"/);
+    const heightOnly = renderToStaticMarkup(
+      <WidgetCard title="T" fill="height" />
+    );
+    assert.match(heightOnly, /dwt-card--fill-height/);
+    assert.doesNotMatch(heightOnly, /dwt-card--fill-width/);
+    assert.doesNotMatch(heightOnly, /style=/);
+  });
+
+  void it('takes fill from the widget definition', () => {
+    const widget: DashboardWidget = {
+      definition: { key: 'k', title: 'K', kind: 'TEXT', fill: 'height' },
+      status: 'loading',
+    };
+    const markup = html(<WidgetGrid widgets={[widget]} />);
+    assert.match(markup, /dwt-card--fill-height/);
+  });
+
   void it('appends classNames to the stable dwt-* classes', () => {
     const markup = renderToStaticMarkup(
       <WidgetSettingsProvider

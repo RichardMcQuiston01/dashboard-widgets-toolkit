@@ -6,6 +6,16 @@ export const WIDGET_SIZES = ['small', 'medium', 'large', 'full'] as const;
 export type WidgetSize = (typeof WIDGET_SIZES)[number];
 
 /**
+ * How a widget fills free space in a grid layout. `height` stretches it to
+ * the height of its row; `width` widens it to take the columns left over in
+ * its row; `both` does both. Absent, a widget is only as big as its content
+ * and `defaultSize`.
+ */
+export const WIDGET_FILLS = ['height', 'width', 'both'] as const;
+
+export type WidgetFill = (typeof WIDGET_FILLS)[number];
+
+/**
  * What a widget is, independent of its data. Mirrors Maker Toolkit's
  * `widget` table (`widget_key`, `title`, `description`, `view_type`,
  * `roles`, `sort_order`, `active`).
@@ -23,6 +33,8 @@ export interface WidgetDefinition {
   /** False hides it from every user. Default true. */
   readonly active?: boolean;
   readonly defaultSize?: WidgetSize;
+  /** Fill free space in the row (height, width or both). Default: none. */
+  readonly fill?: WidgetFill;
 }
 
 /**
