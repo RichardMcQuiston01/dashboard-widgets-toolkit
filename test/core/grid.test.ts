@@ -3,7 +3,10 @@ import { describe, it } from 'node:test';
 
 import {
   baseColumnSpan,
+  isWidgetWidth,
+  itemWidth,
   fillColumnSpans,
+  fillWidthSpans,
   fillsHeight,
   fillsWidth,
   type GridItem,
@@ -105,5 +108,31 @@ void describe('fillColumnSpans', () => {
     ];
     // largeSpan 1 (narrow viewport), 2 columns: a b -> no leftover.
     assert.deepEqual(spansOf(items, 2, 1), { b: 1 });
+  });
+});
+
+describe('widget width (12 columns)', () => {
+  it('accepts integers from 2 to 12 only', () => {
+    for (const ok of [2, 3, 6, 12]) assert.equal(isWidgetWidth(ok), true);
+    for (const bad of [1, 0, 13, 4.5, NaN, '6', undefined]) {
+      assert.equal(isWidgetWidth(bad), false);
+    }
+  });
+
+  it('derives a width from the size when none is set', () => {
+    assert.equal(itemWidth({ key: 'a', width: 8 }), 8);
+    assert.equal(itemWidth({ key: 'a', defaultSize: 'full' }), 12);
+    assert.equal(itemWidth({ key: 'a' }), 4);
+  });
+
+  it('shares leftover twelfths among width-fillers', () => {
+    const spans = fillWidthSpans([
+      { key: 'a', width: 3 },
+      { key: 'b', width: 6, fill: 'width' },
+      { key: 'c', width: 6, fill: 'width' },
+    ]);
+    assert.equal(spans.get('b'), 9);
+    assert.equal(spans.get('c'), 12);
+    assert.equal(spans.has('a'), false);
   });
 });

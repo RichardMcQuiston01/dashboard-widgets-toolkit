@@ -10,9 +10,12 @@ import {
   Dashboard,
   GraphWidget,
   WidgetCard,
+  WidgetDetail,
   WidgetContent,
   WidgetGrid,
+  WidgetLink,
   WidgetSettingsProvider,
+  useWidgets,
   barPath,
   buildChartModel,
   widgetTitle,
@@ -74,7 +77,7 @@ void describe('WidgetCard', () => {
     assert.match(error, />Retry<\/button>/);
   });
 
-  void it('hides the body when minimised and labels the toggle', () => {
+  void it('hides the body when minimized and labels the toggle', () => {
     const markup = html(
       <WidgetCard title="Sales" minimized onToggleMinimized={() => undefined}>
         <p>secret body</p>
@@ -84,6 +87,24 @@ void describe('WidgetCard', () => {
     assert.match(markup, /aria-expanded="false"/);
     assert.match(markup, /aria-label="Expand Sales"/);
     assert.match(markup, /dwt-card--minimized/);
+  });
+
+  void it('uses a 12-column grid when a widget sets width', () => {
+    const wide: DashboardWidget = {
+      status: 'ok',
+      definition: { key: 'w', title: 'W', kind: 'TEXT', width: 8 },
+      data: { kind: 'TEXT', label: 'L', value: 'hi' },
+    };
+    const plain: DashboardWidget = {
+      status: 'ok',
+      definition: { key: 'p', title: 'P', kind: 'TEXT' },
+      data: { kind: 'TEXT', label: 'L', value: 'hi' },
+    };
+    const markup = html(<WidgetGrid widgets={[wide, plain]} />);
+    assert.match(markup, /dwt-grid--twelve/);
+    assert.match(markup, /--dwt-width:8/);
+    assert.match(markup, /--dwt-width:4/);
+    assert.doesNotMatch(html(<WidgetGrid widgets={[plain]} />), /twelve/);
   });
 
   void it('adds fill classes and an explicit column span', () => {
@@ -134,7 +155,7 @@ void describe('renderers', () => {
     );
   });
 
-  void it('KPI with a good and a bad change, never colour alone', () => {
+  void it('KPI with a good and a bad change, never color alone', () => {
     const up = content({
       kind: 'KPI',
       value: 1200,
@@ -335,7 +356,7 @@ void describe('GraphWidget', () => {
     );
   });
 
-  void it('draws one thin bar per value in series colour, with no legend for one series', () => {
+  void it('draws one thin bar per value in series color, with no legend for one series', () => {
     const markup = html(<GraphWidget data={monthly} />);
     assert.equal(markup.match(/class="dwt-bar"/g)?.length, 3);
     assert.match(markup, /fill="var\(--dwt-series-1, #2a78d6\)"/);
@@ -446,6 +467,144 @@ const widgets: DashboardWidget[] = [
   { definition: definitions[3]!, status: 'loading' },
 ];
 
+void describe('detail view', () => {
+  const data = {
+    columns: [
+      { key: 'name', label: 'Name', filterable: true },
+      { key: 'sold', label: 'Sold', numeric: true },
+    ],
+    rows: [
+      [
+        { text: 'Jig', href: '/jig' },
+        { text: '7', value: 7 },
+      ],
+      [{ text: 'Coaster' }, { text: '12', value: 12 }],
+    ],
+  };
+  const query = {
+    page: 1,
+    pageSize: 1,
+    sort: { column: 'sold', direction: 'desc' },
+  } as const;
+
+  void it('renders a sortable table with aria-sort, a summary and paging', () => {
+    const markup = html(
+      <WidgetDetail
+        title="Products"
+        data={data}
+        query={query}
+        onQueryChange={() => undefined}
+      />
+    );
+    assert.match(
+      markup,
+      /<caption class="dwt-visually-hidden">Products<\/caption>/
+    );
+    assert.match(markup, /aria-sort="descending"/);
+    assert.match(markup, /Showing 1–1 of 2 results/);
+    assert.match(markup, /Coaster/);
+    assert.doesNotMatch(markup, /Jig/);
+    assert.match(markup, /Page 1 of 2/);
+    assert.match(markup, /aria-label="Filter Name"|Filter Name/);
+    assert.match(markup, /aria-label="Sort by Sold"/);
+  });
+
+  void it('shows loading, error with retry, and no-results states', () => {
+    const noop = (): void => undefined;
+    const loading = html(
+      <WidgetDetail
+        title="P"
+        status="loading"
+        query={query}
+        onQueryChange={noop}
+      />
+    );
+    assert.match(loading, /Loading…/);
+    const failed = html(
+      <WidgetDetail
+        title="P"
+        status="error"
+        error="boom"
+        onRetry={noop}
+        query={query}
+        onQueryChange={noop}
+      />
+    );
+    assert.match(failed, /role="alert"/);
+    assert.match(failed, />Retry</);
+    const none = html(
+      <WidgetDetail
+        title="P"
+        data={data}
+        query={{ page: 1, pageSize: 5, search: 'zzz' }}
+        onQueryChange={noop}
+      />
+    );
+    assert.match(none, /No matching results\./);
+  });
+
+  void it('reports a query that names a missing column', () => {
+    const markup = html(
+      <WidgetDetail
+        title="P"
+        data={data}
+        query={{
+          page: 1,
+          pageSize: 5,
+          sort: { column: 'price', direction: 'asc' },
+        }}
+        onQueryChange={() => undefined}
+      />
+    );
+    assert.match(markup, /sort column &quot;price&quot; does not exist/);
+  });
+
+  void it('adds a View button and clickable title to a card with onView', () => {
+    const markup = html(<WidgetCard title="Top" onView={() => undefined} />);
+    assert.match(markup, /aria-label="View Top"/);
+    assert.match(markup, /dwt-card-title-button/);
+    assert.doesNotMatch(html(<WidgetCard title="Top" />), /View Top/);
+  });
+
+  void it('Dashboard offers View only for widgets with detail data', () => {
+    const table: DashboardWidget = {
+      status: 'ok',
+      definition: { key: 't', title: 'Complete', kind: 'TABLE', detail: true },
+      data: {
+        kind: 'TABLE',
+        columns: [{ label: 'A' }],
+        rows: [[{ text: 'x' }]],
+      },
+    };
+    const truncated: DashboardWidget = {
+      status: 'ok',
+      definition: { key: 'u', title: 'Truncated', kind: 'TABLE', detail: true },
+      data: {
+        kind: 'TABLE',
+        columns: [{ label: 'A' }],
+        rows: [[{ text: 'x' }]],
+        footer: 'and 9 more',
+      },
+    };
+    const plain: DashboardWidget = {
+      status: 'ok',
+      definition: { key: 'p', title: 'Plain', kind: 'TABLE' },
+      data: { kind: 'TABLE', columns: [{ label: 'A' }], rows: [] },
+    };
+    const markup = html(<Dashboard widgets={[table, truncated, plain]} />);
+    assert.match(markup, /aria-label="View Complete"/);
+    assert.doesNotMatch(markup, /View Truncated/);
+    assert.doesNotMatch(markup, /View Plain/);
+    const withLoader = html(
+      <Dashboard
+        widgets={[truncated]}
+        loadDetail={() => ({ columns: [], rows: [] })}
+      />
+    );
+    assert.match(withLoader, /aria-label="View Truncated"/);
+  });
+});
+
 void describe('WidgetGrid and Dashboard', () => {
   void it('widgetTitle adds the alert total', () => {
     assert.equal(widgetTitle(widgets[1]!), 'Low stock (4)');
@@ -486,12 +645,31 @@ void describe('WidgetGrid and Dashboard', () => {
       /class="dwt-hidden-bar"><span class="dwt-hidden-label">Hidden widgets:<\/span>/
     );
     assert.match(markup, /aria-label="Show Pending"/);
-    assert.match(markup, /Broken<\/h2>.*Revenue<\/h2>.*Low stock \(4\)<\/h2>/);
+    assert.match(markup, /Broken<\/h2>.*Low stock \(4\)<\/h2>/);
     assert.doesNotMatch(markup, /Pending<\/h2>/);
+    // Minimized widgets leave the grid for their own bar.
+    assert.doesNotMatch(markup, /Revenue<\/h2>/);
+    assert.match(
+      markup,
+      /dwt-minimized-bar"><span class="dwt-hidden-label">Minimized:<\/span>/
+    );
     assert.match(markup, /aria-label="Move Broken earlier"[^>]*disabled=""/);
     assert.match(markup, /aria-label="Move Low stock later"[^>]*disabled=""/);
-    assert.match(markup, /aria-label="Hide Revenue"/);
     assert.match(markup, /aria-label="Expand Revenue"/);
+  });
+
+  void it('marks links that open in a new tab with an icon and hidden text', () => {
+    const newTab = renderToStaticMarkup(
+      <WidgetSettingsProvider linkTarget="_blank">
+        <WidgetLink href="https://example.com/a">Shop</WidgetLink>
+      </WidgetSettingsProvider>
+    );
+    assert.match(newTab, /dwt-external-icon/);
+    assert.match(newTab, /\(opens in a new tab\)/);
+    const sameTab = renderToStaticMarkup(
+      <WidgetLink href="https://example.com/a">Shop</WidgetLink>
+    );
+    assert.doesNotMatch(sameTab, /dwt-external-icon/);
   });
 
   void it('Dashboard without onLayoutChange is read-only', () => {
@@ -538,5 +716,50 @@ void describe('WidgetGrid and Dashboard', () => {
       />
     );
     assert.doesNotMatch(markup, /href=/);
+  });
+});
+
+void describe('useWidgets (server rendering)', () => {
+  void it('renders loading placeholders and starts no provider', () => {
+    let calls = 0;
+    const definitions: WidgetDefinition[] = [
+      { key: 'a', title: 'Alpha', kind: 'TEXT', sortOrder: 1 },
+      { key: 'b', title: 'Beta', kind: 'TEXT', sortOrder: 2 },
+      {
+        key: 'c',
+        title: 'Hidden',
+        kind: 'TEXT',
+        sortOrder: 3,
+        roles: ['admin'],
+      },
+    ];
+    const providers = {
+      a: () => (calls++, { kind: 'TEXT' as const, value: '1', label: 'a' }),
+      b: () => (calls++, { kind: 'TEXT' as const, value: '2', label: 'b' }),
+    };
+    const context = { roles: ['member'] };
+    function Page(): React.ReactElement {
+      const { widgets } = useWidgets(definitions, providers, context);
+      return <WidgetGrid widgets={widgets} />;
+    }
+    const markup = html(<Page />);
+    assert.equal(calls, 0);
+    assert.match(markup, /dwt-card--loading/);
+    assert.match(markup, /Alpha/);
+    assert.match(markup, /Beta/);
+    assert.doesNotMatch(markup, /Hidden/);
+    assert.equal((markup.match(/data-widget-key=/g) ?? []).length, 2);
+    assert.match(markup, /data-widget-key="a"/);
+  });
+
+  void it('leaves a bare WidgetCard without a data-widget-key', () => {
+    assert.doesNotMatch(
+      renderToStaticMarkup(<WidgetCard title="T" />),
+      /data-widget-key/
+    );
+    assert.match(
+      renderToStaticMarkup(<WidgetCard title="T" widgetKey="k" />),
+      /data-widget-key="k"/
+    );
   });
 });

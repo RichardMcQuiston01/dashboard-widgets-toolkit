@@ -157,7 +157,7 @@ void describe('moveWidget', () => {
   });
 });
 
-void describe('hide, show, minimise, restore', () => {
+void describe('hide, show, minimize, restore', () => {
   void it('hides and restores a widget', () => {
     const hidden = toggleHidden(EMPTY_LAYOUT, 'a');
     assert.deepEqual(hidden.hidden, ['a']);
@@ -166,7 +166,7 @@ void describe('hide, show, minimise, restore', () => {
     assert.equal(showWidget(EMPTY_LAYOUT, 'a'), EMPTY_LAYOUT);
   });
 
-  void it('showing a hidden widget clears its minimised state', () => {
+  void it('showing a hidden widget clears its minimized state', () => {
     const layout = toggleHidden(
       { ...EMPTY_LAYOUT, minimized: ['a'], hidden: ['a'] },
       'a'
@@ -174,7 +174,7 @@ void describe('hide, show, minimise, restore', () => {
     assert.deepEqual(layout.minimized, []);
   });
 
-  void it('toggles minimised state', () => {
+  void it('toggles minimized state', () => {
     const minimized = toggleMinimized(EMPTY_LAYOUT, 'b');
     assert.deepEqual(minimized.minimized, ['b']);
     assert.deepEqual(toggleMinimized(minimized, 'b').minimized, []);

@@ -7,8 +7,8 @@
  * the page sets data-theme="light"; data-theme="dark" or a "dark" class on
  * <html> forces it.
  *
- * Chart colours are the dataviz reference palette: eight categorical slots
- * validated for colour-vision deficiency, each stepped separately for the
+ * Chart colors are the dataviz reference palette: eight categorical slots
+ * validated for color-vision deficiency, each stepped separately for the
  * dark surface (not an automatic flip).
  */
 
@@ -132,6 +132,29 @@
   grid-column: 1 / -1;
 }
 
+/* Twelve-column grid: used when any widget sets `width`. A widget spans
+   --dwt-width twelfths; narrower grids give widgets more room. */
+:where(.dwt-grid--twelve) {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  container-type: inline-size;
+}
+
+:where(.dwt-grid--twelve > .dwt-card) {
+  grid-column: span var(--dwt-width, 4);
+}
+
+@container (max-width: 900px) {
+  :where(.dwt-grid--twelve > .dwt-card) {
+    grid-column: span min(12, calc(var(--dwt-width, 4) * 2));
+  }
+}
+
+@container (max-width: 560px) {
+  :where(.dwt-grid--twelve > .dwt-card) {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 640px) {
   :where(.dwt-card--size-large) {
     grid-column: auto;
@@ -230,10 +253,30 @@
 }
 
 :where(.dwt-icon-button) {
-  border-color: transparent;
-  min-width: 28px;
-  min-height: 28px;
-  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  line-height: 1;
+  background: var(--dwt-surface, transparent);
+  border-color: var(--dwt-border);
+}
+
+:where(.dwt-external-icon) {
+  margin-left: 0.25em;
+  vertical-align: -0.1em;
+}
+
+:where(.dwt-visually-hidden) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 :where(
@@ -550,5 +593,108 @@
 @media (forced-colors: active) {
   :where(.dwt-meter, .dwt-bar-track) {
     border: 1px solid CanvasText;
+  }
+}
+
+/* Detail view ------------------------------------------------------------- */
+
+:where(.dwt-card-title-button) {
+  all: unset;
+  cursor: pointer;
+}
+
+:where(.dwt-card-title-button:hover) {
+  text-decoration: underline;
+}
+
+:where(.dwt-detail-dialog) {
+  box-sizing: border-box;
+  width: min(960px, 100vw - 32px);
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  overflow: auto;
+  color: var(--dwt-text);
+  background: var(--dwt-surface);
+  border: 1px solid var(--dwt-border);
+  border-radius: var(--dwt-radius, 8px);
+  font-family: var(--dwt-font);
+}
+
+:where(.dwt-detail-dialog)::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+:where(.dwt-detail-dialog-body) {
+  position: relative;
+  padding: 20px;
+}
+
+:where(.dwt-detail-close) {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+:where(.dwt-detail-title) {
+  margin: 0 72px 12px 0;
+}
+
+:where(.dwt-detail-controls) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+:where(.dwt-detail-field) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8125rem;
+  color: var(--dwt-text-secondary);
+}
+
+:where(.dwt-detail-field input) {
+  font: inherit;
+  color: var(--dwt-text);
+  background: var(--dwt-surface);
+  border: 1px solid var(--dwt-border);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+:where(.dwt-detail-summary) {
+  margin: 8px 0;
+  font-size: 0.8125rem;
+  color: var(--dwt-text-secondary);
+}
+
+:where(.dwt-detail-sort) {
+  all: unset;
+  cursor: pointer;
+  font-weight: inherit;
+}
+
+:where(.dwt-detail-sort:focus-visible) {
+  outline: 2px solid var(--dwt-focus);
+  outline-offset: 2px;
+}
+
+:where(.dwt-detail-pager) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  :where(.dwt-detail-dialog) {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
   }
 }

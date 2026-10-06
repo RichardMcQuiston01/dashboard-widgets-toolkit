@@ -1,3 +1,4 @@
+import type { WidgetDetailOptions } from './detail.js';
 import type { WidgetKind } from './payload.js';
 
 /** A size hint for grid layouts; renderers may map it to column spans. */
@@ -33,6 +34,19 @@ export interface WidgetDefinition {
   /** False hides it from every user. Default true. */
   readonly active?: boolean;
   readonly defaultSize?: WidgetSize;
+  /**
+   * Share of the row the widget takes, in twelfths: an integer from 2 to 12
+   * (6 is half the row, 12 the whole row). When any widget in a grid sets
+   * it, the grid becomes 12 columns wide and widgets without a `width` use
+   * the one their `defaultSize` implies (see `widthForSize`). Narrow grids
+   * give widgets more room automatically.
+   */
+  readonly width?: number;
+  /**
+   * Gives the widget a detail view: a full list with sorting, filtering and
+   * paging. `true` uses defaults. The data comes from a detail provider.
+   */
+  readonly detail?: boolean | WidgetDetailOptions;
   /** Fill free space in the row (height, width or both). Default: none. */
   readonly fill?: WidgetFill;
 }

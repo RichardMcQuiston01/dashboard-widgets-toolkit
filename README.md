@@ -8,7 +8,7 @@
 `@richardmcquiston01/dashboard-widgets-toolkit` is a framework-agnostic
 dashboard widget toolkit: typed widget definitions and data payloads (KPI,
 gauge, table, bar list, alert list, chart), user layout (order, hide,
-minimise), and React renderers. Bring your own data providers.
+minimize), and React renderers. Bring your own data providers.
 
 It has three parts:
 
@@ -179,10 +179,15 @@ export function ShopDashboard({ widgets }: { widgets: ResolvedWidget[] }) {
 
 `Dashboard` orders widgets by the saved layout (saved order first, new widgets
 appended by `sortOrder`, hidden ones removed), and gives each card move
-earlier/later, hide and minimise buttons, plus a "Hidden:" bar to bring
-widgets back. Without `onLayoutChange` it is read-only. Use `loadingWidgets`
+earlier/later, hide and minimize buttons, plus a "Hidden:" bar to bring
+widgets back. A minimized widget leaves the grid (so it stops taking space)
+and waits in a "Minimized:" bar until the viewer expands it. Without `onLayoutChange` it is read-only. Use `loadingWidgets`
 for placeholders while data loads, and `WidgetGrid` for a plain grid with no
 layout controls.
+
+Links open in the same tab unless you set `linkTarget` (for example
+`"_blank"`); links that open a new tab get a small external-link icon and
+"(opens in a new tab)" for screen readers (label `opensInNewTab`).
 
 ### Examples
 
@@ -232,13 +237,59 @@ override its custom properties:
 
 ```css
 .dwt-dashboard {
-  --dwt-series-1: #567d62; /* your brand colour for single-series charts */
+  --dwt-series-1: #567d62; /* your brand color for single-series charts */
   --dwt-radius: 4px;
 }
 ```
 
 Dark mode follows the OS setting unless the page sets `data-theme="light"`;
 `data-theme="dark"` or a `dark` class on `<html>` forces it.
+
+**Widget width.** Give a widget a `width` to say how much of the row it
+takes, in twelfths (like a 12-column grid): an integer from 2 to 12. A table
+with many columns might want half the row:
+
+```ts
+defineWidget({ key: 'top-products', title: 'Most popular products', kind: 'TABLE', width: 8 });
+defineWidget({ key: 'ratings', title: 'Rating breakdown', kind: 'BAR_LIST', width: 4 });
+```
+
+When any widget in a grid sets `width`, the grid becomes 12 columns
+(`dwt-grid--twelve`) and each card spans `--dwt-width` columns. Widgets
+without a `width` use one from their `defaultSize` (small 3, medium 4, large
+6, full 12). Narrow grids give widgets more room: under 900px a widget gets
+twice its width, under 560px it takes the whole row. `fill: 'width'` still
+works, sharing the twelfths left over in a row. The validator rejects
+anything but an integer from 2 to 12.
+
+**Detail view.** Set `detail: true` (or `{ title, pageSize, mode }`) on a
+definition and `Dashboard` adds a "View" eye button to the card (the title is
+clickable too). It opens a modal dialog with search, per-column filters,
+sortable headers and paging. Where the data comes from:
+
+```tsx
+<Dashboard
+  widgets={widgets}
+  loadDetail={(definition, { signal, query }) => fetchAllRows(definition.key, signal)}
+/>
+```
+
+- `loadDetail` (close over your own context; the package never fetches)
+  returns a `DetailData` table: columns with a `key`, rows of cells with
+  `text` and an optional `value` used for sorting and filtering.
+- Without it, a TABLE with no `footer` and a BAR_LIST show their own card data;
+  other widgets get no View button until you pass `loadDetail`.
+- `onOpenDetail={(key) => navigate(...)}` replaces the built-in dialog so you
+  can open your own page.
+- The pieces are exported for your own layout: `WidgetDetail` (controlled by
+  a `DetailQuery`), `WidgetDetailDialog` and `useDetailData`. In the core,
+  `queryRows` does the filtering, sorting and paging (case- and
+  accent-insensitive, numeric-aware), `serializeDetailQuery` /
+  `parseDetailQuery` keep the query in a URL, and `validateDetailData` checks
+  what your loader returns.
+
+Server-side paging and URL deep links are next; see
+[docs/design/detail-view.md](./docs/design/detail-view.md).
 
 **Filling space.** By default each card is only as big as its content, so a
 short card beside a tall one leaves a gap. Set `fill` on a widget definition
@@ -263,12 +314,43 @@ grid simply lays out normally. The same helper is exported from the core as
 `fillColumnSpans(items, columns)` for custom layouts, and `WidgetCard` takes
 `fill` and `columnSpan` props.
 
+**Loading data after the page renders.** Render the dashboard first and let
+each widget's data arrive on its own. `useWidgets` returns placeholders
+immediately (so first paint and server rendering never wait), starts every
+provider after mount, and replaces each card as its own data arrives:
+
+```tsx
+import { Dashboard, useWidgets } from '@richardmcquiston01/dashboard-widgets-toolkit/react';
+
+const { widgets, refresh } = useWidgets(definitions, providers, context, {
+  timeoutMs: 8000, // a provider that takes longer becomes an error card
+  refreshMs: 60_000, // optional polling; skips widgets still loading
+});
+
+return <Dashboard widgets={widgets} onRetry={(key) => refresh(key)} />;
+```
+
+Providers receive an `AbortSignal` as a third argument (`(context, definition,
+{ signal })`); pass it to `fetch` so a timeout, a refresh or leaving the page
+stops the request. Existing two-argument providers keep working.
+
+- `loadWhen: 'visible'` also waits until a card is near the viewport. Attach
+  the returned `gridRef` to an element around the dashboard.
+- `cache` (your own `{ get, set }` storage: memory, `localStorage`, ...) shows
+  the last payload instantly as `stale` while a fresh load runs. Cached
+  payloads are validated again, and a failing cache never fails a widget.
+- Keep `definitions`, `providers`, `context` and `cache` referentially stable
+  (module constants or `useMemo`); a changed value restarts loading.
+- Not using React? `createWidgetLoader` (core) is the same logic with
+  `subscribe`/`getSnapshot`, `load`, `refresh` and `dispose`; `resolveWidget`
+  and `resolveWidgets` accept `timeoutMs`, `signal` and `cache` too.
+
 **Charts.** `GRAPH` widgets render as inline SVG with `role="img"`, a
-`<title>` and a `<desc>` summarising the series (latest, high and low), a
+`<title>` and a `<desc>` summarizing the series (latest, high and low), a
 legend when there are two or more series, a hover and keyboard (arrow keys)
-tooltip, and a collapsible "View as table" with every value. Colours are CSS
+tooltip, and a collapsible "View as table" with every value. Colors are CSS
 custom properties (`--dwt-series-1` … `--dwt-series-8`) with built-in
-defaults from a palette checked for colour-vision deficiency in light and
+defaults from a palette checked for color-vision deficiency in light and
 dark modes; a graph may have at most eight series.
 
 ## Maker Toolkit compatibility
@@ -294,7 +376,7 @@ the definition mirrors its `widget` table:
   `fromLegacyDefinition()` maps a served definition.
 - `KPI`, `BAR_LIST` and `ALERT_LIST` are new kinds. Add them to the
   `WidgetViewType` enum before seeding widgets that use them.
-- The desktop app's `dashboard-layout.ts` (order, hidden, minimised) is
+- The desktop app's `dashboard-layout.ts` (order, hidden, minimized) is
   `layout.ts` here, with the same JSON shape, so saved layouts carry over.
   It now appends new widgets by `sortOrder` and tolerates corrupt values per
   field.

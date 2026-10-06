@@ -23,5 +23,5 @@
     "skipLibCheck": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src/index.ts", "src/core/**/*.ts"]
+  "include": ["src/index.ts", "src/core/**/*.ts", "types/core-runtime.d.ts"]
 }

@@ -8,7 +8,14 @@ import {
 } from 'react';
 
 import type { WidgetDefinition } from '../core/definition.js';
-import { fillColumnSpans, fillsWidth } from '../core/grid.js';
+import {
+  WIDTH_COLUMNS,
+  fillColumnSpans,
+  fillWidthSpans,
+  fillsWidth,
+  itemWidth,
+  usesWidthColumns,
+} from '../core/grid.js';
 import {
   EMPTY_LAYOUT,
   hiddenWidgets,
@@ -21,7 +28,20 @@ import {
   type DashboardLayout,
 } from '../core/layout.js';
 import type { DashboardWidget } from '../core/resolve.js';
+import {
+  defaultDetailQuery,
+  deriveDetailData,
+  resolveDetailOptions,
+  type DetailData,
+  type DetailQuery,
+} from '../core/detail.js';
 import { ResolvedWidgetCard } from './card.js';
+import {
+  WidgetDetail,
+  WidgetDetailDialog,
+  useDetailData,
+  type DetailLoader,
+} from './detail.js';
 import {
   WidgetSettingsProvider,
   useSlotClassName,
@@ -31,6 +51,9 @@ import {
 
 /** Viewport width at or below which the stylesheet stops spanning `large`. */
 const NARROW_VIEWPORT_QUERY = '(max-width: 640px)';
+
+/** Grid width above which a 12-column grid uses each widget's own width. */
+const WIDE_GRID_PX = 900;
 
 interface GridMetrics {
   readonly columns: number;
@@ -45,7 +68,8 @@ interface GridMetrics {
  */
 function useFillSpans(
   definitions: readonly WidgetDefinition[],
-  gridRef: RefObject<HTMLDivElement | null>
+  gridRef: RefObject<HTMLDivElement | null>,
+  twelve: boolean
 ): ReadonlyMap<string, number> {
   const [metrics, setMetrics] = useState<GridMetrics | undefined>(undefined);
   const needsSpans: boolean = definitions.some((definition) =>
@@ -60,6 +84,18 @@ function useFillSpans(
     }
     function measure(): void {
       if (grid === null) return;
+      if (twelve) {
+        // Narrow grids reflow in CSS; only fill when widths apply as set.
+        const wide: boolean = grid.clientWidth > WIDE_GRID_PX;
+        setMetrics((previous) =>
+          !wide
+            ? undefined
+            : previous?.columns === WIDTH_COLUMNS
+              ? previous
+              : { columns: WIDTH_COLUMNS, largeSpan: 2 }
+        );
+        return;
+      }
       const tracks: string = getComputedStyle(grid).gridTemplateColumns;
       const columns: number =
         tracks === '' || tracks === 'none'
@@ -80,15 +116,24 @@ function useFillSpans(
     const observer = new ResizeObserver(measure);
     observer.observe(grid);
     return () => observer.disconnect();
-  }, [needsSpans, gridRef]);
+  }, [needsSpans, gridRef, twelve]);
 
   return useMemo(
     () =>
       metrics === undefined
         ? new Map<string, number>()
-        : fillColumnSpans(definitions, metrics.columns, metrics.largeSpan),
-    [definitions, metrics]
+        : twelve
+          ? fillWidthSpans(definitions)
+          : fillColumnSpans(definitions, metrics.columns, metrics.largeSpan),
+    [definitions, metrics, twelve]
   );
+}
+
+function widthProps(
+  twelve: boolean,
+  definition: WidgetDefinition
+): { width?: number } {
+  return twelve ? { width: itemWidth(definition) } : {};
 }
 
 function spanProps(
@@ -117,14 +162,28 @@ export function WidgetGrid({
   const slot = useSlotClassName();
   const gridRef = useRef<HTMLDivElement>(null);
   const definitions: WidgetDefinition[] = widgets.map((w) => w.definition);
-  const spans: ReadonlyMap<string, number> = useFillSpans(definitions, gridRef);
+  const twelve: boolean = usesWidthColumns(definitions);
+  const spans: ReadonlyMap<string, number> = useFillSpans(
+    definitions,
+    gridRef,
+    twelve
+  );
   return (
-    <div ref={gridRef} className={slot('grid', 'dwt-grid', className)}>
+    <div
+      ref={gridRef}
+      className={slot(
+        'grid',
+        'dwt-grid',
+        twelve && 'dwt-grid--twelve',
+        className
+      )}
+    >
       {widgets.map((widget) => (
         <ResolvedWidgetCard
           key={widget.definition.key}
           widget={widget}
           {...spanProps(spans, widget.definition.key)}
+          {...widthProps(twelve, widget.definition)}
           {...(headingLevel === undefined ? {} : { headingLevel })}
           {...(onRetry === undefined || widget.status !== 'error'
             ? {}
@@ -141,13 +200,68 @@ export interface DashboardProps extends WidgetSettings {
   /** The viewer's saved layout. Default: none saved. */
   readonly layout?: DashboardLayout;
   /**
-   * Called with the next layout after a move, hide, show, minimise or
+   * Called with the next layout after a move, hide, show, minimize or
    * restore; persist it. Without it the layout is read-only (no controls).
    */
   readonly onLayoutChange?: (layout: DashboardLayout) => void;
   readonly onRetry?: (key: string) => void;
+  /**
+   * Loads the full data for a widget's detail view (widgets whose definition
+   * sets `detail`). Close over your own context. Without it, TABLE widgets
+   * with no footer and BAR_LIST widgets show their card data; other widgets
+   * get no View button.
+   */
+  readonly loadDetail?: DetailLoader;
+  /**
+   * Called with the widget key when the viewer opens a detail view, instead
+   * of the built-in dialog: navigate to your own page.
+   */
+  readonly onOpenDetail?: (key: string) => void;
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
+}
+
+/** The built-in dialog for one widget's detail view. */
+function DetailHost({
+  widget,
+  loadDetail,
+  onClose,
+}: {
+  readonly widget: DashboardWidget;
+  readonly loadDetail: DetailLoader | undefined;
+  readonly onClose: () => void;
+}): ReactNode {
+  const { locale } = useWidgetSettings();
+  const { definition } = widget;
+  const options = resolveDetailOptions(definition);
+  const pageSize: number = options?.pageSize ?? 25;
+  const [query, setQuery] = useState<DetailQuery>(defaultDetailQuery(pageSize));
+  const derived: DetailData | undefined =
+    widget.status === 'ok' ? deriveDetailData(widget.data, locale) : undefined;
+  const load: DetailLoader | undefined = useMemo(
+    () => loadDetail ?? (derived === undefined ? undefined : () => derived),
+    [loadDetail, derived]
+  );
+  const { state, reload } = useDetailData(definition, load, true);
+  const title: string = options?.title ?? definition.title;
+  return (
+    <WidgetDetailDialog title={title} open onClose={onClose}>
+      <WidgetDetail
+        title={title}
+        query={query}
+        onQueryChange={setQuery}
+        status={load === undefined ? 'error' : state.status}
+        {...(load === undefined
+          ? {
+              error: `Widget "${definition.key}" has no detail data: pass loadDetail, or use a TABLE without a footer or a BAR_LIST.`,
+            }
+          : {})}
+        {...(state.data === undefined ? {} : { data: state.data })}
+        {...(state.error === undefined ? {} : { error: state.error })}
+        onRetry={reload}
+      />
+    </WidgetDetailDialog>
+  );
 }
 
 function DashboardInner({
@@ -155,6 +269,8 @@ function DashboardInner({
   layout = EMPTY_LAYOUT,
   onLayoutChange,
   onRetry,
+  loadDetail,
+  onOpenDetail,
   headingLevel,
   className,
 }: DashboardProps): ReactNode {
@@ -167,8 +283,23 @@ function DashboardInner({
   const visible: WidgetDefinition[] = visibleWidgets(definitions, layout);
   const hidden: WidgetDefinition[] = hiddenWidgets(definitions, layout);
   const editable: boolean = onLayoutChange !== undefined;
+  // Minimized widgets leave the grid for their own bar, so they stop taking
+  // space. Without layout controls there is no way to restore them, so a
+  // read-only dashboard shows them as normal cards.
+  const minimized: WidgetDefinition[] = editable
+    ? visible.filter((definition) => isMinimized(layout, definition.key))
+    : [];
+  const shown: WidgetDefinition[] = editable
+    ? visible.filter((definition) => !isMinimized(layout, definition.key))
+    : visible;
+  const [detailKey, setDetailKey] = useState<string | undefined>(undefined);
   const gridRef = useRef<HTMLDivElement>(null);
-  const spans: ReadonlyMap<string, number> = useFillSpans(visible, gridRef);
+  const twelve: boolean = usesWidthColumns(shown);
+  const spans: ReadonlyMap<string, number> = useFillSpans(
+    shown,
+    gridRef,
+    twelve
+  );
 
   function change(next: DashboardLayout): void {
     if (next !== layout) onLayoutChange?.(next);
@@ -193,13 +324,35 @@ function DashboardInner({
           ))}
         </div>
       )}
+      {minimized.length > 0 && (
+        <div
+          className={slot('hiddenBar', 'dwt-hidden-bar', 'dwt-minimized-bar')}
+        >
+          <span className="dwt-hidden-label">{labels.minimizedWidgets}</span>
+          {minimized.map((definition) => (
+            <button
+              key={definition.key}
+              type="button"
+              className={slot('button', 'dwt-button', 'dwt-show-button')}
+              aria-label={labels.expand(definition.title)}
+              onClick={() => change(toggleMinimized(layout, definition.key))}
+            >
+              <span aria-hidden="true">▸ </span>
+              {definition.title}
+            </button>
+          ))}
+        </div>
+      )}
       {visible.length === 0 ? (
         <p className={slot('empty', 'dwt-empty', 'dwt-dashboard-empty')}>
           {definitions.length === 0 ? labels.noWidgets : labels.allHidden}
         </p>
-      ) : (
-        <div ref={gridRef} className={slot('grid', 'dwt-grid')}>
-          {visible.map((definition, index) => {
+      ) : shown.length === 0 ? null : (
+        <div
+          ref={gridRef}
+          className={slot('grid', 'dwt-grid', twelve && 'dwt-grid--twelve')}
+        >
+          {shown.map((definition, index) => {
             const widget: DashboardWidget | undefined = byKey.get(
               definition.key
             );
@@ -225,7 +378,7 @@ function DashboardInner({
                   className={slot('button', 'dwt-button', 'dwt-icon-button')}
                   aria-label={labels.moveLater(title)}
                   title={labels.moveLater(title)}
-                  disabled={index === visible.length - 1}
+                  disabled={index === shown.length - 1}
                   onClick={() =>
                     change(moveWidgetBy(definitions, layout, key, 1))
                   }
@@ -243,11 +396,26 @@ function DashboardInner({
                 </button>
               </>
             ) : undefined;
+            const viewable: boolean =
+              resolveDetailOptions(definition) !== undefined &&
+              (onOpenDetail !== undefined ||
+                loadDetail !== undefined ||
+                (widget.status === 'ok' &&
+                  deriveDetailData(widget.data) !== undefined));
             return (
               <ResolvedWidgetCard
                 key={key}
                 widget={widget}
+                {...(viewable
+                  ? {
+                      onView: () =>
+                        onOpenDetail === undefined
+                          ? setDetailKey(key)
+                          : onOpenDetail(key),
+                    }
+                  : {})}
                 {...spanProps(spans, key)}
+                {...widthProps(twelve, definition)}
                 minimized={isMinimized(layout, key)}
                 {...(actions === undefined ? {} : { actions })}
                 {...(editable
@@ -265,13 +433,21 @@ function DashboardInner({
           })}
         </div>
       )}
+      {detailKey !== undefined && byKey.get(detailKey) !== undefined && (
+        <DetailHost
+          key={detailKey}
+          widget={byKey.get(detailKey) as DashboardWidget}
+          loadDetail={loadDetail}
+          onClose={() => setDetailKey(undefined)}
+        />
+      )}
     </div>
   );
 }
 
 /**
  * A full dashboard: widgets ordered by the viewer's layout, with move,
- * hide/show and minimise controls when `onLayoutChange` is given. Settings
+ * hide/show and minimize controls when `onLayoutChange` is given. Settings
  * (locale, link target, classNames, labels) apply to every widget inside.
  */
 export function Dashboard({

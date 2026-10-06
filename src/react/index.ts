@@ -23,6 +23,15 @@ export {
   type DashboardProps,
   type WidgetGridProps,
 } from './dashboard.js';
+export {
+  WidgetDetail,
+  WidgetDetailDialog,
+  useDetailData,
+  type DetailLoadState,
+  type DetailLoader,
+  type WidgetDetailDialogProps,
+  type WidgetDetailProps,
+} from './detail.js';
 export { DEFAULT_SERIES_COLORS, seriesColor } from './palette.js';
 export { Thumbnail, WidgetLink } from './primitives.js';
 export {
@@ -34,6 +43,11 @@ export {
   TextWidget,
   WidgetContent,
 } from './renderers.js';
+export {
+  useWidgets,
+  type UseWidgetsOptions,
+  type UseWidgetsResult,
+} from './use-widgets.js';
 export {
   DEFAULT_LABELS,
   WidgetSettingsProvider,

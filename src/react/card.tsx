@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId, type CSSProperties, type ReactNode } from 'react';
 
 import type { WidgetFill, WidgetSize } from '../core/definition.js';
 import { fillsHeight, fillsWidth } from '../core/grid.js';
@@ -9,11 +9,17 @@ import { useSlotClassName, useWidgetSettings } from './settings.js';
 export interface WidgetCardProps {
   readonly title: string;
   readonly description?: string;
-  /** Extra controls in the header (move, hide...), before the minimise toggle. */
+  /** Extra controls in the header (move, hide...), before the minimize toggle. */
   readonly actions?: ReactNode;
   readonly minimized?: boolean;
-  /** Shows the minimise/expand toggle when given. */
+  /** Shows the minimize/expand toggle when given. */
   readonly onToggleMinimized?: () => void;
+  /**
+   * Opens the widget's detail view. Adds a "View" icon button to the header
+   * actions and makes the title clickable (for mouse and touch; the button is
+   * the accessible control).
+   */
+  readonly onView?: () => void;
   /** Default 'ok', which renders `children`. */
   readonly status?: 'ok' | 'loading' | 'empty' | 'error';
   readonly emptyText?: string;
@@ -29,6 +35,13 @@ export interface WidgetCardProps {
    * width-filling card the columns left over in its row.
    */
   readonly columnSpan?: number;
+  /** 12-column width (see `WidgetDefinition.width`); sets `--dwt-width`. */
+  readonly width?: number;
+  /**
+   * The widget's key, rendered as `data-widget-key` so `useWidgets` can tell
+   * which card scrolled into view. `ResolvedWidgetCard` sets it for you.
+   */
+  readonly widgetKey?: string;
   /** 2 to 6; default 2. */
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
@@ -37,7 +50,7 @@ export interface WidgetCardProps {
 
 /**
  * The frame every widget sits in: title, optional description and actions,
- * a minimise toggle, and loading, empty and error states.
+ * a minimize toggle, and loading, empty and error states.
  */
 export function WidgetCard({
   title,
@@ -45,6 +58,7 @@ export function WidgetCard({
   actions,
   minimized = false,
   onToggleMinimized,
+  onView,
   status = 'ok',
   emptyText,
   error,
@@ -53,6 +67,8 @@ export function WidgetCard({
   size,
   fill,
   columnSpan,
+  width,
+  widgetKey,
   headingLevel = 2,
   className,
   children,
@@ -109,9 +125,17 @@ export function WidgetCard({
         fillsWidth(fill) && 'dwt-card--fill-width',
         className
       )}
-      {...(columnSpan === undefined
+      {...(widgetKey === undefined ? {} : { 'data-widget-key': widgetKey })}
+      {...(columnSpan === undefined && width === undefined
         ? {}
-        : { style: { gridColumn: `span ${columnSpan}` } })}
+        : {
+            style: {
+              ...(width === undefined ? {} : { '--dwt-width': width }),
+              ...(columnSpan === undefined
+                ? {}
+                : { gridColumn: `span ${columnSpan}` }),
+            } as CSSProperties,
+          })}
     >
       <header className={slot('cardHeader', 'dwt-card-header')}>
         <div className="dwt-card-heading">
@@ -119,7 +143,18 @@ export function WidgetCard({
             id={`${id}-title`}
             className={slot('cardTitle', 'dwt-card-title')}
           >
-            {title}
+            {onView === undefined ? (
+              title
+            ) : (
+              <button
+                type="button"
+                tabIndex={-1}
+                className="dwt-card-title-button"
+                onClick={onView}
+              >
+                {title}
+              </button>
+            )}
           </Heading>
           {description !== undefined && !minimized && (
             <p className={slot('cardDescription', 'dwt-card-description')}>
@@ -127,8 +162,36 @@ export function WidgetCard({
             </p>
           )}
         </div>
-        {(actions !== undefined || onToggleMinimized !== undefined) && (
+        {(actions !== undefined ||
+          onToggleMinimized !== undefined ||
+          onView !== undefined) && (
           <div className={slot('cardActions', 'dwt-card-actions')}>
+            {onView !== undefined && (
+              <button
+                type="button"
+                className={slot('button', 'dwt-button', 'dwt-icon-button')}
+                aria-label={labels.view(title)}
+                title={labels.view(title)}
+                onClick={onView}
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  width="16"
+                  height="16"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path
+                    d="M1 8s2.6-4.5 7-4.5S15 8 15 8s-2.6 4.5-7 4.5S1 8 1 8Z"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="8" cy="8" r="2.1" fill="currentColor" />
+                </svg>
+              </button>
+            )}
             {actions}
             {onToggleMinimized !== undefined && (
               <button
@@ -180,9 +243,13 @@ export interface ResolvedWidgetCardProps {
   readonly widget: DashboardWidget;
   /** See `WidgetCardProps.columnSpan`. */
   readonly columnSpan?: number;
+  /** 12-column width (see `WidgetDefinition.width`); sets `--dwt-width`. */
+  readonly width?: number;
   readonly actions?: ReactNode;
   readonly minimized?: boolean;
   readonly onToggleMinimized?: () => void;
+  /** See `WidgetCardProps.onView`. */
+  readonly onView?: () => void;
   readonly onRetry?: () => void;
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
@@ -197,6 +264,7 @@ export function ResolvedWidgetCard({
   return (
     <WidgetCard
       {...props}
+      widgetKey={definition.key}
       title={widgetTitle(widget)}
       status={widget.status}
       {...(definition.description === undefined

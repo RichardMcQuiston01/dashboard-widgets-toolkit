@@ -18,6 +18,8 @@ import {
   type WidgetKind,
   type WidgetPayload,
 } from './payload.js';
+import { DETAIL_MODES, MAX_DETAIL_PAGE_SIZE } from './detail.js';
+import { MAX_WIDGET_WIDTH, MIN_WIDGET_WIDTH, isWidgetWidth } from './grid.js';
 import { err, ok, type Result } from './result.js';
 import { isSafeHref, isSafeImageUrl } from './url.js';
 
@@ -335,6 +337,35 @@ function checkPayloadFields(
   }
 }
 
+/** Checks a definition's `detail` setting: a boolean or an options object. */
+function checkDetailOption(detail: unknown, problems: Problems): void {
+  if (detail === undefined || typeof detail === 'boolean') return;
+  if (!isRecord(detail)) {
+    problems.push(
+      `detail must be true, false or an options object, got ${describeType(detail)}.`
+    );
+    return;
+  }
+  optionalString(detail, 'title', 'detail', problems);
+  const pageSize: unknown = detail['pageSize'];
+  if (
+    pageSize !== undefined &&
+    !(
+      typeof pageSize === 'number' &&
+      Number.isInteger(pageSize) &&
+      pageSize >= 1 &&
+      pageSize <= MAX_DETAIL_PAGE_SIZE
+    )
+  ) {
+    problems.push(
+      `detail.pageSize must be a whole number from 1 to ${MAX_DETAIL_PAGE_SIZE}, got ${typeof pageSize === 'number' ? String(pageSize) : describeType(pageSize)}.`
+    );
+  }
+  if (detail['mode'] !== undefined) {
+    requireOneOf(detail, 'mode', DETAIL_MODES, 'detail', problems);
+  }
+}
+
 function formatProblems(prefix: string, problems: Problems): string {
   const shown: Problems = problems.slice(0, MAX_REPORTED_PROBLEMS);
   const more: number = problems.length - shown.length;
@@ -425,6 +456,12 @@ export function validateWidgetDefinition(
   if (value['defaultSize'] !== undefined) {
     requireOneOf(value, 'defaultSize', WIDGET_SIZES, '', problems);
   }
+  if (value['width'] !== undefined && !isWidgetWidth(value['width'])) {
+    problems.push(
+      `width must be an integer from ${MIN_WIDGET_WIDTH} to ${MAX_WIDGET_WIDTH} (twelfths of the row), got ${typeof value['width'] === 'number' ? String(value['width']) : describeType(value['width'])}.`
+    );
+  }
+  checkDetailOption(value['detail'], problems);
   if (value['fill'] !== undefined) {
     requireOneOf(value, 'fill', WIDGET_FILLS, '', problems);
   }

@@ -101,7 +101,7 @@ void describe('definitions', () => {
 });
 
 void describe('payload helpers', () => {
-  void it('recognises kinds and empty content', () => {
+  void it('recognizes kinds and empty content', () => {
     assert.ok(isWidgetKind('BAR_LIST'));
     assert.ok(!isWidgetKind('bar_list'));
     assert.equal(
