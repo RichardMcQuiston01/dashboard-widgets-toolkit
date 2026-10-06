@@ -208,6 +208,7 @@ void describe('validateWidgetDefinition', () => {
       roles: ['owner'],
       active: true,
       defaultSize: 'small',
+      fill: 'both',
     });
     assert.ok(result.ok);
   });
@@ -218,6 +219,7 @@ void describe('validateWidgetDefinition', () => {
       kind: 'CHART',
       roles: ['ok', 2],
       defaultSize: 'huge',
+      fill: 'sideways',
     });
     assert.equal(result.ok, false);
     if (result.ok) return;
@@ -229,5 +231,6 @@ void describe('validateWidgetDefinition', () => {
       result.error,
       /defaultSize must be one of "small", "medium", "large", "full"/
     );
+    assert.match(result.error, /fill must be one of "height", "width", "both"/);
   });
 });

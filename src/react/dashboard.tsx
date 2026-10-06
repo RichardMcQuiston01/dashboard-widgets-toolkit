@@ -1,6 +1,14 @@
-import type { ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 
 import type { WidgetDefinition } from '../core/definition.js';
+import { fillColumnSpans, fillsWidth } from '../core/grid.js';
 import {
   EMPTY_LAYOUT,
   hiddenWidgets,
@@ -21,6 +29,76 @@ import {
   type WidgetSettings,
 } from './settings.js';
 
+/** Viewport width at or below which the stylesheet stops spanning `large`. */
+const NARROW_VIEWPORT_QUERY = '(max-width: 640px)';
+
+interface GridMetrics {
+  readonly columns: number;
+  readonly largeSpan: number;
+}
+
+/**
+ * Column spans for widgets that `fill` their width. The number of columns
+ * comes from the rendered grid (so it follows your CSS and the container
+ * width); until it is measured, and on the server, no spans are set and the
+ * grid lays out normally. Returns an empty map when no widget fills width.
+ */
+function useFillSpans(
+  definitions: readonly WidgetDefinition[],
+  gridRef: RefObject<HTMLDivElement | null>
+): ReadonlyMap<string, number> {
+  const [metrics, setMetrics] = useState<GridMetrics | undefined>(undefined);
+  const needsSpans: boolean = definitions.some((definition) =>
+    fillsWidth(definition.fill)
+  );
+
+  useEffect(() => {
+    const grid: HTMLDivElement | null = gridRef.current;
+    if (!needsSpans || grid === null || typeof ResizeObserver === 'undefined') {
+      setMetrics(undefined);
+      return undefined;
+    }
+    function measure(): void {
+      if (grid === null) return;
+      const tracks: string = getComputedStyle(grid).gridTemplateColumns;
+      const columns: number =
+        tracks === '' || tracks === 'none'
+          ? 0
+          : tracks.trim().split(/\s+/).length;
+      const largeSpan: number = window.matchMedia(NARROW_VIEWPORT_QUERY).matches
+        ? 1
+        : 2;
+      setMetrics((previous) =>
+        columns === 0
+          ? undefined
+          : previous?.columns === columns && previous.largeSpan === largeSpan
+            ? previous
+            : { columns, largeSpan }
+      );
+    }
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, [needsSpans, gridRef]);
+
+  return useMemo(
+    () =>
+      metrics === undefined
+        ? new Map<string, number>()
+        : fillColumnSpans(definitions, metrics.columns, metrics.largeSpan),
+    [definitions, metrics]
+  );
+}
+
+function spanProps(
+  spans: ReadonlyMap<string, number>,
+  key: string
+): { columnSpan?: number } {
+  const columnSpan: number | undefined = spans.get(key);
+  return columnSpan === undefined ? {} : { columnSpan };
+}
+
 export interface WidgetGridProps {
   /** Rendered in the order given. */
   readonly widgets: readonly DashboardWidget[];
@@ -37,12 +115,16 @@ export function WidgetGrid({
   className,
 }: WidgetGridProps): ReactNode {
   const slot = useSlotClassName();
+  const gridRef = useRef<HTMLDivElement>(null);
+  const definitions: WidgetDefinition[] = widgets.map((w) => w.definition);
+  const spans: ReadonlyMap<string, number> = useFillSpans(definitions, gridRef);
   return (
-    <div className={slot('grid', 'dwt-grid', className)}>
+    <div ref={gridRef} className={slot('grid', 'dwt-grid', className)}>
       {widgets.map((widget) => (
         <ResolvedWidgetCard
           key={widget.definition.key}
           widget={widget}
+          {...spanProps(spans, widget.definition.key)}
           {...(headingLevel === undefined ? {} : { headingLevel })}
           {...(onRetry === undefined || widget.status !== 'error'
             ? {}
@@ -85,6 +167,8 @@ function DashboardInner({
   const visible: WidgetDefinition[] = visibleWidgets(definitions, layout);
   const hidden: WidgetDefinition[] = hiddenWidgets(definitions, layout);
   const editable: boolean = onLayoutChange !== undefined;
+  const gridRef = useRef<HTMLDivElement>(null);
+  const spans: ReadonlyMap<string, number> = useFillSpans(visible, gridRef);
 
   function change(next: DashboardLayout): void {
     if (next !== layout) onLayoutChange?.(next);
@@ -114,7 +198,7 @@ function DashboardInner({
           {definitions.length === 0 ? labels.noWidgets : labels.allHidden}
         </p>
       ) : (
-        <div className={slot('grid', 'dwt-grid')}>
+        <div ref={gridRef} className={slot('grid', 'dwt-grid')}>
           {visible.map((definition, index) => {
             const widget: DashboardWidget | undefined = byKey.get(
               definition.key
@@ -163,6 +247,7 @@ function DashboardInner({
               <ResolvedWidgetCard
                 key={key}
                 widget={widget}
+                {...spanProps(spans, key)}
                 minimized={isMinimized(layout, key)}
                 {...(actions === undefined ? {} : { actions })}
                 {...(editable

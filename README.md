@@ -240,6 +240,29 @@ override its custom properties:
 Dark mode follows the OS setting unless the page sets `data-theme="light"`;
 `data-theme="dark"` or a `dark` class on `<html>` forces it.
 
+**Filling space.** By default each card is only as big as its content, so a
+short card beside a tall one leaves a gap. Set `fill` on a widget definition
+to have it use the free space in its grid row:
+
+```ts
+defineWidget({ key: 'countries', title: 'Orders by country', kind: 'BAR_LIST', fill: 'height' });
+defineWidget({ key: 'notes', title: 'Notes', kind: 'TEXT', fill: 'width' });
+defineWidget({ key: 'trend', title: 'Trend', kind: 'GRAPH', defaultSize: 'large', fill: 'both' });
+```
+
+| `fill`   | Effect                                                              |
+| -------- | ------------------------------------------------------------------- |
+| `height` | Stretches the card to the height of its row (`dwt-card--fill-height`). |
+| `width`  | Widens the card to take the columns left over in its row (`dwt-card--fill-width`). |
+| `both`   | Both.                                                               |
+
+`Dashboard` and `WidgetGrid` work out the spans from the rendered grid (so it
+follows your CSS and the container width) and set `grid-column: span N` on
+width-filling cards; on the server, and before the first measurement, the
+grid simply lays out normally. The same helper is exported from the core as
+`fillColumnSpans(items, columns)` for custom layouts, and `WidgetCard` takes
+`fill` and `columnSpan` props.
+
 **Charts.** `GRAPH` widgets render as inline SVG with `role="img"`, a
 `<title>` and a `<desc>` summarising the series (latest, high and low), a
 legend when there are two or more series, a hover and keyboard (arrow keys)

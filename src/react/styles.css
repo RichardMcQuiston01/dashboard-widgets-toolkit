@@ -124,6 +124,10 @@
   grid-column: span 2;
 }
 
+:where(.dwt-card--fill-height) {
+  align-self: stretch;
+}
+
 :where(.dwt-card--size-full) {
   grid-column: 1 / -1;
 }
