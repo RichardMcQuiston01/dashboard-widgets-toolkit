@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 0.4.0
+
+### Minor Changes
+
+- Detail view, core part (phase 1 of `docs/design/detail-view.md`; no UI yet).
+  Widget definitions gain `detail` (`true` or `{ title, pageSize, mode }`), and
+  the core adds the data and query types (`DetailData`, `DetailQuery`,
+  `DetailProvider`), `queryRows` (accent- and case-insensitive filtering,
+  locale-aware and numeric sorting, paging), `serializeDetailQuery` and
+  `parseDetailQuery` for URLs, `validateDetailData`, `resolveDetailOptions` and
+  `defaultDetailQuery`. `validateWidgetDefinition` checks `detail`.
+- 38d977f: Polish the card controls: icon buttons are now bordered 28px squares with the
+  icon centered; minimized widgets move out of the grid into a "Minimized:" bar
+  (new label `minimizedWidgets`) instead of leaving an empty card; links that
+  open in a new tab get an external-link icon with hidden text (new label
+  `opensInNewTab`); and all text and labels use American English ("Minimize",
+  "color", "canceled").
+- 20e7fe7: Add `width` to widget definitions: an integer from 2 to 12 (twelfths of the
+  row). A grid with any `width` becomes 12 columns, reflowing on narrow
+  containers. Adds `isWidgetWidth`, `widthForSize`, `itemWidth` and
+  `fillWidthSpans` to the core, and validation of `width`.
+
 ## 0.3.0
 
 ### Minor Changes
@@ -27,16 +49,6 @@
     and a failing cache never fails a widget.
   - Cards rendered by `ResolvedWidgetCard` carry `data-widget-key`, and
     `WidgetCard` takes an optional `widgetKey` prop.
-- 38d977f: Polish the card controls: icon buttons are now bordered 28px squares with the
-  icon centered; minimized widgets move out of the grid into a "Minimized:" bar
-  (new label `minimizedWidgets`) instead of leaving an empty card; links that
-  open in a new tab get an external-link icon with hidden text (new label
-  `opensInNewTab`); and all text and labels use American English ("Minimize",
-  "color", "canceled").
-- 20e7fe7: Add `width` to widget definitions: an integer from 2 to 12 (twelfths of the
-  row). A grid with any `width` becomes 12 columns, reflowing on narrow
-  containers. Adds `isWidgetWidth`, `widthForSize`, `itemWidth` and
-  `fillWidthSpans` to the core, and validation of `width`.
 
 ## 0.2.0
 

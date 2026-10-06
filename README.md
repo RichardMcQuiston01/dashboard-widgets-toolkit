@@ -262,6 +262,16 @@ twice its width, under 560px it takes the whole row. `fill: 'width'` still
 works, sharing the twelfths left over in a row. The validator rejects
 anything but an integer from 2 to 12.
 
+**Detail view (core only so far).** Set `detail: true` (or
+`{ title, pageSize, mode: 'client' | 'server' }`) on a definition to mark a
+widget as having a full list behind it. The core already provides what a view
+needs: `queryRows(data, query, locale)` filters, sorts and pages a
+`DetailData` table in memory (case- and accent-insensitive, numeric-aware),
+`serializeDetailQuery` / `parseDetailQuery` keep the query in a URL, and
+`validateDetailData` checks what your detail provider returns. The React view
+(a "View" button and dialog) follows; see
+[docs/design/detail-view.md](./docs/design/detail-view.md).
+
 **Filling space.** By default each card is only as big as its content, so a
 short card beside a tall one leaves a gap. Set `fill` on a widget definition
 to have it use the free space in its grid row:
