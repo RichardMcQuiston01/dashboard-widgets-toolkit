@@ -7,7 +7,7 @@ Project memory for Claude Code. Read this before changing anything.
 `@richardmcquiston01/dashboard-widgets-toolkit`: a publishable,
 framework-agnostic dashboard widget toolkit. Typed widget definitions and
 JSON data payloads (KPI, gauge, table, bar list, alert list, chart), a
-viewer's layout (order, hide, minimise), provider resolution, and React
+viewer's layout (order, hide, minimize), provider resolution, and React
 renderers. Consumers bring their own data providers.
 
 It generalises two existing systems:
@@ -31,7 +31,7 @@ src/
     definition.ts       WidgetDefinition, defineWidget, sort, role filter
     validate.ts         validateWidgetData / validateWidgetDefinition
     resolve.ts          resolveWidgets, resolvePayload, loading/failed widgets
-    layout.ts           DashboardLayout: parse/serialise, order, hide, minimise
+    layout.ts           DashboardLayout: parse/serialise, order, hide, minimize
     format.ts           Intl formatting, percent change, kpiDelta
     scale.ts            niceStep, niceDomain, labelStride
     url.ts              isSafeHref / isSafeImageUrl
@@ -44,7 +44,7 @@ src/
     renderers.tsx       one renderer per kind, WidgetContent switch
     charts.tsx          GraphWidget: SVG bar/line, legend, tooltip, table twin
     dashboard.tsx       WidgetGrid, Dashboard (layout controls)
-    palette.ts          default series/chrome colours as var(--dwt-*, fallback)
+    palette.ts          default series/chrome colors as var(--dwt-*, fallback)
     primitives.tsx      WidgetLink (rel="noreferrer", safe schemes), Thumbnail
     styles.css          optional stylesheet, copied to dist/styles.css
 test/
@@ -114,11 +114,11 @@ rest, and the renderers fall back to text even for unvalidated data.
 
 ## Charts
 
-Follow the dataviz method (marks, colour, accessibility): one y axis only;
+Follow the dataviz method (marks, color, accessibility): one y axis only;
 bars at most 24px with a 4px rounded data end and a square baseline end, 2px
 gaps; 2px lines; markers r=4 with a 2px surface ring; solid hairline grid;
-a legend for 2+ series and none for one; text in text colours, never series
-colours; categorical colours in a fixed order (`palette.ts`, validated in
+a legend for 2+ series and none for one; text in text colors, never series
+colors; categorical colors in a fixed order (`palette.ts`, validated in
 both modes), at most 8 series (`MAX_GRAPH_SERIES`); every chart has a
 `<title>`/`<desc>`, keyboard focus with arrow keys, a hover tooltip that
 never gates a value, and a "View as table" twin. If you change the palette,

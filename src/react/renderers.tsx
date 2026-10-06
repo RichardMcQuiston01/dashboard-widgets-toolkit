@@ -43,7 +43,7 @@ const DELTA_ARROWS: Readonly<Record<KpiDelta['direction'], string>> = {
 
 /**
  * KPI: a stat tile. The change against the previous period carries an arrow
- * and signed text as well as colour, so it never relies on colour alone.
+ * and signed text as well as color, so it never relies on color alone.
  */
 export function KpiWidget({
   data,
@@ -183,7 +183,7 @@ export function TableWidget({
 }
 
 /**
- * BAR_LIST: labelled horizontal bars. One series, so one colour (slot 1)
+ * BAR_LIST: labelled horizontal bars. One series, so one color (slot 1)
  * for every bar; the value text sits beside the bar, never inside it.
  */
 export function BarListWidget({

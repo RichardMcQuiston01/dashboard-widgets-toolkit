@@ -1,10 +1,10 @@
 /**
- * Default colours, used as `var(--dwt-*, fallback)` so charts read correctly
+ * Default colors, used as `var(--dwt-*, fallback)` so charts read correctly
  * without the stylesheet. `styles.css` redefines them for dark mode, and an
  * app can override any of them with its own CSS custom properties.
  *
  * The categorical order is the dataviz reference palette, validated for
- * colour-vision deficiency on adjacent pairs in light and dark modes. Slots
+ * color-vision deficiency on adjacent pairs in light and dark modes. Slots
  * are assigned in this fixed order, never cycled, and follow the series
  * (its position in the payload), never its rank.
  */

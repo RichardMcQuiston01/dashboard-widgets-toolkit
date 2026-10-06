@@ -12,6 +12,7 @@ import {
   WidgetCard,
   WidgetContent,
   WidgetGrid,
+  WidgetLink,
   WidgetSettingsProvider,
   useWidgets,
   barPath,
@@ -75,7 +76,7 @@ void describe('WidgetCard', () => {
     assert.match(error, />Retry<\/button>/);
   });
 
-  void it('hides the body when minimised and labels the toggle', () => {
+  void it('hides the body when minimized and labels the toggle', () => {
     const markup = html(
       <WidgetCard title="Sales" minimized onToggleMinimized={() => undefined}>
         <p>secret body</p>
@@ -153,7 +154,7 @@ void describe('renderers', () => {
     );
   });
 
-  void it('KPI with a good and a bad change, never colour alone', () => {
+  void it('KPI with a good and a bad change, never color alone', () => {
     const up = content({
       kind: 'KPI',
       value: 1200,
@@ -354,7 +355,7 @@ void describe('GraphWidget', () => {
     );
   });
 
-  void it('draws one thin bar per value in series colour, with no legend for one series', () => {
+  void it('draws one thin bar per value in series color, with no legend for one series', () => {
     const markup = html(<GraphWidget data={monthly} />);
     assert.equal(markup.match(/class="dwt-bar"/g)?.length, 3);
     assert.match(markup, /fill="var\(--dwt-series-1, #2a78d6\)"/);
@@ -505,12 +506,31 @@ void describe('WidgetGrid and Dashboard', () => {
       /class="dwt-hidden-bar"><span class="dwt-hidden-label">Hidden widgets:<\/span>/
     );
     assert.match(markup, /aria-label="Show Pending"/);
-    assert.match(markup, /Broken<\/h2>.*Revenue<\/h2>.*Low stock \(4\)<\/h2>/);
+    assert.match(markup, /Broken<\/h2>.*Low stock \(4\)<\/h2>/);
     assert.doesNotMatch(markup, /Pending<\/h2>/);
+    // Minimized widgets leave the grid for their own bar.
+    assert.doesNotMatch(markup, /Revenue<\/h2>/);
+    assert.match(
+      markup,
+      /dwt-minimized-bar"><span class="dwt-hidden-label">Minimized:<\/span>/
+    );
     assert.match(markup, /aria-label="Move Broken earlier"[^>]*disabled=""/);
     assert.match(markup, /aria-label="Move Low stock later"[^>]*disabled=""/);
-    assert.match(markup, /aria-label="Hide Revenue"/);
     assert.match(markup, /aria-label="Expand Revenue"/);
+  });
+
+  void it('marks links that open in a new tab with an icon and hidden text', () => {
+    const newTab = renderToStaticMarkup(
+      <WidgetSettingsProvider linkTarget="_blank">
+        <WidgetLink href="https://example.com/a">Shop</WidgetLink>
+      </WidgetSettingsProvider>
+    );
+    assert.match(newTab, /dwt-external-icon/);
+    assert.match(newTab, /\(opens in a new tab\)/);
+    const sameTab = renderToStaticMarkup(
+      <WidgetLink href="https://example.com/a">Shop</WidgetLink>
+    );
+    assert.doesNotMatch(sameTab, /dwt-external-icon/);
   });
 
   void it('Dashboard without onLayoutChange is read-only', () => {

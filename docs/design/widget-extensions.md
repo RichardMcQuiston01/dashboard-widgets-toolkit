@@ -84,7 +84,7 @@ interaction layer.
 3. No new runtime dependency in the default build.
 4. Works with variable spans (`large`, `full`, and `fill: 'width'` spans)
    and with the fill-span measurement.
-5. No behaviour change unless the consumer opts in.
+5. No behavior change unless the consumer opts in.
 6. Respects `prefers-reduced-motion`.
 7. Server rendering unchanged (no effects needed to show the dashboard).
 
@@ -94,7 +94,7 @@ interaction layer.
 | ------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------- |
 | HTML5 drag-and-drop API         | No dependency, little code                          | Poor touch support, limited styling control, weak accessibility  |
 | In-house pointer events         | No dependency, full control, touch and pen included | Most code to write and test: hit-testing, scrolling, auto-scroll |
-| Adapter for a library (dnd-kit) | Mature behaviour, least code here                   | Peer dependency, a second set of semantics to document           |
+| Adapter for a library (dnd-kit) | Mature behavior, least code here                    | Peer dependency, a second set of semantics to document           |
 
 **Recommendation:** in-house pointer events behind an opt-in prop, and keep
 the buttons. If demand appears, expose an escape hatch (below) so people can
@@ -121,7 +121,7 @@ interface DashboardLabels {
 
 Styling hooks follow the existing convention: stable `dwt-*` classes
 (`dwt-drag-handle`, `dwt-card--dragging`, `dwt-drop-indicator`) and new
-`--dwt-*` custom properties for the indicator colour.
+`--dwt-*` custom properties for the indicator color.
 
 ### Interaction specification
 
@@ -130,7 +130,7 @@ Styling hooks follow the existing convention: stable `dwt-*` classes
   links inside cards keep working.
 - **Pointer:** `pointerdown` on the handle starts a drag after a small
   movement threshold; `setPointerCapture` keeps events on the handle. The
-  nearest card by centre distance is the drop target; an indicator line shows
+  nearest card by center distance is the drop target; an indicator line shows
   the insertion point. `pointerup` commits with
   `onLayoutChange(moveWidget(definitions, layout, key, toIndex))`;
   `Escape` or `pointercancel` aborts without a change.
@@ -323,7 +323,7 @@ Behaviour:
   Each widget then resolves independently, so cards appear as they finish.
 - `loadWhen: 'visible'` (optional) observes each card (`IntersectionObserver`) and runs its
   provider on first approach to the viewport. Hidden widgets are not rendered,
-  so they do not load until shown; minimised cards are still in the page, so
+  so they do not load until shown; minimized cards are still in the page, so
   in v1 they load like any other card.
 - `refresh(key)` aborts that widget's in-flight call, then re-runs it. This is
   also what the error card's Retry should call.
@@ -349,7 +349,7 @@ What shipped differs from the sketch above in these ways:
 - **`loadWhen: 'mount' | 'visible'` replaces `lazy`.** `'mount'` is the
   default and is itself asynchronous: first render shows placeholders and the
   loads start in effects. The name now says what it controls.
-- **Providers are not called when a load was cancelled before it got a turn,**
+- **Providers are not called when a load was canceled before it got a turn,**
   so a dashboard torn down in the same tick starts no requests. This also
   makes React StrictMode's mount, unmount, mount cycle call each provider once.
 - **Polling skips widgets still loading** (`refresh(undefined, { skipInFlight:
@@ -659,7 +659,7 @@ beyond a peer dependency on it.
 - **Accessibility:** every new interactive element is a real control with a
   name. Loading, stale and error states are announced through the existing
   `role="status"` and `role="alert"` patterns; freshness text is visible, not
-  colour-only.
+  color-only.
 - **Server rendering:** nothing starts on the server. Hooks return loading
   placeholders until mounted.
 - **Security:** no network or storage in the core. URLs from payloads still go

@@ -9,10 +9,10 @@ import { useSlotClassName, useWidgetSettings } from './settings.js';
 export interface WidgetCardProps {
   readonly title: string;
   readonly description?: string;
-  /** Extra controls in the header (move, hide...), before the minimise toggle. */
+  /** Extra controls in the header (move, hide...), before the minimize toggle. */
   readonly actions?: ReactNode;
   readonly minimized?: boolean;
-  /** Shows the minimise/expand toggle when given. */
+  /** Shows the minimize/expand toggle when given. */
   readonly onToggleMinimized?: () => void;
   /** Default 'ok', which renders `children`. */
   readonly status?: 'ok' | 'loading' | 'empty' | 'error';
@@ -44,7 +44,7 @@ export interface WidgetCardProps {
 
 /**
  * The frame every widget sits in: title, optional description and actions,
- * a minimise toggle, and loading, empty and error states.
+ * a minimize toggle, and loading, empty and error states.
  */
 export function WidgetCard({
   title,

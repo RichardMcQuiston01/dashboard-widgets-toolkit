@@ -187,7 +187,7 @@ export interface DashboardProps extends WidgetSettings {
   /** The viewer's saved layout. Default: none saved. */
   readonly layout?: DashboardLayout;
   /**
-   * Called with the next layout after a move, hide, show, minimise or
+   * Called with the next layout after a move, hide, show, minimize or
    * restore; persist it. Without it the layout is read-only (no controls).
    */
   readonly onLayoutChange?: (layout: DashboardLayout) => void;
@@ -213,10 +213,19 @@ function DashboardInner({
   const visible: WidgetDefinition[] = visibleWidgets(definitions, layout);
   const hidden: WidgetDefinition[] = hiddenWidgets(definitions, layout);
   const editable: boolean = onLayoutChange !== undefined;
+  // Minimized widgets leave the grid for their own bar, so they stop taking
+  // space. Without layout controls there is no way to restore them, so a
+  // read-only dashboard shows them as normal cards.
+  const minimized: WidgetDefinition[] = editable
+    ? visible.filter((definition) => isMinimized(layout, definition.key))
+    : [];
+  const shown: WidgetDefinition[] = editable
+    ? visible.filter((definition) => !isMinimized(layout, definition.key))
+    : visible;
   const gridRef = useRef<HTMLDivElement>(null);
-  const twelve: boolean = usesWidthColumns(visible);
+  const twelve: boolean = usesWidthColumns(shown);
   const spans: ReadonlyMap<string, number> = useFillSpans(
-    visible,
+    shown,
     gridRef,
     twelve
   );
@@ -244,16 +253,35 @@ function DashboardInner({
           ))}
         </div>
       )}
+      {minimized.length > 0 && (
+        <div
+          className={slot('hiddenBar', 'dwt-hidden-bar', 'dwt-minimized-bar')}
+        >
+          <span className="dwt-hidden-label">{labels.minimizedWidgets}</span>
+          {minimized.map((definition) => (
+            <button
+              key={definition.key}
+              type="button"
+              className={slot('button', 'dwt-button', 'dwt-show-button')}
+              aria-label={labels.expand(definition.title)}
+              onClick={() => change(toggleMinimized(layout, definition.key))}
+            >
+              <span aria-hidden="true">▸ </span>
+              {definition.title}
+            </button>
+          ))}
+        </div>
+      )}
       {visible.length === 0 ? (
         <p className={slot('empty', 'dwt-empty', 'dwt-dashboard-empty')}>
           {definitions.length === 0 ? labels.noWidgets : labels.allHidden}
         </p>
-      ) : (
+      ) : shown.length === 0 ? null : (
         <div
           ref={gridRef}
           className={slot('grid', 'dwt-grid', twelve && 'dwt-grid--twelve')}
         >
-          {visible.map((definition, index) => {
+          {shown.map((definition, index) => {
             const widget: DashboardWidget | undefined = byKey.get(
               definition.key
             );
@@ -279,7 +307,7 @@ function DashboardInner({
                   className={slot('button', 'dwt-button', 'dwt-icon-button')}
                   aria-label={labels.moveLater(title)}
                   title={labels.moveLater(title)}
-                  disabled={index === visible.length - 1}
+                  disabled={index === shown.length - 1}
                   onClick={() =>
                     change(moveWidgetBy(definitions, layout, key, 1))
                   }
@@ -326,7 +354,7 @@ function DashboardInner({
 
 /**
  * A full dashboard: widgets ordered by the viewer's layout, with move,
- * hide/show and minimise controls when `onLayoutChange` is given. Settings
+ * hide/show and minimize controls when `onLayoutChange` is given. Settings
  * (locale, link target, classNames, labels) apply to every widget inside.
  */
 export function Dashboard({

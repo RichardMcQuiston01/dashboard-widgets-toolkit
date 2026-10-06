@@ -370,7 +370,7 @@ void describe('createWidgetLoader', () => {
     await sleep(15);
     const slow = loader.getSnapshot()[0];
     assert.ok(slow?.status === 'error');
-    assert.match(slow.error, /Widget "slow": loading was cancelled\./);
+    assert.match(slow.error, /Widget "slow": loading was canceled\./);
     loader.dispose();
   });
 

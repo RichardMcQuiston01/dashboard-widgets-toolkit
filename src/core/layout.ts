@@ -1,5 +1,5 @@
 /**
- * A viewer's dashboard customisation: order, hidden and minimised widgets.
+ * A viewer's dashboard customization: order, hidden and minimized widgets.
  * Pure functions over a small JSON-serialisable object. Persist it however
  * you like (a settings table, localStorage); `parseLayout` tolerates
  * anything, so a corrupt saved value never breaks the dashboard.
@@ -215,7 +215,7 @@ export function showWidget(
   };
 }
 
-/** Hides or shows `key` (showing also clears its minimised state). */
+/** Hides or shows `key` (showing also clears its minimized state). */
 export function toggleHidden(
   layout: DashboardLayout,
   key: string
@@ -225,7 +225,7 @@ export function toggleHidden(
     : hideWidget(layout, key);
 }
 
-/** Collapses `key` to its header. No-op (same object) if already minimised. */
+/** Collapses `key` to its header. No-op (same object) if already minimized. */
 export function minimizeWidget(
   layout: DashboardLayout,
   key: string
@@ -234,7 +234,7 @@ export function minimizeWidget(
   return { ...layout, minimized: [...layout.minimized, key] };
 }
 
-/** Expands `key`. No-op (same object) if not minimised. */
+/** Expands `key`. No-op (same object) if not minimized. */
 export function restoreWidget(
   layout: DashboardLayout,
   key: string
@@ -243,7 +243,7 @@ export function restoreWidget(
   return { ...layout, minimized: layout.minimized.filter((k) => k !== key) };
 }
 
-/** Minimises or restores `key`. */
+/** Minimizes or restores `key`. */
 export function toggleMinimized(
   layout: DashboardLayout,
   key: string

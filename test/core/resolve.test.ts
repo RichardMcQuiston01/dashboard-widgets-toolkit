@@ -263,7 +263,7 @@ void describe('resolveWidget options', () => {
     assert.equal(received?.aborted, true);
   });
 
-  void it('reports a cancelled load, before or after it started', async () => {
+  void it('reports a canceled load, before or after it started', async () => {
     const early = new AbortController();
     early.abort();
     const before = await resolveWidget(
@@ -275,7 +275,7 @@ void describe('resolveWidget options', () => {
       }
     );
     assert.ok(before.status === 'error');
-    assert.match(before.error, /loading was cancelled before it started/);
+    assert.match(before.error, /loading was canceled before it started/);
 
     const later = new AbortController();
     const pending = resolveWidget(
@@ -287,7 +287,7 @@ void describe('resolveWidget options', () => {
     later.abort();
     const after = await pending;
     assert.ok(after.status === 'error');
-    assert.equal(after.error, 'Widget "note": loading was cancelled.');
+    assert.equal(after.error, 'Widget "note": loading was canceled.');
   });
 
   void it('stores successful payloads under the cache key', async () => {
