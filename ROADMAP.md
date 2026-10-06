@@ -7,6 +7,23 @@
 - React renderers, `Dashboard`/`WidgetGrid`, SVG charts with table twins, and
   the optional `styles.css` (0.1.0).
 
+## Short term
+
+- **Icon buttons.** Make the card controls (move, hide, minimise) real square
+  buttons with the icon centred, so they read as clickable.
+- **Detail view.** Let a widget be configured as expandable: clicking its
+  title or a "View" (eye icon) button opens a dedicated list view of the data
+  with filtering and sorting. Needs a design: the toolkit supplies the view,
+  consumers supply the full dataset through the provider.
+- **External link icon.** Links that leave the site (`linkTarget` new tab)
+  get an icon saying so.
+- **Minimise behaviour.** Today a minimised widget is an empty titled box
+  taking the same space. Either remove the control, or move minimised widgets
+  into their own section (like the hidden bar).
+- **American English labels.** "Minimise" becomes "Minimize" (the
+  `minimize` label in `src/react/settings.tsx`, README, docs, CHANGELOG
+  wording going forward).
+
 ## Next
 
 - **Vue renderers** (`./vue`) for Maker Toolkit's Shop Dashboard and other
