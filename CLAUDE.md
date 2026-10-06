@@ -57,6 +57,19 @@ Adding a subpath: add the entry to `tsup.config.ts`, `package.json`
 `exports` (import/require with types) and `typesVersions`, then add a
 changeset.
 
+## Design docs
+
+Plans for work that isn't built yet. Read the one that matches before
+starting that work; skip them otherwise. The shipped parts of each are
+documented in the code and README, which win if they disagree.
+
+- `docs/design/detail-view.md`: detail view. Core and client-mode React
+  shipped. Still planned: server mode (`mode: 'server'`, `totalRows`), URL
+  deep links, page-size choice and column visibility.
+- `docs/design/widget-extensions.md`: async loading shipped (`useWidgets`,
+  `createWidgetLoader`). Still planned: adapters and payload builders,
+  drag-and-drop reordering, push streams.
+
 ## Commands (Bun only)
 
 Bun is the package manager, script runner and test runner. Use
