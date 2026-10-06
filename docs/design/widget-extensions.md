@@ -1,4 +1,4 @@
-# Design: drag and drop, lazy loading, data sources and adapters
+# Design: drag and drop, asynchronous widget loading, data sources and adapters
 
 - **Status:** Draft for review
 - **Date:** 2026-10-06
@@ -11,12 +11,12 @@ Four extensions are proposed. They are independent enough to ship one at a
 time, but they share one idea: **the package defines contracts and pure
 helpers; the consumer supplies data and I/O.**
 
-| #   | Extension                                    | Proposed home                           | Size |
-| --- | -------------------------------------------- | --------------------------------------- | ---- |
-| 1   | Drag-and-drop reordering                     | `./react` (`Dashboard`)                 | M    |
-| 2   | Lazy loading, refresh, timeouts, caching     | `./core` (options) and `./react` (hook) | M    |
-| 3   | Data sources, including push (live) sources  | `./core` (contracts); transports: D1    | L    |
-| 4   | Adapters: source, then mapper, then a widget | `./core` (contract and builders)        | M    |
+| #   | Extension                                                 | Proposed home                           | Size |
+| --- | --------------------------------------------------------- | --------------------------------------- | ---- |
+| 1   | Drag-and-drop reordering                                  | `./react` (`Dashboard`)                 | M    |
+| 2   | Async (post-load) widget data, refresh, timeouts, caching | `./core` (options) and `./react` (hook) | M    |
+| 3   | Data sources, including push (live) sources               | `./core` (contracts); transports: D1    | L    |
+| 4   | Adapters: source, then mapper, then a widget              | `./core` (contract and builders)        | M    |
 
 Order of delivery is in section 8. All changes are additive, so each is a
 minor release.
@@ -177,22 +177,38 @@ changes when `draggable` is off.
 - Nested scroll containers complicate auto-scroll; v1 supports window scroll
   and one scrollable ancestor.
 
-## 4. Extension 2: lazy loading, refresh, timeouts and caching
+## 4. Extension 2: asynchronous widget loading, refresh, timeouts and caching
 
-### What "lazy" means here
+### What "lazy loading" means here
 
-1. **Lazy data:** do not call a provider until its card is near the viewport.
-2. **Progressive data:** show each card as soon as its own data arrives.
-3. **Lazy code:** split rarely-used renderers (for example charts) from the
+**The primary meaning (owner's definition):** the page, and the dashboard
+shell with its cards, render first. Each widget's data is then loaded
+asynchronously, after the page has loaded, and each card fills in as its own
+data arrives. Nothing about a slow widget delays the page or any other widget.
+
+Two refinements are optional and secondary:
+
+1. **Viewport-triggered loading:** additionally wait to call a provider until
+   its card is near the viewport. Useful for long dashboards; not needed for
+   the primary meaning.
+2. **Lazy code:** split rarely-used renderers (for example charts) from the
    main bundle.
 
 ### Today
 
-Progressive data already works: resolve widgets one at a time with
-`resolveWidget` and render a mix of `loading` and resolved widgets. The demo
-resolves everything together only for simplicity. Lazy data on scroll,
-cancellation, timeouts, refresh and caching do not exist. The roadmap lists
-"provider timeouts and caching in `resolveWidgets`".
+The building blocks for the primary meaning already exist. `loadingWidgets()`
+gives placeholders, so the dashboard can render immediately; `resolveWidget`
+resolves one widget independently; and `Dashboard` and `WidgetGrid` accept any
+mix of `loading` and resolved widgets. A consumer can therefore start every
+provider after the first render and replace each placeholder as its promise
+settles. The demo does a simplified version of this: it shows placeholders,
+then resolves all widgets together with `resolveWidgets` after a simulated
+delay, so all cards appear at once instead of one by one.
+
+What is missing is the ergonomics and the safety around it: a hook that does
+this without hand-written effects, per-widget completion, cancellation,
+timeouts, refresh and caching, plus the optional viewport trigger. The roadmap
+lists "provider timeouts and caching in `resolveWidgets`".
 
 Lazy **code** is low value today: `dist/react.js` is about 49 KB and
 `dist/core.js` about 27 KB unminified, and `splitting` is deliberately off.
@@ -282,7 +298,8 @@ before any API is committed. This is decision D7 in section 9.
 
 ```ts
 interface UseWidgetsOptions<C extends WidgetContext> extends ResolveOptions {
-  readonly lazy?: 'visible' | 'eager'; // default 'eager'
+  /** 'mount': start every widget right after the first render (default). */
+  readonly loadWhen?: 'mount' | 'visible';
   readonly rootMargin?: string; // IntersectionObserver, default '200px'
   readonly refreshMs?: number; // poll interval; 0 or absent: never
 }
@@ -295,15 +312,16 @@ declare function useWidgets<C extends WidgetContext>(
 ): {
   readonly widgets: readonly DashboardWidget[];
   readonly refresh: (key?: string) => void;
-  readonly gridRef: RefObject<HTMLDivElement | null>; // attach for lazy: 'visible'
+  readonly gridRef: RefObject<HTMLDivElement | null>; // attach for loadWhen: 'visible'
 };
 ```
 
 Behaviour:
 
-- Starts every widget as `loading`, then resolves each independently so cards
-  appear as they finish.
-- `lazy: 'visible'` observes each card (`IntersectionObserver`) and runs its
+- The first render never waits for data: every widget starts as `loading`, and
+  the loads start after mount (in effects), so the page is interactive first.
+  Each widget then resolves independently, so cards appear as they finish.
+- `loadWhen: 'visible'` (optional) observes each card (`IntersectionObserver`) and runs its
   provider on first approach to the viewport. Hidden and minimised widgets do
   not load until shown.
 - `refresh(key)` aborts that widget's in-flight call, then re-runs it. This is
@@ -624,12 +642,12 @@ beyond a peer dependency on it.
 
 ## 8. Phasing
 
-| Phase | Version (indicative) | Contents                                                                                                   | Why this order                                                           |
-| ----- | -------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| 1     | 0.3.0                | `ProviderOptions` (`signal`), `timeoutMs`, `WidgetCache`, `useWidgets` with `lazy`, `refreshMs`, `refresh` | Foundation that the later phases build on; already on the roadmap        |
-| 2     | 0.4.0                | `DataSource`, `defineAdapter`, payload builders, `bindProviders`                                           | Pure, no I/O, high value, and it needs the `signal` from phase 1         |
-| 3     | 0.5.0                | `draggable` on `Dashboard`, labels, `useDashboardOrder`                                                    | Independent of the data work; can move earlier if the UI is the priority |
-| 4     | 0.6.0                | `WidgetStream`, `streams` in `useWidgets`, `minIntervalMs`; transports per D1                              | Largest, and needs the hook, cancellation and adapters first             |
+| Phase | Version (indicative) | Contents                                                                                                                                 | Why this order                                                           |
+| ----- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1     | 0.3.0                | `ProviderOptions` (`signal`), `timeoutMs`, `WidgetCache`, `useWidgets` with per-widget async loading, `loadWhen`, `refreshMs`, `refresh` | Foundation that the later phases build on; already on the roadmap        |
+| 2     | 0.4.0                | `DataSource`, `defineAdapter`, payload builders, `bindProviders`                                                                         | Pure, no I/O, high value, and it needs the `signal` from phase 1         |
+| 3     | 0.5.0                | `draggable` on `Dashboard`, labels, `useDashboardOrder`                                                                                  | Independent of the data work; can move earlier if the UI is the priority |
+| 4     | 0.6.0                | `WidgetStream`, `streams` in `useWidgets`, `minIntervalMs`; transports per D1                                                            | Largest, and needs the hook, cancellation and adapters first             |
 
 Phases 1 and 3 do not depend on each other and could be built in parallel.
 
@@ -669,4 +687,4 @@ Phases 1 and 3 do not depend on each other and could be built in parallel.
 | Provider timeouts and caching                             | Section 4               |
 | Widget sizes in the layout                                | Not covered (Q1)        |
 | Vue renderers, sparklines, more chart forms, texture fill | Not covered; unaffected |
-| (new) lazy and progressive loading, streams, adapters     | Sections 4 to 6         |
+| (new) async widget loading, streams, adapters             | Sections 4 to 6         |
