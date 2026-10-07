@@ -1,4 +1,4 @@
-import type { WidgetDetailOptions } from './detail.js';
+import type { WidgetDetailOptions, WidgetTableControls } from './detail.js';
 import type { WidgetKind } from './payload.js';
 
 /** A size hint for grid layouts; renderers may map it to column spans. */
@@ -47,6 +47,13 @@ export interface WidgetDefinition {
    * paging. `true` uses defaults. The data comes from a detail provider.
    */
   readonly detail?: boolean | WidgetDetailOptions;
+  /**
+   * TABLE widgets only: a search box and sortable column headers in the card
+   * itself, working on the rows the card holds. `true` turns on both. With a
+   * `footer` (rows were left out) they only see the rows shown; use `detail`
+   * for the full list.
+   */
+  readonly tableControls?: boolean | WidgetTableControls;
   /** Fill free space in the row (height, width or both). Default: none. */
   readonly fill?: WidgetFill;
 }

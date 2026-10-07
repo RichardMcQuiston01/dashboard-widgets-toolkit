@@ -14,6 +14,8 @@
   an icon on links that open a new tab, and American English labels (0.4.0).
 - Detail view, client mode: a "View" button and clickable title open a dialog
   with search, column filters, sortable headers and paging (0.4.0, 0.5.0).
+- Searchable, sortable tables in the cards: `tableControls` on a `TABLE`
+  definition (unreleased).
 
 ## Short term
 
@@ -21,11 +23,6 @@
   datasets are filtered, sorted and paged by the consumer's provider, plus URL
   deep links, page-size choice and column visibility. See
   [docs/design/detail-view.md](./docs/design/detail-view.md).
-- **Searchable, sortable tables in the cards.** Let a `TABLE` widget on the
-  dashboard itself offer a search box and sortable column headers (reusing
-  `queryRows` and the detail view's controls), opt in per widget, so small
-  tables don't need the dialog. Needs a decision on how it interacts with
-  `footer` rows and the card's fixed height.
 
 ## Next
 
