@@ -1,6 +1,7 @@
 import { useId, type CSSProperties, type ReactNode } from 'react';
 
 import type { WidgetFill, WidgetSize } from '../core/definition.js';
+import { resolveTableControls } from '../core/detail.js';
 import { fillsHeight, fillsWidth } from '../core/grid.js';
 import type { DashboardWidget } from '../core/resolve.js';
 import { WidgetContent } from './renderers.js';
@@ -277,7 +278,12 @@ export function ResolvedWidgetCard({
       {...(widget.status === 'empty' ? { emptyText: widget.emptyText } : {})}
       {...(widget.status === 'error' ? { error: widget.error } : {})}
     >
-      {widget.status === 'ok' ? <WidgetContent data={widget.data} /> : null}
+      {widget.status === 'ok' ? (
+        <WidgetContent
+          data={widget.data}
+          tableControls={resolveTableControls(definition)}
+        />
+      ) : null}
     </WidgetCard>
   );
 }

@@ -763,3 +763,54 @@ void describe('useWidgets (server rendering)', () => {
     );
   });
 });
+
+void describe('table controls', () => {
+  const table: WidgetData = {
+    kind: 'TABLE',
+    columns: [{ label: 'Name' }, { label: 'Sold', numeric: true }],
+    rows: [
+      [{ text: 'b' }, { text: '2' }],
+      [{ text: 'a' }, { text: '10' }],
+    ],
+    footer: 'and 5 more',
+  };
+
+  void it('renders a plain table by default', () => {
+    const markup = content(table);
+    assert.doesNotMatch(markup, /type="search"/);
+    assert.doesNotMatch(markup, /dwt-detail-sort/);
+    assert.match(markup, /and 5 more/);
+  });
+
+  void it('adds a search box and sort buttons when asked', () => {
+    const markup = html(
+      <WidgetContent
+        data={table}
+        tableControls={{ search: true, sort: true }}
+      />
+    );
+    assert.match(markup, /type="search"/);
+    assert.match(markup, /aria-label="Sort by Name"/);
+    assert.match(markup, /aria-label="Sort by Sold"/);
+    assert.match(markup, /and 5 more/);
+  });
+
+  void it('can turn the two controls on separately', () => {
+    const sortOnly = html(
+      <WidgetContent
+        data={table}
+        tableControls={{ search: false, sort: true }}
+      />
+    );
+    assert.doesNotMatch(sortOnly, /type="search"/);
+    assert.match(sortOnly, /dwt-detail-sort/);
+    const searchOnly = html(
+      <WidgetContent
+        data={table}
+        tableControls={{ search: true, sort: false }}
+      />
+    );
+    assert.match(searchOnly, /type="search"/);
+    assert.doesNotMatch(searchOnly, /dwt-detail-sort/);
+  });
+});

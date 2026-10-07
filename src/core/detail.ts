@@ -7,7 +7,7 @@
 
 import type { WidgetDefinition } from './definition.js';
 import { formatValue, type Locale } from './format.js';
-import type { WidgetData } from './payload.js';
+import type { TableWidgetData, WidgetData } from './payload.js';
 import type { ProviderOptions, WidgetContext } from './resolve.js';
 import { err, ok, type Result } from './result.js';
 import { isSafeHref } from './url.js';
@@ -34,6 +34,20 @@ export interface ResolvedDetailOptions {
   readonly title: string;
   readonly pageSize: number;
   readonly mode: DetailMode;
+}
+
+/** The `tableControls` setting on a widget definition. `true` means both. */
+export interface WidgetTableControls {
+  /** A search box over every column. Default true. */
+  readonly search?: boolean;
+  /** Sortable column headers. Default true. */
+  readonly sort?: boolean;
+}
+
+/** `WidgetTableControls` with every default filled in. */
+export interface ResolvedTableControls {
+  readonly search: boolean;
+  readonly sort: boolean;
 }
 
 export interface DetailColumn {
@@ -125,6 +139,24 @@ export function resolveDetailOptions(
     pageSize: options.pageSize ?? DEFAULT_DETAIL_PAGE_SIZE,
     mode: options.mode ?? 'client',
   };
+}
+
+/**
+ * Reads `definition.tableControls` with defaults; undefined when the widget
+ * has none (or both are turned off).
+ */
+export function resolveTableControls(
+  definition: Pick<WidgetDefinition, 'tableControls'>
+): ResolvedTableControls | undefined {
+  const setting: boolean | WidgetTableControls | undefined =
+    definition.tableControls;
+  if (setting === undefined || setting === false) return undefined;
+  const options: WidgetTableControls = setting === true ? {} : setting;
+  const resolved: ResolvedTableControls = {
+    search: options.search ?? true,
+    sort: options.sort ?? true,
+  };
+  return resolved.search || resolved.sort ? resolved : undefined;
 }
 
 /** The first page, unsorted and unfiltered. */
@@ -498,6 +530,21 @@ export function validateDetailData(
 /* Derived details --------------------------------------------------------- */
 
 /**
+ * A TABLE's columns and rows as detail data (column keys `c0`, `c1`, ...),
+ * footer ignored, so the table can be searched and sorted with `queryRows`.
+ */
+export function tableDetailData(data: TableWidgetData): DetailData {
+  return {
+    columns: data.columns.map((column, index) => ({
+      key: `c${index}`,
+      label: column.label,
+      ...(column.numeric === undefined ? {} : { numeric: column.numeric }),
+    })),
+    rows: data.rows,
+  };
+}
+
+/**
  * The detail data for a widget whose card payload is already complete, so a
  * detail view needs no provider: a TABLE without a `footer` (a footer means
  * rows were left out) and a BAR_LIST. Returns undefined for everything else
@@ -508,15 +555,7 @@ export function deriveDetailData(
   locale?: Locale
 ): DetailData | undefined {
   if (data.kind === 'TABLE') {
-    if (data.footer !== undefined) return undefined;
-    return {
-      columns: data.columns.map((column, index) => ({
-        key: `c${index}`,
-        label: column.label,
-        ...(column.numeric === undefined ? {} : { numeric: column.numeric }),
-      })),
-      rows: data.rows,
-    };
+    return data.footer === undefined ? tableDetailData(data) : undefined;
   }
   if (data.kind === 'BAR_LIST') {
     return {

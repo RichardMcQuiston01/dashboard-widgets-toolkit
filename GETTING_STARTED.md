@@ -332,6 +332,16 @@ sorts, filters and pages them in memory. The `mode: 'server'` option,
 server-side paging and URL deep links are planned, not built; see
 [docs/design/detail-view.md](./docs/design/detail-view.md).
 
+### Searchable, sortable tables in the card
+
+Set `tableControls: true` on a `TABLE` definition to put a search box and
+sortable column headers in the card itself, so a small table needs no dialog.
+Use `{ search: false }` or `{ sort: false }` to keep only one. They work on
+the rows the card holds: with a `footer` ("and 12 more") rows were left out,
+so pair it with `detail` to search the full list. Matching and sorting are the
+detail view's (`queryRows`): case- and accent-insensitive, numeric-aware. The
+validator rejects `tableControls` on any other kind.
+
 ### Filling space
 
 By default each card is only as big as its content, so a
