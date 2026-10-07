@@ -15,7 +15,7 @@
 - Detail view, client mode: a "View" button and clickable title open a dialog
   with search, column filters, sortable headers and paging (0.4.0, 0.5.0).
 - Searchable, sortable tables in the cards: `tableControls` on a `TABLE`
-  definition (unreleased).
+  definition (0.6.0).
 
 ## Short term
 
