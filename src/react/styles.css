@@ -700,3 +700,19 @@
     border-radius: 0;
   }
 }
+
+:where(.dwt-table-search) {
+  margin-block-end: 8px;
+}
+
+:where(.dwt-table-search input) {
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: 256px;
+  font: inherit;
+  color: var(--dwt-text);
+  background: var(--dwt-surface);
+  border: 1px solid var(--dwt-border);
+  border-radius: 6px;
+  padding: 4px 8px;
+}

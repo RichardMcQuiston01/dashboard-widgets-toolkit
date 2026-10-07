@@ -1,5 +1,13 @@
-import type { ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 
+import {
+  queryRows,
+  tableDetailData,
+  type DetailPage,
+  type DetailQuery,
+  type DetailSort,
+  type ResolvedTableControls,
+} from '../core/detail.js';
 import {
   formatValue,
   kpiDelta,
@@ -132,28 +140,86 @@ export function GaugeWidget({
 /** TABLE: a data table; cells with a safe `href` become links. */
 export function TableWidget({
   data,
+  controls,
 }: {
   readonly data: TableWidgetData;
+  /** Search box and sortable headers; see `WidgetDefinition.tableControls`. */
+  readonly controls?: ResolvedTableControls | undefined;
+}): ReactNode {
+  if (controls === undefined) {
+    return (
+      <div className="dwt-table-wrap">
+        <TableView data={data} />
+        {data.footer !== undefined && <p className="dwt-note">{data.footer}</p>}
+      </div>
+    );
+  }
+  return <InteractiveTable data={data} controls={controls} />;
+}
+
+function TableView({
+  data,
+  rows = data.rows,
+  sort,
+  onSort,
+}: {
+  readonly data: TableWidgetData;
+  readonly rows?: TableWidgetData['rows'];
+  readonly sort?: DetailSort | undefined;
+  /** Makes the headers sort buttons. */
+  readonly onSort?: ((columnKey: string) => void) | undefined;
 }): ReactNode {
   const slot = useSlotClassName();
+  const { labels } = useWidgetSettings();
   return (
-    <div className="dwt-table-wrap">
+    <>
       <table className={slot('table', 'dwt-table')}>
         <thead>
           <tr>
-            {data.columns.map((column, index) => (
-              <th
-                key={index}
-                scope="col"
-                className={column.numeric === true ? 'dwt-numeric' : undefined}
-              >
-                {column.label}
-              </th>
-            ))}
+            {data.columns.map((column, index) => {
+              const key = `c${index}`;
+              const sorted: boolean = sort?.column === key;
+              return (
+                <th
+                  key={index}
+                  scope="col"
+                  className={
+                    column.numeric === true ? 'dwt-numeric' : undefined
+                  }
+                  aria-sort={
+                    sorted
+                      ? sort?.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : undefined
+                  }
+                >
+                  {onSort === undefined ? (
+                    column.label
+                  ) : (
+                    <button
+                      type="button"
+                      className="dwt-detail-sort"
+                      aria-label={labels.sortBy(column.label)}
+                      onClick={() => onSort(key)}
+                    >
+                      {column.label}
+                      <span aria-hidden="true">
+                        {!sorted
+                          ? ' ↕'
+                          : sort?.direction === 'asc'
+                            ? ' ↑'
+                            : ' ↓'}
+                      </span>
+                    </button>
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
-          {data.rows.map((row, rowIndex) => (
+          {rows.map((row, rowIndex) => (
             <tr key={rowIndex}>
               {row.map((cell, cellIndex) => (
                 <td
@@ -177,6 +243,94 @@ export function TableWidget({
           ))}
         </tbody>
       </table>
+    </>
+  );
+}
+
+/** Next sort for a click on a header: ascending, descending, then none. */
+function nextTableSort(
+  current: DetailSort | undefined,
+  column: string
+): DetailSort | undefined {
+  if (current?.column !== column) return { column, direction: 'asc' };
+  return current.direction === 'asc'
+    ? { column, direction: 'desc' }
+    : undefined;
+}
+
+function InteractiveTable({
+  data,
+  controls,
+}: {
+  readonly data: TableWidgetData;
+  readonly controls: ResolvedTableControls;
+}): ReactNode {
+  const slot = useSlotClassName();
+  const { labels, locale } = useWidgetSettings();
+  const searchId: string = useId();
+  const [search, setSearch] = useState<string>('');
+  const [sort, setSort] = useState<DetailSort | undefined>(undefined);
+  const localeTag: string | undefined =
+    typeof locale === 'string' ? locale : locale?.[0];
+
+  const query: DetailQuery = {
+    page: 1,
+    pageSize: Math.max(1, data.rows.length),
+    ...(controls.search && search !== '' ? { search } : {}),
+    ...(controls.sort && sort !== undefined ? { sort } : {}),
+  };
+  const result = queryRows(tableDetailData(data), query, localeTag);
+  const page: DetailPage | undefined = result.ok ? result.value : undefined;
+
+  return (
+    <div className="dwt-table-wrap">
+      {controls.search && (
+        <div className="dwt-table-search">
+          <label htmlFor={searchId} className="dwt-visually-hidden">
+            {labels.search}
+          </label>
+          <input
+            id={searchId}
+            type="search"
+            placeholder={labels.search}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
+      )}
+      {result.ok ? (
+        <>
+          <p
+            className="dwt-visually-hidden"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {page !== undefined && page.totalRows === 0
+              ? labels.noResults
+              : page === undefined
+                ? ''
+                : labels.showingRows(1, page.rows.length, page.totalRows)}
+          </p>
+          <TableView
+            data={data}
+            rows={page?.rows ?? data.rows}
+            sort={sort}
+            onSort={
+              controls.sort
+                ? (column) => setSort(nextTableSort(sort, column))
+                : undefined
+            }
+          />
+          {page !== undefined && page.totalRows === 0 && (
+            <p className="dwt-note">{labels.noResults}</p>
+          )}
+        </>
+      ) : (
+        <p role="alert" className={slot('error', 'dwt-error')}>
+          {result.error}
+        </p>
+      )}
       {data.footer !== undefined && <p className="dwt-note">{data.footer}</p>}
     </div>
   );
@@ -268,8 +422,11 @@ export function AlertListWidget({
 /** Renders any payload with the renderer for its kind. */
 export function WidgetContent({
   data,
+  tableControls,
 }: {
   readonly data: WidgetData;
+  /** Search and sort for TABLE data; see `resolveTableControls`. */
+  readonly tableControls?: ResolvedTableControls | undefined;
 }): ReactNode {
   switch (data.kind) {
     case 'TEXT':
@@ -279,7 +436,7 @@ export function WidgetContent({
     case 'GAUGE':
       return <GaugeWidget data={data} />;
     case 'TABLE':
-      return <TableWidget data={data} />;
+      return <TableWidget data={data} controls={tableControls} />;
     case 'BAR_LIST':
       return <BarListWidget data={data} />;
     case 'ALERT_LIST':

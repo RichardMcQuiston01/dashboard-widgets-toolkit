@@ -7,6 +7,8 @@ import {
   parseDetailQuery,
   queryRows,
   resolveDetailOptions,
+  resolveTableControls,
+  tableDetailData,
   serializeDetailQuery,
   validateDetailData,
   type DetailData,
@@ -314,5 +316,72 @@ void describe('deriveDetailData', () => {
       deriveDetailData({ kind: 'TEXT', label: 'a', value: 'b' }),
       undefined
     );
+  });
+});
+
+void describe('table controls', () => {
+  void it('resolves tableControls with both on by default', () => {
+    assert.equal(resolveTableControls({}), undefined);
+    assert.equal(resolveTableControls({ tableControls: false }), undefined);
+    assert.deepEqual(resolveTableControls({ tableControls: true }), {
+      search: true,
+      sort: true,
+    });
+    assert.deepEqual(resolveTableControls({ tableControls: { sort: false } }), {
+      search: true,
+      sort: false,
+    });
+    assert.equal(
+      resolveTableControls({ tableControls: { search: false, sort: false } }),
+      undefined
+    );
+  });
+
+  void it('turns a TABLE with a footer into queryable rows', () => {
+    const detail = tableDetailData({
+      kind: 'TABLE',
+      columns: [{ label: 'Name' }, { label: 'Sold', numeric: true }],
+      rows: [
+        [{ text: 'b' }, { text: '2' }],
+        [{ text: 'a' }, { text: '10' }],
+      ],
+      footer: 'and 5 more',
+    });
+    assert.deepEqual(
+      detail.columns.map((column) => column.key),
+      ['c0', 'c1']
+    );
+    const result = queryRows(detail, {
+      page: 1,
+      pageSize: 10,
+      sort: { column: 'c0', direction: 'asc' },
+    });
+    assert.ok(result.ok);
+    assert.equal(result.value.rows[0]?.[0]?.text, 'a');
+  });
+
+  void it('validates tableControls on a definition', () => {
+    const base = { key: 'x', title: 'X', kind: 'TABLE' } as const;
+    assert.ok(validateWidgetDefinition({ ...base, tableControls: true }).ok);
+    assert.ok(
+      validateWidgetDefinition({ ...base, tableControls: { search: false } }).ok
+    );
+    for (const tableControls of ['yes', { sort: 'no' }]) {
+      const result = validateWidgetDefinition({ ...base, tableControls });
+      assert.equal(result.ok, false);
+    }
+    const wrongKind = validateWidgetDefinition({
+      key: 'x',
+      title: 'X',
+      kind: 'KPI',
+      tableControls: true,
+    });
+    assert.equal(wrongKind.ok, false);
+    if (!wrongKind.ok) {
+      assert.match(
+        wrongKind.error,
+        /tableControls only applies to TABLE widgets, but kind is "KPI"/
+      );
+    }
   });
 });

@@ -6,23 +6,23 @@
   validators, provider resolution, layout, formatting and axis maths (0.1.0).
 - React renderers, `Dashboard`/`WidgetGrid`, SVG charts with table twins, and
   the optional `styles.css` (0.1.0).
+- `fill` setting for widgets that stretch to the row height or width (0.2.0).
+- Async loading: `useWidgets`, `createWidgetLoader`, per-widget `timeoutMs`,
+  `cache` and abortable providers (0.3.0).
+- Per-widget `width` on a 12-column grid (0.4.0).
+- Card polish: square icon buttons, a "Minimized" bar instead of empty boxes,
+  an icon on links that open a new tab, and American English labels (0.4.0).
+- Detail view, client mode: a "View" button and clickable title open a dialog
+  with search, column filters, sortable headers and paging (0.4.0, 0.5.0).
+- Searchable, sortable tables in the cards: `tableControls` on a `TABLE`
+  definition (0.6.0).
 
 ## Short term
 
-- **Icon buttons.** Make the card controls (move, hide, minimise) real square
-  buttons with the icon centred, so they read as clickable.
-- **Detail view.** Let a widget be configured as expandable: clicking its
-  title or a "View" (eye icon) button opens a dedicated list view of the data
-  with filtering and sorting. Needs a design: the toolkit supplies the view,
-  consumers supply the full dataset through the provider.
-- **External link icon.** Links that leave the site (`linkTarget` new tab)
-  get an icon saying so.
-- **Minimise behaviour.** Today a minimised widget is an empty titled box
-  taking the same space. Either remove the control, or move minimised widgets
-  into their own section (like the hidden bar).
-- **American English labels.** "Minimise" becomes "Minimize" (the
-  `minimize` label in `src/react/settings.tsx`, README, docs, CHANGELOG
-  wording going forward).
+- **Detail view, server mode.** `mode: 'server'` with `totalRows` so large
+  datasets are filtered, sorted and paged by the consumer's provider, plus URL
+  deep links, page-size choice and column visibility. See
+  [docs/design/detail-view.md](./docs/design/detail-view.md).
 
 ## Next
 
@@ -36,9 +36,6 @@
 - **Sparkline kind** (`SPARKLINE`), and an optional sparkline on `KPI` tiles
   (12 points, current period in the accent).
 - **More chart forms**: stacked bars for part-to-whole, and area charts.
-- **Provider timeouts and caching** in `resolveWidgets` (per-widget timeout,
-  stale-while-revalidate hook), still without the package fetching anything
-  itself.
 - **Texture fill** for bars (45°/135°) under `forced-colors`, print or an
   accessibility setting, as a second channel after color.
 

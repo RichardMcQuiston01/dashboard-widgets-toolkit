@@ -366,6 +366,30 @@ function checkDetailOption(detail: unknown, problems: Problems): void {
   }
 }
 
+/** Checks a definition's `tableControls`: a boolean or `{ search, sort }`. */
+function checkTableControlsOption(
+  controls: unknown,
+  kind: unknown,
+  problems: Problems
+): void {
+  if (controls === undefined || controls === false) return;
+  if (typeof controls !== 'boolean' && !isRecord(controls)) {
+    problems.push(
+      `tableControls must be true, false or an options object, got ${describeType(controls)}.`
+    );
+    return;
+  }
+  if (isRecord(controls)) {
+    optionalBoolean(controls, 'search', 'tableControls', problems);
+    optionalBoolean(controls, 'sort', 'tableControls', problems);
+  }
+  if (typeof kind === 'string' && kind !== 'TABLE') {
+    problems.push(
+      `tableControls only applies to TABLE widgets, but kind is "${kind}".`
+    );
+  }
+}
+
 function formatProblems(prefix: string, problems: Problems): string {
   const shown: Problems = problems.slice(0, MAX_REPORTED_PROBLEMS);
   const more: number = problems.length - shown.length;
@@ -462,6 +486,7 @@ export function validateWidgetDefinition(
     );
   }
   checkDetailOption(value['detail'], problems);
+  checkTableControlsOption(value['tableControls'], value['kind'], problems);
   if (value['fill'] !== undefined) {
     requireOneOf(value, 'fill', WIDGET_FILLS, '', problems);
   }
