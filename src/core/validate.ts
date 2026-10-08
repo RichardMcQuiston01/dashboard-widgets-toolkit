@@ -103,6 +103,24 @@ function optionalNumber(
   }
 }
 
+/** A cell's optional sort `value`: a string or a finite number. */
+function optionalSortValue(
+  record: Record_,
+  path: string,
+  problems: Problems
+): void {
+  const value: unknown = record['value'];
+  if (
+    value !== undefined &&
+    typeof value !== 'string' &&
+    !(typeof value === 'number' && Number.isFinite(value))
+  ) {
+    problems.push(
+      `${path}.value must be a string or a finite number, got ${describeType(value)}.`
+    );
+  }
+}
+
 function optionalBoolean(
   record: Record_,
   field: string,
@@ -247,6 +265,7 @@ function checkPayloadFields(
           }
           eachRecord(row, rowPath, problems, (cell, cellPath) => {
             requireString(cell, 'text', cellPath, problems);
+            optionalSortValue(cell, cellPath, problems);
             optionalUrl(
               cell,
               'href',

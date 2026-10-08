@@ -337,6 +337,47 @@ void describe('table controls', () => {
     );
   });
 
+  void it('sorts and searches a TABLE by cell values when given', () => {
+    const detail = tableDetailData({
+      kind: 'TABLE',
+      columns: [{ label: 'When' }, { label: 'Total', numeric: true }],
+      rows: [
+        [
+          { text: 'yesterday', value: 200 },
+          { text: '$99.00', value: 9900 },
+        ],
+        [
+          { text: '3 days ago', value: 100 },
+          { text: '$1,234.00', value: 123400 },
+        ],
+        [
+          { text: 'today', value: 300 },
+          { text: '$5.00', value: 500 },
+        ],
+      ],
+    });
+    const byWhen = queryRows(detail, {
+      page: 1,
+      pageSize: 10,
+      sort: { column: 'c0', direction: 'asc' },
+    });
+    assert.ok(byWhen.ok);
+    assert.deepEqual(
+      byWhen.value.rows.map((row) => row[0]?.text),
+      ['3 days ago', 'yesterday', 'today']
+    );
+    const byTotal = queryRows(detail, {
+      page: 1,
+      pageSize: 10,
+      sort: { column: 'c1', direction: 'desc' },
+    });
+    assert.ok(byTotal.ok);
+    assert.deepEqual(
+      byTotal.value.rows.map((row) => row[1]?.text),
+      ['$1,234.00', '$99.00', '$5.00']
+    );
+  });
+
   void it('turns a TABLE with a footer into queryable rows', () => {
     const detail = tableDetailData({
       kind: 'TABLE',

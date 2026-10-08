@@ -117,6 +117,33 @@ void describe('validateWidgetData', () => {
     assert.match(message, /rows\[1\] must be an array of cells, got string\./);
   });
 
+  void it('accepts a sort value on a table cell and rejects a bad one', () => {
+    const withValues = {
+      ...valid.TABLE,
+      rows: [
+        [
+          { text: '3 days ago', value: 1760000000000 },
+          { text: 'b', value: 'b' },
+        ],
+      ],
+    };
+    assert.equal(validateWidgetData(withValues).ok, true);
+    assert.match(
+      errorOf({
+        ...valid.TABLE,
+        rows: [[{ text: 'a', value: true }, { text: 'b' }]],
+      }),
+      /rows\[0\]\[0\]\.value must be a string or a finite number, got boolean\./
+    );
+    assert.match(
+      errorOf({
+        ...valid.TABLE,
+        rows: [[{ text: 'a', value: Number.NaN }, { text: 'b' }]],
+      }),
+      /rows\[0\]\[0\]\.value must be a string or a finite number, got NaN\./
+    );
+  });
+
   void it('checks row length against the columns', () => {
     assert.match(
       errorOf({ ...valid.TABLE, rows: [[{ text: 'only one' }]] }),

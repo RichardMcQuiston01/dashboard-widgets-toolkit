@@ -79,6 +79,13 @@ export interface TableCell {
   readonly text: string;
   /** Renders the cell as a link (http, https, mailto or relative only). */
   readonly href?: string;
+  /**
+   * What the card's table controls (and the detail view) sort and search
+   * on, when `text` is formatted for reading: a timestamp behind "3 days
+   * ago", a rating behind stars, an amount behind "$1,234.00". Default:
+   * `text`.
+   */
+  readonly value?: string | number;
 }
 
 export interface TableWidgetData {
