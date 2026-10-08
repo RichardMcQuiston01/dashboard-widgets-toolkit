@@ -31,7 +31,7 @@ The widget kinds:
 | `TEXT`       | `value: string`, `label`                                                                                 | A count or status as text                  |
 | `KPI`        | `value: number`, `previous?: number \| null`, `format`, `currency?`, `label`, `hint?`, `higherIsBetter?` | Stat tile with a change vs previous period |
 | `GAUGE`      | `value`, `max`, `label`                                                                                  | A meter (unread of total, quota used)      |
-| `TABLE`      | `columns: {label, numeric?}[]`, `rows: {text, href?}[][]`, `footer?`                                     | Small data tables                          |
+| `TABLE`      | `columns: {label, numeric?}[]`, `rows: {text, href?, value?}[][]`, `footer?`                             | Small data tables                          |
 | `BAR_LIST`   | `items: {label, value, display?}[]`, `total?`                                                            | Ratings breakdown, purchases by country    |
 | `ALERT_LIST` | `items: {title, href?, thumbnailUrl?, valueLabel, detail?}[]`, `total`, `emptyText`                      | Low stock, stale listings, expiring soon   |
 | `GRAPH`      | `series: {name, points: {label, value}[]}[]`, `chartType: 'bar' \| 'line'`, `valueFormat`, `currency?`, `xLabel?` | Revenue by month, views per day |
@@ -40,6 +40,11 @@ The widget kinds:
 in major units (12.5 is $12.50) and percents are fractions (0.25 is 25%). Any
 widget may instead return an empty state, `{ empty: true, text: 'No orders
 synced yet.' }`.
+
+A `TABLE` cell's optional `value` (a string or number) is what the card's
+table controls (`tableControls` on the definition) and the detail view sort
+and search on, when `text` is formatted for reading: a timestamp behind
+"3 days ago", a rating behind stars, an amount behind "$1,234.00".
 
 ## Getting Started
 
