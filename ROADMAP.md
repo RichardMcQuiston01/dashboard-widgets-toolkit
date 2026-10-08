@@ -16,6 +16,8 @@
   with search, column filters, sortable headers and paging (0.4.0, 0.5.0).
 - Searchable, sortable tables in the cards: `tableControls` on a `TABLE`
   definition (0.6.0).
+- Sort values on `TABLE` cells (`value`), so formatted columns sort and search
+  correctly (0.7.0).
 
 ## Short term
 
