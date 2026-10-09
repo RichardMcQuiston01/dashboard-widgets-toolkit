@@ -33,6 +33,15 @@ export interface UseWidgetsOptions extends ResolveOptions {
    * tab is hidden, and a widget still loading is not restarted.
    */
   readonly refreshMs?: number;
+  /**
+   * The viewer's chosen option values by widget key (see
+   * `WidgetDefinition.options`). Changing them reloads only the widgets whose
+   * resolved values changed; it never recreates the loader, so it may be a
+   * fresh object each render.
+   */
+  readonly optionValues?: Readonly<
+    Record<string, Readonly<Record<string, unknown>> | undefined>
+  >;
 }
 
 export interface UseWidgetsResult {
@@ -40,6 +49,11 @@ export interface UseWidgetsResult {
   readonly widgets: readonly DashboardWidget[];
   /** Reload one widget (for example from the error card's Retry) or all. */
   readonly refresh: (key?: string) => void;
+  /** Choose option values for one widget; same effect as `optionValues`. */
+  readonly setOptions: (
+    key: string,
+    chosen: Readonly<Record<string, unknown>>
+  ) => void;
   /**
    * For `loadWhen: 'visible'`: attach to any element that contains the cards,
    * for example a wrapper `<div ref={gridRef}>` around `Dashboard`.
@@ -72,6 +86,7 @@ export function useWidgets<C extends WidgetContext>(
     signal,
     cache,
     cacheKey,
+    optionValues,
   } = options;
 
   const placeholders: readonly DashboardWidget[] = useMemo(
@@ -83,6 +98,8 @@ export function useWidgets<C extends WidgetContext>(
   const [loader, setLoader] = useState<WidgetLoader | null>(null);
   const loaderRef = useRef<WidgetLoader | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const optionValuesRef = useRef(optionValues);
+  optionValuesRef.current = optionValues;
 
   // One loader per set of inputs. It is created in an effect (never during
   // render) so server rendering starts nothing, and so React StrictMode's
@@ -97,6 +114,9 @@ export function useWidgets<C extends WidgetContext>(
       ...(signal === undefined ? {} : { signal }),
       ...(cache === undefined ? {} : { cache }),
       ...(cacheKey === undefined ? {} : { cacheKey }),
+      ...(optionValuesRef.current === undefined
+        ? {}
+        : { optionValues: optionValuesRef.current }),
     });
     loaderRef.current = created;
     setWidgets(created.getSnapshot());
@@ -190,9 +210,26 @@ export function useWidgets<C extends WidgetContext>(
     return () => clearInterval(timer);
   }, [loader, refreshMs]);
 
+  // Push changed option values to the running loader, which reloads just the
+  // widgets whose resolved values differ.
+  const optionSignature: string = JSON.stringify(optionValues ?? {});
+  useEffect(() => {
+    if (loader === null) return;
+    for (const [key, chosen] of Object.entries(optionValuesRef.current ?? {})) {
+      if (chosen !== undefined) loader.setOptions(key, chosen);
+    }
+  }, [loader, optionSignature]);
+
+  const setOptions = useCallback(
+    (key: string, chosen: Readonly<Record<string, unknown>>): void => {
+      loaderRef.current?.setOptions(key, chosen);
+    },
+    []
+  );
+
   const refresh = useCallback((key?: string): void => {
     loaderRef.current?.refresh(key);
   }, []);
 
-  return { widgets, refresh, gridRef };
+  return { widgets, refresh, setOptions, gridRef };
 }

@@ -20,6 +20,7 @@ import {
   type DetailSort,
 } from '../core/detail.js';
 import type { WidgetDefinition } from '../core/definition.js';
+import type { OptionValues } from '../core/options.js';
 import { WidgetLink } from './primitives.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
@@ -377,6 +378,8 @@ export function WidgetDetailDialog({
   );
 }
 
+const NO_OPTION_VALUES: OptionValues = Object.freeze({});
+
 export interface DetailLoadState {
   readonly status: 'loading' | 'ok' | 'error';
   readonly data?: DetailData;
@@ -390,12 +393,15 @@ export interface DetailLoadState {
  * `undefined`, `fallback` (for example the card's own complete data) is used
  * instead. `reload` runs it again. Keep `load` and `fallback` referentially
  * stable (`useCallback` / `useMemo`): a new value restarts the load.
+ * `optionValues` (the widget's resolved options) go to the loader as
+ * `options.options`.
  */
 export function useDetailData(
   definition: WidgetDefinition,
   load: DetailLoader | undefined,
   enabled: boolean,
-  fallback?: DetailData
+  fallback?: DetailData,
+  optionValues: OptionValues = NO_OPTION_VALUES
 ): { readonly state: DetailLoadState; readonly reload: () => void } {
   const [state, setState] = useState<DetailLoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
@@ -410,6 +416,7 @@ export function useDetailData(
           ? undefined
           : load(definition, {
               signal: controller.signal,
+              options: optionValues,
               query: defaultDetailQuery(),
             })
       )
@@ -443,7 +450,7 @@ export function useDetailData(
         });
       });
     return () => controller.abort();
-  }, [enabled, load, fallback, definition, attempt]);
+  }, [enabled, load, fallback, definition, optionValues, attempt]);
 
   return { state, reload: () => setAttempt((count) => count + 1) };
 }

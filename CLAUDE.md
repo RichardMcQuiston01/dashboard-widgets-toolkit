@@ -33,6 +33,7 @@ src/
     resolve.ts          resolveWidgets, resolvePayload, loading/failed widgets
     layout.ts           DashboardLayout: parse/serialise, order, hide, minimize
     pages.ts            pages of widgets: helpers, capacity, normalizeLayout
+    options.ts          declared options: resolve values, cache suffix, client sort/columns
     format.ts           Intl formatting, percent change, kpiDelta
     scale.ts            niceStep, niceDomain, labelStride
     url.ts              isSafeHref / isSafeImageUrl
@@ -73,9 +74,10 @@ documented in the code and README, which win if they disagree.
 - `docs/design/lock-and-edit-mode.md`: locked widgets (`locked`, pinned slots,
   `enforceLocks`, `overrideLocks`) and the Customize/Done edit mode
   (`editMode="toggle"`, Reset, Revert) are built; drag and drop is not.
-- `docs/design/widget-options-views-clones.md`: gear/Options dialog (title,
-  width, declared options passed to providers), alternate views and clones,
-  stored in the layout. Not built yet; builds on the lock design.
+- `docs/design/widget-options-views-clones.md`: declared options with
+  defaults are built (`options.ts`, `setOptions`, `optionValues`). Still
+  planned: gear/Options dialog (title, width, options), alternate views and
+  clones, stored in the layout.
 - `docs/design/widget-pages.md`: pages of widgets (per-page layout, capacity of
   about 4 rows, moving widgets between pages, page bar hidden for one page,
   lazy loading by page). Built: the core (`pages.ts`, `placeRows`,

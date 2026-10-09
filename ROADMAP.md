@@ -37,8 +37,9 @@
   Vue 3 apps, over the same core and `styles.css` class names.
 - **Drag-and-drop reordering** in `Dashboard`, on top of `moveWidget`, with
   the move buttons kept as the keyboard-accessible path.
-- **Widget options, alternate views and clones.** Consumer-declared options
-  with defaults (default sort, columns, top N) passed to the provider, then a
+- **Widget options, alternate views and clones.** Declared options with
+  defaults (default sort, columns, top N) passed to the provider are built
+  (unreleased); next a
   gear button in edit mode that opens an Options dialog (title, width and those
   options), then alternate views (a table as a bar list or chart) and clones.
   Defaults are definition data so a Widget Builder can bake them in later. Replaces "widget sizes in the layout". Designed in

@@ -141,10 +141,13 @@ export function GaugeWidget({
 export function TableWidget({
   data,
   controls,
+  initialSort,
 }: {
   readonly data: TableWidgetData;
   /** Search box and sortable headers; see `WidgetDefinition.tableControls`. */
   readonly controls?: ResolvedTableControls | undefined;
+  /** The header sort to start with, for example from a `sort` option. */
+  readonly initialSort?: DetailSort | undefined;
 }): ReactNode {
   if (controls === undefined) {
     return (
@@ -154,7 +157,13 @@ export function TableWidget({
       </div>
     );
   }
-  return <InteractiveTable data={data} controls={controls} />;
+  return (
+    <InteractiveTable
+      data={data}
+      controls={controls}
+      initialSort={initialSort}
+    />
+  );
 }
 
 function TableView({
@@ -261,15 +270,17 @@ function nextTableSort(
 function InteractiveTable({
   data,
   controls,
+  initialSort,
 }: {
   readonly data: TableWidgetData;
   readonly controls: ResolvedTableControls;
+  readonly initialSort: DetailSort | undefined;
 }): ReactNode {
   const slot = useSlotClassName();
   const { labels, locale } = useWidgetSettings();
   const searchId: string = useId();
   const [search, setSearch] = useState<string>('');
-  const [sort, setSort] = useState<DetailSort | undefined>(undefined);
+  const [sort, setSort] = useState<DetailSort | undefined>(initialSort);
   const localeTag: string | undefined =
     typeof locale === 'string' ? locale : locale?.[0];
 
@@ -423,10 +434,13 @@ export function AlertListWidget({
 export function WidgetContent({
   data,
   tableControls,
+  initialSort,
 }: {
   readonly data: WidgetData;
   /** Search and sort for TABLE data; see `resolveTableControls`. */
   readonly tableControls?: ResolvedTableControls | undefined;
+  /** TABLE header sort to start with; see `sortFromOptions`. */
+  readonly initialSort?: DetailSort | undefined;
 }): ReactNode {
   switch (data.kind) {
     case 'TEXT':
@@ -436,7 +450,13 @@ export function WidgetContent({
     case 'GAUGE':
       return <GaugeWidget data={data} />;
     case 'TABLE':
-      return <TableWidget data={data} controls={tableControls} />;
+      return (
+        <TableWidget
+          data={data}
+          controls={tableControls}
+          initialSort={initialSort}
+        />
+      );
     case 'BAR_LIST':
       return <BarListWidget data={data} />;
     case 'ALERT_LIST':

@@ -50,6 +50,7 @@ import {
   withPageLayout,
   type PageOptions,
 } from '../core/pages.js';
+import { sortFromOptions } from '../core/options.js';
 import type { DashboardWidget } from '../core/resolve.js';
 import {
   defaultDetailQuery,
@@ -57,6 +58,7 @@ import {
   resolveDetailOptions,
   type DetailData,
   type DetailQuery,
+  type DetailSort,
 } from '../core/detail.js';
 import { ResolvedWidgetCard } from './card.js';
 import {
@@ -324,7 +326,14 @@ function DetailHost({
   const { definition } = widget;
   const options = resolveDetailOptions(definition);
   const pageSize: number = options?.pageSize ?? 25;
-  const [query, setQuery] = useState<DetailQuery>(defaultDetailQuery(pageSize));
+  const optionSort: DetailSort | undefined = sortFromOptions(
+    definition,
+    widget.options
+  );
+  const [query, setQuery] = useState<DetailQuery>({
+    ...defaultDetailQuery(pageSize),
+    ...(optionSort === undefined ? {} : { sort: optionSort }),
+  });
   // Memoized: a fresh object each render would restart the load every time.
   const derived: DetailData | undefined = useMemo(
     () =>
@@ -337,7 +346,8 @@ function DetailHost({
     definition,
     loadDetail,
     true,
-    derived
+    derived,
+    widget.options
   );
   const title: string = options?.title ?? definition.title;
   return (

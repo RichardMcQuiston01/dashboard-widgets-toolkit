@@ -342,6 +342,73 @@ so pair it with `detail` to search the full list. Matching and sorting are the
 detail view's (`queryRows`): case- and accent-insensitive, numeric-aware. The
 validator rejects `tableControls` on any other kind.
 
+### Declared options
+
+Give a widget `options` and each one has a default that providers receive. There
+is no UI for choosing yet; you (or a stored viewer choice) supply the values.
+
+```ts
+const topSellers = defineWidget({
+  key: 'top-sellers',
+  title: 'Top sellers',
+  kind: 'TABLE',
+  options: [
+    {
+      key: 'limit',
+      type: 'number',
+      label: 'Rows',
+      min: 5,
+      max: 50,
+      default: 10,
+    },
+    {
+      key: 'period',
+      type: 'dateRange',
+      label: 'Period',
+      default: 'last30',
+    },
+    {
+      key: 'order',
+      type: 'sort',
+      label: 'Order',
+      columns: [
+        { key: 'c0', label: 'Name' },
+        { key: 'c1', label: 'Sold' },
+      ],
+      default: 'c1:desc',
+      apply: 'client',
+    },
+  ],
+});
+
+const providers = {
+  'top-sellers': async (context, definition, { signal, options }) => {
+    // options.limit === 10, options.period === 'YYYY-MM-DD/YYYY-MM-DD'
+    return loadTopSellers(options.limit, options.period, signal);
+  },
+};
+```
+
+- Resolved values are in `ProviderOptions.options` (always present, `{}` when
+  the widget declares none) and on the resolved widget as `widget.options`.
+  Invalid or unknown chosen values are ignored in favor of the default.
+- `dateRange` accepts a preset (`today`, `yesterday`, `last7`, `last30`,
+  `last90`, `thisMonth`, `lastMonth`, `thisYear`, `lastYear`) or an ISO
+  interval and arrives as an interval; pass `timeZone` and `now` in the resolve
+  options to control "today".
+- `sort` and `columns` apply to `TABLE` (keys `c0`, `c1`, ...) and `BAR_LIST`
+  (`label`, `value`). With `apply: 'client'` the toolkit sorts or trims the
+  payload it got and the choice is not part of the cache key; otherwise your
+  provider receives the value (a truncated table needs that).
+- Cache keys gain `?name=value` for non-default provider-facing values, so
+  different choices never share a cached answer.
+- With `useWidgets`, pass `optionValues` (by widget key) or call `setOptions`;
+  only widgets whose resolved values changed reload, and the old data shows as
+  `stale` meanwhile. `createWidgetLoader` has `setOptions(key, chosen)` and an
+  `optionValues` starting point.
+- A `sort` option also sets the table card's header sort and the detail view's
+  starting sort.
+
 ### Locked widgets
 
 Set `locked: true` on a definition when viewers must not rearrange it (a
