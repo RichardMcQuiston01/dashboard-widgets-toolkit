@@ -201,8 +201,12 @@ layout's width, not a phone's.
 
 Because every label is built from the title ("Hide Revenue", "Move Revenue
 earlier"), the effective title flows through unchanged. The detail view's
-heading uses the author's `detail.title`, else the author's definition title, not
-the viewer's rename (decided as the author's dialog; see section 15).
+heading uses the viewer's title, so the dialog matches the card. The author's
+original title travels with the card as a data attribute
+(`data-dwt-default-title="Recent Orders"`) for styling, testing and a one-click
+"back to the original name", and the dialog's title field shows it as its
+placeholder. An author's `detail.title`, when set, is a separate subtitle-style
+heading and doesn't override the rename.
 
 **Titles are unique on a page.** Two widgets can't show the same title (compared
 trimmed, case-insensitive and Unicode-normalized). The dialog refuses a
@@ -307,8 +311,8 @@ interface WidgetDefinition {
 }
 ```
 
-`choice` is the "option" type: a pick from a fixed list. `icon` (a named,
-bounded icon set) is a later type and needs its own design.
+`choice` is the "option" type: a pick from a fixed list. Icons are not an option
+type; they come from custom cell formatters (next section).
 
 Definitions stay plain JSON: no functions, no regexes. Labels are the
 consumer's strings (their own localization), like `title`.
@@ -411,11 +415,55 @@ description, is shown. A column declares one, and the renderers apply it:
 | `url`    | A link with `target="_blank"` and `rel="noopener noreferrer"`; http and https only.           |
 | `image`  | An `<img>` through `isSafeImageUrl`, with the cell text as its alt text.                      |
 | `color`  | A swatch with the validated value next to its text, never color alone.                        |
-| `icon`   | A named icon from a bounded set. Later, with its own design.                                  |
+| `custom` | Whatever the consumer's named formatter returns (icons, badges, anything). See below.         |
 
 `url` and `email` reuse `isSafeHref`, so `javascript:` and similar never render;
 unsafe values fall back to plain text, as links do today. A new tab opened with
 `_blank` always carries `noopener`. This ships as its own small phase (section 12) because it is useful before any of the options UI.
+
+#### Custom formatters
+
+A column of type `custom` names a formatter the consumer supplies. Definitions
+stay JSON, so the column holds only the _name_; the function lives in code:
+
+```ts
+// In the definition (JSON): the column says which formatter.
+{ key: 'status', label: 'Status', type: 'custom', formatter: 'statusIcon' }
+
+// In the app: formatters are passed once, next to the labels and locale.
+type CellFormatter = (input: {
+  readonly widgetKey: string;
+  readonly columnKey: string;
+  readonly text: string; // the cell's text
+  readonly value: string | number | undefined; // the cell's value, if any
+  readonly row: readonly TableCell[];
+}) => ReactNode;
+
+<WidgetSettingsProvider formatters={{ statusIcon: ({ value }) => <StatusIcon status={value} /> }}>
+```
+
+The rules that keep it safe and predictable:
+
+- **Display only.** Sorting, search, the "View as table" twin, CSV-style export
+  and conversions use the cell's `text` and `value`, never the formatter's
+  output. The formatter changes what is drawn, not what the data is.
+- **Text stays the accessible name.** The toolkit renders the cell's text as the
+  cell's accessible name (visually hidden when the formatter draws something
+  else), so an icon-only formatter is never an unlabeled icon.
+- **A failing formatter shows the text.** Each call is wrapped in an error
+  boundary; an exception renders the plain text and reports the problem with the
+  widget key, column key and formatter name. A missing name does the same.
+- **Checked ahead of time.** `validateFormatters(definitions, formatters)`
+  returns a `Result` naming every column that refers to an unregistered
+  formatter, for use at startup or in tests.
+- **Consumer code is trusted code.** Strings it returns are escaped by React like
+  any other; avoid `dangerouslySetInnerHTML`. The toolkit adds no HTML
+  sanitizer.
+- **Server-rendered friendly.** Formatters are plain functions with no effects
+  required, so `renderToStaticMarkup` tests work.
+
+This replaces a built-in icon set: the consumer picks their own icon library and
+mapping, and the toolkit carries none.
 
 ## 6. Alternate views
 
@@ -437,9 +485,11 @@ interface WidgetDefinition {
 }
 ```
 
-Two ways a view gets its payload:
+Two ways a view gets its payload. **The first views release ships converted views
+only** (decided); provider-supplied views follow in a later release, designed here
+so the data model doesn't change:
 
-1. **Provider-supplied** (no `convert`): the provider receives
+1. **Provider-supplied** (later) (no `convert`): the provider receives
    `options.view` and returns a payload of that view's kind. Always correct,
    costs one load per view (cached separately).
 2. **Converted** (`convert` set): the toolkit builds the view from the base
@@ -547,16 +597,17 @@ The old "(copy)" wording is dropped.
 
 ### Limits and pages
 
-There is no per-widget clone cap. Layout size is bounded another way:
+There is no per-widget clone cap. A page is bounded by its **capacity** instead,
+designed in `widget-pages.md`:
 
-- `Dashboard` takes an optional `maxWidgets` for a page. Duplicate is disabled
-  at the limit with a message that names it ("This page already has 20 widgets").
-  What counts toward it (all widgets, or only visible ones) is open question 14.
+- A page has `maxRows` rows (default 4, chosen so a page rarely scrolls) of 12
+  columns each, so 48 column units. The widths of the widgets on a page must add
+  up to no more than `maxRows * 12`.
+- Duplicate is disabled when the page can't hold the clone's width, with a
+  message that says so ("This page has no room for a widget 6 wide"). Width
+  changes that would overflow the page are refused the same way.
 - `parseLayout` keeps a high safety ceiling (a few hundred entries) purely
   against malformed or hostile JSON. It is not a product limit.
-- **Pages of widgets** is a separate, later design: a layout per page, with
-  clones and settings belonging to a page, and `Dashboard` rendering one page's
-  layout. Consumers can already keep one layout per tab of their own.
 
 ### Changing a view in place versus cloning
 
@@ -595,7 +646,7 @@ stored. `normalizeLayout(definitions, layout)` is the one function for that:
 prune unknown keys, enforce locks, clamp widths to `minWidth`/`maxWidth`, trim
 titles to the limit, drop options and views the definition did not declare or
 whose values are invalid, make titles unique (appending "(#n)"), apply the
-`maxWidgets` limit, drop clones the lock forbids, and drop clones whose original
+page capacity, drop clones the lock forbids, and drop clones whose original
 is gone. It is idempotent and returns the same object
 when nothing changes.
 
@@ -618,7 +669,7 @@ New `DashboardLabels` entries, all overridable: `options` ("Options"),
 `confirmReset`, `confirmRevert`, `confirmApply`, `confirmYes` and `confirmNo`
 (the accessible names of "✓" and "X"), `keepEditing`, `optionsSaved`,
 `duplicate`, `duplicateOf(title)`, `deleteWidget(title)`, `titleInUse`,
-`suggestedViewTitle(title, viewLabel)`, `maxWidgetsReached(count)`, and
+`suggestedViewTitle(title, viewLabel)`, `pageFull(widthNeeded)`, and
 validation messages for the width and title fields. Classes follow the convention: `dwt-options`,
 `dwt-options-field`, `dwt-gear`, and a `dialog` slot in `classNames`. The dialog
 reuses the detail dialog's styles. `styles.css` stays optional.
@@ -699,13 +750,14 @@ follow the lock and edit-mode releases (0.8.0 and 0.9.0).
 | ----- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | 0.10.0  | Declared options with defaults (`choice`, `number`, `boolean`, `text`, `dateRange`, `color`, `sort`, `columns`), `ProviderOptions.options`, per-widget reload, cache keys, client-side sort and columns, seeding of table controls and the detail view. No gear needed |
 | 2     | 0.11.0  | `layout.settings`, `applySettings`, `normalizeLayout`, `minWidth`/`maxWidth`, gear and Options dialog (title, width, declared options), Apply and discard confirmations, Reset to defaults, pre-edit snapshot and Revert, `locked.options`                             |
-| 3     | 0.12.0  | `views`, `defaultView` and conversions (provider-supplied and converted), the View field                                                                                                                                                                               |
-| 4     | 0.13.0  | `clones`, `maxWidgets`, `locked.clone`, Duplicate and Delete, title uniqueness and clone naming                                                                                                                                                                        |
+| 3     | 0.13.0  | `views`, `defaultView` and converted views, the View field; provider-supplied views follow as a later minor                                                                                                                                                            |
+| 4     | 0.14.0  | `clones`, `maxWidgets`, `locked.clone`, Duplicate and Delete, title uniqueness and clone naming                                                                                                                                                                        |
 | 5     | later   | Widget Builder in the library (`./builder`) and data-source descriptions, in their own design; viewer-created widgets after that                                                                                                                                       |
 
 Independently of the phases, a small **field types** release (`email`, `url`,
-`image`, `color`; `icon` later) can ship at any time: it only changes how cells
-render. Pages of widgets and storage adapters are separate designs.
+`image`, `color`, `custom` formatters) can ship at any time: it only changes how
+cells render. Pages and storage adapters have their own designs
+(`widget-pages.md`, `storage-adapters.md`).
 
 Phase 1 is the most valuable on its own and needs no new UI: authors get default
 sorts, "top N" and column sets, with the viewer's choice arriving later in phase 2
@@ -760,12 +812,12 @@ confirm the layout persists.
 - **Lossy conversions surprising people.** The dialog names what a view shows
   and drops, and the error text names the cell to fix.
 - **Many loads.** Clones with distinct options multiply provider calls. The cache
-  keys share loads where options match, and `maxWidgets` bounds a page;
+  keys share loads where options match, and page capacity bounds a page;
   consumers with expensive providers can set it low.
 - **Unsafe values in typed fields.** `email`, `url`, `image` and `color` render
   data from providers. They go through the same safe-scheme checks as links and
   images today, and fall back to text.
-- **Layout growth.** Titles and option values are capped, `maxWidgets` bounds a page and
+- **Layout growth.** Titles and option values are capped, page capacity bounds a page and
   `parseLayout` has a high safety ceiling, so a saved layout stays small.
   `normalizeLayout` enforces the caps on save.
 - **Accessibility of the dialog.** It is a form in a native modal: labelled
@@ -798,43 +850,32 @@ confirm the layout persists.
    columns) as data, so a future Widget Builder can bake them in. Declared options
    and defaults ship first (phase 1), and viewer overrides follow.
 6. **Option and field types.** Options: `text`, `choice` (the "option" pick-list),
-   `dateRange`, `color`, plus `number`, `boolean`, `sort` and `columns`; `icon`
-   later. Field types: `email` (clickable `mailto:`), `url` (clickable, new tab),
-   `image`, `color`, and `icon` later.
+   `dateRange`, `color`, plus `number`, `boolean`, `sort` and `columns`. Field
+   types: `email` (clickable `mailto:`), `url` (clickable, new tab), `image`,
+   `color`, and `custom`.
 7. **The Author chooses the columns of a converted view.** Viewers don't pick
    label and value columns. Viewer-created widgets scoped to an account are a
    later direction on the Builder's functions.
-8. **No clone limit.** A page may have an optional `maxWidgets`. Pages of widgets
-   are a separate future design.
-9. **Titles are unique per page.** Same-display-type clones are "Title (#n)";
-   clones with another view suggest the view in the title ("Recent Orders Line
-   Chart"). The detail dialog uses the Author's title.
-10. **Confirm before Discard and Apply**, inline, with secondary "✓" and "X"
+8. **Converted views ship first.** Provider-supplied views follow later.
+9. **No clone limit; pages have a capacity.** A page is `maxRows` rows (about 4)
+   of 12 columns, and the widths of its widgets must fit. See `widget-pages.md`.
+10. **Titles are unique per page.** Same-display-type clones are "Title (#n)";
+    clones with another view suggest the view in the title ("Recent Orders Line
+    Chart"). The detail dialog uses the viewer's rename, and the original title
+    is kept as a data attribute for reverting.
+11. **Confirm before Discard and Apply**, inline, with secondary "✓" and "X"
     buttons that have accessible names.
-11. **The consumer can store the backup** (`backup` prop, `onBackup` callback).
-12. **The Widget Builder is part of this library**, as headless functions (a
+12. **The consumer can store the backup** (`backup` prop, `onBackup` callback).
+    Storage adapters are designed in `storage-adapters.md`.
+13. **The Widget Builder is part of this library**, as headless functions (a
     `./builder` subpath) a developer wires into their own app.
+14. **Icons come from custom formatters**, not a built-in icon set: a `custom`
+    column names a consumer-supplied formatter function.
 
 ### Still open
 
-8. **Provider-supplied views in the first views release.** Proposed: ship both
-   kinds. A _converted_ view reshapes the payload already loaded (5 table rows
-   become a bar list; no extra load, limited to what those rows can express). A
-   _provider-supplied_ view calls the consumer's provider again with
-   `options.view = 'line'`, and the provider returns whatever fits (monthly totals
-   that can't be derived from 5 rows). Provider-supplied views are a small
-   addition, since `view` is just another resolved value in `ProviderOptions`, and
-   they are the only way to get a correct chart from a truncated table. Ship both
-   together, or converted only first?
-9. **What counts toward `maxWidgets`.** All widgets on the page, or only the
-   visible ones (hidden ones free up room)?
-10. **Detail dialog heading.** Item 10 is read as "the Author's `detail.title`,
-    else the Author's title, never the viewer's rename". Is that right?
-11. **Icon type.** Which named icon set, and does it ship with the library or does
-    the consumer supply it? Needs its own small design.
-12. **Storage adapters.** A longer discussion: a small interface a developer
-    implements (load, save, and backup of a layout) with recipes for localStorage,
-    a database and a server, without the core ever touching storage. Candidate for
-    its own design doc.
-13. **Pages of widgets.** Its own design: layouts per page, whose clones and
-    settings, and how `Dashboard` switches pages.
+15. **Formatter details.** The `CellFormatter` input shape above, whether the
+    "View as table" twin should also accept a text-only formatter, and whether
+    formatters may be async (proposed: no).
+16. **Capacity details** (what counts toward the 48 units, heights) are in
+    `widget-pages.md`.

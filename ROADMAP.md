@@ -44,6 +44,15 @@
   Defaults are definition data so a Widget Builder can bake them in later. Replaces "widget sizes in the layout". Designed in
   [docs/design/widget-options-views-clones.md](./docs/design/widget-options-views-clones.md);
   builds on the lock and edit mode design.
+- **Widget pages.** Phone-style pages of widgets (about 4 rows each), move
+  widgets between pages, a page bar that appears only with two or more pages,
+  and loading only the page in view. Designed in
+  [docs/design/widget-pages.md](./docs/design/widget-pages.md).
+- **Storage adapters.** A small adapter contract, I/O-free persistence helpers
+  and a `useStoredLayout` hook, so layouts and backups can live in
+  localStorage, a database or a server without the package storing anything.
+  Designed in
+  [docs/design/storage-adapters.md](./docs/design/storage-adapters.md).
 - **Sparkline kind** (`SPARKLINE`), and an optional sparkline on `KPI` tiles
   (12 points, current period in the accent).
 - **More chart forms**: stacked bars for part-to-whole, and area charts.
