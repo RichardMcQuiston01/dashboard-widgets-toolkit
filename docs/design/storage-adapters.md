@@ -1,7 +1,8 @@
 # Design: storage adapters
 
-- **Status:** Draft for review. Decisions 1 to 3 of section 11 come from the
-  maintainer; the rest are proposals.
+- **Status:** Phases 1 and 2 built (contract, persistence, wrappers,
+  `useStoredLayout`); recipes are in GETTING_STARTED. Decisions 1 to 3 of
+  section 11 come from the maintainer; the rest were taken as proposed.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
@@ -289,6 +290,19 @@ second tab's change appears, a disabled localStorage still lets the dashboard wo
    to localStorage.
 2. **The backup is storable** the same way (`backup` / `onBackup`).
 3. **This gets its own design**, separate from the options dialog.
+
+### Built as proposed, with these differences
+
+- Defaults: concrete adapters in recipes (4), `onConflict: 'ask'` (5), 500 ms
+  debounce with a `pagehide` flush (6), one backup snapshot (7), shared defaults
+  through a scope with no `userKey` (8), 64 KB limit via `maxBytes` (9).
+- `StoreErrorCode` gains `corrupt` (a stored value that can't be read back).
+- `LayoutPersistence` adds `keyFor` and `watch`; `save` takes `{ force }`, and
+  returns `outcome: 'saved' | 'kept-theirs' | 'conflict'`.
+- The hook surfaces a change from another tab as `remoteLayout` /
+  `resolveRemote` instead of drawing the notice itself, because it can't see
+  edit mode; it also returns `conflict` / `resolveConflict`.
+- `stored.activePage` is not built.
 
 ### Still open (proposals above)
 

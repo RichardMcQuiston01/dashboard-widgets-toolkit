@@ -467,6 +467,114 @@ hide the built-in toolbar with `toolbar={false}`. The text is overridable
 class slot. With `overrideLocks`, locked cards show "locked for viewers"
 instead.
 
+### Storing the layout
+
+The package never reads or writes storage itself. You write a small **adapter**
+for where layouts live; the toolkit supplies everything around it.
+
+```ts
+import {
+  createLayoutPersistence,
+  type StorageAdapter,
+} from '@richardmcquiston01/dashboard-widgets-toolkit/core';
+
+// Consumer code, so localStorage is fine here.
+const localStorageAdapter: StorageAdapter = {
+  async get(key) {
+    try {
+      const value = window.localStorage.getItem(key);
+      return { ok: true, value: value === null ? null : { value } };
+    } catch (cause) {
+      return {
+        ok: false,
+        code: 'unavailable',
+        error: `Could not read "${key}": ${String(cause)}`,
+      };
+    }
+  },
+  async set(key, value) {
+    try {
+      window.localStorage.setItem(key, value);
+      return { ok: true, value: { value } };
+    } catch (cause) {
+      const full =
+        cause instanceof DOMException && cause.name === 'QuotaExceededError';
+      return {
+        ok: false,
+        code: full ? 'quota' : 'unavailable',
+        error: `Could not write "${key}": ${String(cause)}`,
+      };
+    }
+  },
+  remove: async (key) => {
+    window.localStorage.removeItem(key);
+    return { ok: true, value: null };
+  },
+  // Other tabs, via the storage event.
+  subscribe(key, onChange) {
+    const listener = (event: StorageEvent): void => {
+      if (event.key === key) {
+        onChange(event.newValue === null ? null : { value: event.newValue });
+      }
+    };
+    window.addEventListener('storage', listener);
+    return () => window.removeEventListener('storage', listener);
+  },
+};
+
+const persistence = createLayoutPersistence(localStorageAdapter);
+```
+
+An adapter has `get`, `set` and optionally `remove` and `subscribe`. It never
+throws for expected failures: it returns `{ ok: false, code, error }` with a
+code (`unavailable`, `quota`, `forbidden`, `conflict`, `invalid`, `corrupt`) and
+a message that names the key. Return a `revision` (an ETag, a row version) from
+`get` and `set` and honor `ifRevision` in `set` to get conflict detection.
+
+In React, `useStoredLayout` joins it to `Dashboard`:
+
+```tsx
+const stored = useStoredLayout({
+  persistence,
+  scope: { dashboardKey: 'sales', userKey: user.id },
+  definitions,
+  defaultLayout, // shown until loaded and when nothing is stored
+});
+
+<Dashboard
+  widgets={widgets}
+  layout={stored.layout}
+  onLayoutChange={stored.setLayout}
+/>;
+```
+
+- The dashboard never waits on storage. A failed load or save keeps the
+  in-memory layout working and sets `stored.error` (and `status: 'error'`).
+- Saves are debounced (`saveDelayMs`, default 500) and flushed when the page is
+  hidden.
+- `load` repairs what it reads with `normalizeLayout`, so a stored layout never
+  shows widgets that no longer exist; a bare layout from `serializeLayout` is
+  read as is. Layouts over `maxBytes` (default 64 KB) are refused with a message
+  that names the size.
+- When the adapter has revisions, a conflicting save follows `onConflict`:
+  `'ask'` (default: `status: 'conflict'`, then `stored.resolveConflict('mine' |
+'theirs')`), `'overwrite'`, `'keep-theirs'`, or a function
+  `(mine, theirs) => layout` to merge.
+- A change from another tab or device is applied at once when there are no
+  unsaved edits; otherwise it is offered as `stored.remoteLayout`, which you
+  accept or ignore with `stored.resolveRemote('use' | 'ignore')`.
+- `stored.backup` / `stored.setBackup` keep a pre-edit snapshot under its own key.
+
+Wrappers turn one adapter into another: `withPrefix`, `withFallback(primary,
+secondary)` (a server first, localStorage when it's down), `withReadCache`,
+`readOnly`, `withRetry` (you pass `sleep`, so the core has no timers),
+`withEncoding` (compression or your own encryption) and `withLogging` (keys and
+codes, never values). `memoryAdapter()` is for tests and server rendering.
+
+On the server, treat a posted layout as untrusted: run
+`normalizeLayout(definitions, parseLayout(body))` before saving, take the user
+from the session (never from the request), and enforce the size limit.
+
 ### Pages of widgets (core)
 
 A dashboard can be split into pages, like the home screens of a phone. A layout

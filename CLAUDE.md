@@ -34,6 +34,7 @@ src/
     layout.ts           DashboardLayout: parse/serialise, order, hide, minimize
     pages.ts            pages of widgets: helpers, capacity, normalizeLayout
     options.ts          declared options: resolve values, cache suffix, client sort/columns
+    storage.ts          StorageAdapter contract, wrappers, createLayoutPersistence
     format.ts           Intl formatting, percent change, kpiDelta
     scale.ts            niceStep, niceDomain, labelStride
     url.ts              isSafeHref / isSafeImageUrl
@@ -46,6 +47,7 @@ src/
     renderers.tsx       one renderer per kind, WidgetContent switch
     charts.tsx          GraphWidget: SVG bar/line, legend, tooltip, table twin
     dashboard.tsx       WidgetGrid, Dashboard (layout controls)
+    use-stored-layout.ts useStoredLayout: persistence + Dashboard
     palette.ts          default series/chrome colors as var(--dwt-*, fallback)
     primitives.tsx      WidgetLink (rel="noreferrer", safe schemes), Thumbnail
     styles.css          optional stylesheet, copied to dist/styles.css
@@ -83,9 +85,10 @@ documented in the code and README, which win if they disagree.
   lazy loading by page). Built: the core (`pages.ts`, `placeRows`,
   `normalizeLayout`) and the React page bar, Move to page and page management.
   Not built: swipe, drag onto a page tab, `retain`/`release`.
-- `docs/design/storage-adapters.md`: a storage adapter contract, I/O-free
-  persistence helpers and a `useStoredLayout` hook; concrete adapters stay in
-  consumer code. Not built yet.
+- `docs/design/storage-adapters.md`: the adapter contract, wrappers,
+  `createLayoutPersistence` and `useStoredLayout` are built; concrete adapters
+  stay in consumer code (recipes in GETTING_STARTED). Not built: stored active
+  page, backup history, a companion package.
 
 ## Commands (Bun only)
 
