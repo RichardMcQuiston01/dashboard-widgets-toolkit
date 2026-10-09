@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.10.0
+
+### Minor Changes
+
+- 850787d: Pages of widgets, the core. A layout can have `pages` (each with its own order, hidden and minimized lists, a title and an optional `maxRows`); layouts without `pages` behave as before and serialize to the same JSON. New pure functions: `pageList`, `pageLayout`, `withPageLayout`, `assignPages`, `pageWidgets`, `pageOf`, `pageRoom`, `addPage`, `renamePage`, `movePage`, `removePage` and `moveWidgetToPage`, which refuse with specific messages (a page that is full, a widget locked against moving). Capacity is counted in rows as the grid draws them with the new `placeRows` and `fitCount`; widgets are never split, and a page that needs more rows than it allows overflows to another page. `normalizeLayout` repairs a layout for saving. Definitions can name a home `page`. `pruneLayout` and `enforceLocks` now cover pages. The React page bar comes later.
+- e7d3cfd: Pages in `Dashboard`. A layout with `pages` shows a tab list (a real `tablist` with arrow-key, Home and End navigation, collapsing to dots with Previous and Next buttons under 640px) and renders only the page in view; with one page there is no page bar. New props `activePage`, `defaultActivePage`, `onActivePageChange`, `maxRows` and `maxPages`. While editing there are Add page, Rename, Move left/right and Delete (with the inline confirmation) for the page in view, and a Move to page select on each card that lists free rows and offers "New page…". Moves, restores and deletes that would overflow a page are refused with a specific message. New labels (`pageBar`, `pageTabName`, `addPage`, `moveToPage`, `pageFull`, `emptyPage` and more) and a `pageBar` class slot. Because only the page in view renders, `useWidgets` with `loadWhen: 'visible'` loads each page's widgets the first time the page is shown; `useWidgets` now also picks up cards that appear after the first render, so a widget restored from the Hidden bar loads too.
+
 ## 0.9.0
 
 ### Minor Changes
