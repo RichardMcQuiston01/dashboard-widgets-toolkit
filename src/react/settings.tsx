@@ -6,6 +6,7 @@ import type { Locale } from '../core/format.js';
 export type DashboardClassSlot =
   | 'dashboard'
   | 'hiddenBar'
+  | 'toolbar'
   | 'grid'
   | 'card'
   | 'cardHeader'
@@ -49,6 +50,25 @@ export interface DashboardLabels {
   readonly moveLater: (title: string) => string;
   readonly hiddenWidgets: string;
   readonly minimizedWidgets: string;
+  /** Edit mode toolbar (`editMode="toggle"`). */
+  readonly customize: string;
+  readonly done: string;
+  readonly reset: string;
+  readonly revertChanges: string;
+  readonly confirmReset: string;
+  readonly confirmRevert: string;
+  /** Accessible names of the inline "✓" and "X" confirmation buttons. */
+  readonly confirmYes: string;
+  readonly confirmNo: string;
+  /** Announced when edit mode starts and ends. */
+  readonly editingOn: string;
+  readonly editingOff: string;
+  /** Names the toolbar group for assistive technology. */
+  readonly dashboardControls: string;
+  /** The lock icon on a locked card, e.g. "Revenue is locked". */
+  readonly locked: (title: string) => string;
+  /** The lock icon on a card shown to an administrator (`overrideLocks`). */
+  readonly lockedForViewers: (title: string) => string;
   /** Added to the accessible name of links that open in a new tab. */
   readonly opensInNewTab: string;
   /** The card's View button, opening the detail view. */
@@ -83,6 +103,20 @@ export const DEFAULT_LABELS: DashboardLabels = {
   moveLater: (title) => `Move ${title} later`,
   hiddenWidgets: 'Hidden:',
   minimizedWidgets: 'Minimized:',
+  customize: 'Customize',
+  done: 'Done',
+  reset: 'Reset layout',
+  revertChanges: 'Revert changes',
+  confirmReset: 'Reset the layout to the default?',
+  confirmRevert: 'Revert to how this looked before you started editing?',
+  confirmYes: 'Yes',
+  confirmNo: 'No',
+  editingOn:
+    'Editing dashboard. Use the buttons on each card to reorder or hide it.',
+  editingOff: 'Finished editing.',
+  dashboardControls: 'Dashboard controls',
+  locked: (title) => `${title} is locked`,
+  lockedForViewers: (title) => `${title} is locked for viewers`,
   opensInNewTab: '(opens in a new tab)',
   view: (title) => `View ${title}`,
   close: 'Close',

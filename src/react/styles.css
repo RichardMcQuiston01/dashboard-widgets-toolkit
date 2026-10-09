@@ -170,6 +170,36 @@
   font-size: 0.875rem;
 }
 
+:where(.dwt-toolbar) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+}
+
+:where(.dwt-confirm) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+:where(.dwt-confirm-message) {
+  color: var(--dwt-text-secondary);
+}
+
+/* A lock icon sits where a card's controls would be: same size, no action. */
+:where(.dwt-lock) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  color: var(--dwt-text-secondary);
+}
+
 :where(.dwt-hidden-label) {
   color: var(--dwt-text-secondary);
 }
@@ -186,6 +216,11 @@
   border: 1px solid var(--dwt-border);
   border-radius: var(--dwt-radius);
   font-family: var(--dwt-font);
+}
+
+:where(.dwt-dashboard--editing .dwt-card--editing) {
+  border-style: dashed;
+  border-color: var(--dwt-text-secondary);
 }
 
 :where(.dwt-card-header) {
