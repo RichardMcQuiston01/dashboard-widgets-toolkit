@@ -71,6 +71,9 @@ documented in the code and README, which win if they disagree.
   drag-and-drop reordering, push streams.
 - `docs/design/lock-and-edit-mode.md`: locked widgets (`locked`, pinned slots,
   `enforceLocks`) and a Customize/Done edit mode. Not built yet.
+- `docs/design/widget-options-views-clones.md`: gear/Options dialog (title,
+  width, declared options passed to providers), alternate views and clones,
+  stored in the layout. Not built yet; builds on the lock design.
 
 ## Commands (Bun only)
 
