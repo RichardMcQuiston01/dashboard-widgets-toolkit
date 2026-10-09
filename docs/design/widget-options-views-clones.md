@@ -90,6 +90,8 @@ interface DashboardLayout {
 interface WidgetSettings {
   readonly title?: string;
   readonly width?: number;
+  /** May grow into the leftover columns of its row. */
+  readonly flexible?: boolean;
   readonly view?: string;
   readonly options?: Readonly<Record<string, OptionValue>>;
 }
@@ -138,7 +140,7 @@ The dialog holds:
   characters. Plain text only (React escapes it; it is never parsed as HTML).
   Empty means "use the default".
 - **Width:** a choice from 2 to 12 (next section), limited to the definition's
-  range.
+  range, with a **Flexible** checkbox ("Grow to fill empty space in the row").
 - Further fields from sections 5 and 6 (declared options, view).
 - **Apply**, **Cancel**, **Reset to defaults** and **Revert to before editing**
   (see "Reset and revert" below).
@@ -186,16 +188,26 @@ A table that needs room sets `minWidth: 6`; a KPI tile that looks silly wide
 sets `maxWidth: 4`. This answers the cramped-table problem a viewer could
 otherwise recreate by narrowing.
 
-### How width and `fill` combine
+### Flexible: width and `fill` combine
 
-The effective width is `settings.width`, else `definition.width`, else the
-size default. A viewer who chose a width gets it: the effective definition
-drops the width half of `fill` (`both` becomes `height`, `width` becomes
-nothing). A card that silently grew beyond the width the viewer picked would
-look like a bug. This follows from the width being a fixed share of the
-dashboard (decided, section 15). The responsive rules (twice the width under
-900px, the whole row under 560px) still apply, so a saved width is the wide
-layout's width, not a phone's.
+The width is a **base** share. **Flexible** lets the card grow slightly to use
+the columns left over in its row instead of leaving an empty gap. It is the
+existing `fill: 'width'` (what `placeAndFill` in `core/grid.ts` already does),
+now a viewer setting:
+
+- The effective base width is `settings.width`, else `definition.width`, else the
+  size default. Effective flexibility is `settings.flexible`, else whether the
+  definition's `fill` is `width` or `both`. Height filling (`height` or `both`)
+  is untouched.
+- Growth is bounded: only the columns left in that row, shared evenly among the
+  row's flexible widgets (earlier ones take the remainder), and never beyond
+  `maxWidth`. Rows are decided from base widths first, so Flexible never moves a
+  widget to another row or page (see `widget-pages.md`).
+- A viewer who picks a width and leaves Flexible off gets exactly that width. One
+  who ticks it gets "at least this wide, up to the row". The dialog shows both
+  ("6 of 12, may grow to fill the row").
+- The responsive rules (twice the width under 900px, the whole row under 560px)
+  still apply, so a saved width is the wide layout's width, not a phone's.
 
 ### Titles in the rest of the UI
 
@@ -769,7 +781,7 @@ interesting but not to work.
 
 Pure logic, in `test/core`: `parseLayout`/`serializeLayout` round trips with and
 without the new fields and byte-identical output for old layouts; `applySettings`
-with width clamping, `fill` handling and titles; `resolveOptionValues` for
+with width clamping, Flexible growth and titles; `resolveOptionValues` for
 valid, invalid and unknown values; `cacheKeyFor` stability and ordering; every
 conversion with good and bad cells and the error text; `effectiveDefinitions`
 with clones, key collisions and a missing original; `normalizeLayout`
@@ -841,8 +853,9 @@ confirm the layout persists.
 2. **Apply-only, with confirmation.** No live preview. Closing with unsaved
    changes asks before discarding, and Apply asks before saving (item 11).
 3. **Width is a fixed share of the dashboard, 2 to 12.** 2 is one sixth and 12 is
-   the full width, inside the page margins and padding. Because it is a fixed
-   share, the viewer's choice wins over `fill: 'width'`.
+   the full width, inside the page margins and padding. A viewer's width is
+   the base; the **Flexible** checkbox (today's `fill: 'width'`) lets the card
+   grow into the leftover columns of its row.
 4. **Reset is per widget and asks first.** It reverts that widget's settings and
    never touches its clones. A pre-edit backup supports "Revert to before
    editing", per widget and for the whole layout.

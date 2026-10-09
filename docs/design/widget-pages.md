@@ -84,47 +84,81 @@ interface LayoutPage {
 `addPage`, `renamePage`, `removePage`, `movePage` (reorder), `moveWidgetToPage`,
 `pageOf(layout, key)`, `pageLayout`, `withPageLayout`. Each returns a `Result` or
 the same layout when nothing changes, like the existing updaters, and each
-refusal names the page and widget: `Page "Sales" has no room for "Orders" (needs
-6 columns, 4 left).`
+refusal names the page and widget: `Page "Sales" has no room for "Orders" (it would need a fifth row; the page allows 4).`
 
 ## 4. Capacity
 
-A page holds `maxRows` rows (default 4) of 12 columns: 48 column units. The
-proposal is that a page **fits** when its visible widgets, flowed in order across
-12 columns, use no more than `maxRows` rows.
+A page holds `maxRows` rows (default 4) of 12 columns. **Widgets are never split
+or squeezed to make them fit.** A table or chart is one piece: it sits whole in a
+row or it doesn't sit there. If a widget would need more than `maxRows` rows, it
+and the widgets after it overflow onto another page.
+
+Rows are worked out by the code that already places cards, `placeAndFill` in
+`core/grid.ts`: widgets go left to right in order, and a widget that doesn't fit
+in the rest of the row starts the next row whole. A new pure function reports
+that placement, so the check and the rendering can never disagree:
 
 ```ts
-/** Rows the widgets use when flowed left to right across `columns`. */
-function rowsUsed(widths: readonly number[], columns?: number): number;
-function fitsPage(widths: readonly number[], maxRows?: number): boolean;
-function roomLeft(widths: readonly number[], maxRows?: number): number; // in columns
+interface PlacedRow {
+  readonly keys: readonly string[];
+  readonly spans: readonly number[]; // final spans, after flexible widgets grow
+}
+
+/** The rows the widgets occupy, exactly as the grid will draw them. */
+function placeRows(items: readonly GridItem[]): readonly PlacedRow[];
+/** How many of `items`, in order, fit in `maxRows` rows. */
+function fitCount(items: readonly GridItem[], maxRows?: number): number;
 ```
 
-The simple reading is "widths add up to at most 48", and it is the same whenever
-widths divide a row evenly. They differ when a widget wraps: widths of 7, 7, 7, 7,
-7, 7 and 6 add up to 48, but each 7 leaves a 5-column gap, so they need 7 rows.
-Counting rows as the grid draws them keeps the rule honest, and the dialog can
-still say "6 of 48 columns free" for the common case.
+A page **fits** when `placeRows(visibleWidgets).length <= maxRows`. The
+back-of-envelope reading, "widths add up to at most 48", is only a hint: seven
+widgets 7 wide leave a 5-column gap in every row, so they need 7 rows although
+they add up to 49 or less in the right mix. Counting real rows is the honest test,
+and the page bar's room indicator says "2 rows free", not columns.
+
+### Overflow goes to another page
+
+- When a change makes a page too full (a wider width, a restored widget, a move
+  in), it is **refused** with a message that offers a way out: "Page 'Sales' is
+  full. Move it to another page, or choose a narrower width."
+- When a layout arrives already too full (saved earlier, or an administrator
+  shrank `maxRows`), `normalizeLayout` moves the overflow to the **next page that
+  has room, or a new page appended after it**. The first widget that doesn't fit
+  and everything after it move together, in order, so nothing is reordered or
+  hidden.
+
+### Flexible widgets
+
+A width is a minimum share (the existing 2 to 12 setting). A viewer or author can
+also mark a widget **Flexible**, which is today's `fill: 'width'` made visible: it
+may **grow slightly to take the columns left over in its row** rather than leave
+empty columns (see the options design). Growth never changes the count of rows:
+
+- Rows are decided by the base widths first. Growing only uses leftover columns
+  in a row that already exists, so Flexible can't push a widget to another row or
+  page, and a page that fits stays fitting.
+- Several Flexible widgets in one row share the leftover evenly; earlier ones get
+  the remainder. A row with none keeps its gap.
+- Growth stops at the widget's `maxWidth`.
+
+### Details
 
 - **What counts:** visible widgets, including minimized ones (a minimized card
-  still occupies its columns). Hidden widgets don't count, so hiding frees room.
-- **Widths** are the effective widths: the viewer's `settings.width`, else the
-  definition's, else the size default. The check runs on the wide layout; the
-  narrow responsive rules (double width under 900px) don't change what is allowed.
+  still holds its place in the row). Hidden widgets don't count, so hiding frees
+  room.
+- **Widths** are the effective base widths: the viewer's `settings.width`, else
+  the definition's, else the size default. The check runs on the wide layout; the
+  responsive rules (double width under 900px) don't change what is allowed.
 - **Heights** are not counted. A tall table makes a page longer even within four
   rows. Row height classes could be counted later (open question 13).
-- **Where it applies:** adding a page's first widgets, moving a widget in,
-  changing a width, restoring a hidden widget, duplicating a clone. Each refuses
-  with a message if the page would overflow, and offers a way out ("Move to
-  another page" or "New page").
 - **Override:** `maxRows` is a `Dashboard` prop and also part of a page's data
   (`LayoutPage.maxRows?`) so an administrator can give a page more room.
 
 ## 5. Moving between pages
 
 - **Move to page…** is a select in each card's edit-mode controls and in the
-  Options dialog ("Page"). It lists pages with their free columns ("Sales, 12
-  columns free") and "New page…" at the end. The widget goes to the end of the
+  Options dialog ("Page"). It lists pages with their free rows ("Sales, 2 rows
+  free") and "New page…" at the end. The widget goes to the end of the
   target page. This is the single-pointer, keyboard-friendly way and is always
   available.
 - **Drag onto a page tab** is added when drag and drop ships; the select remains
@@ -228,12 +262,12 @@ Indicative; after edit mode (0.9.0) and the options dialog (0.11.0), before clon
 
 | Phase | Version | Scope                                                                                                                                              |
 | ----- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | 0.12.0  | Core: `pages` in the layout, helpers, `rowsUsed`/`fitsPage`, page rules in `normalizeLayout`, definition `page`                                    |
+| 1     | 0.12.0  | Core: `pages` in the layout, helpers, `placeRows`/`fitCount`, page rules in `normalizeLayout`, definition `page`                                   |
 | 2     | 0.12.0  | React: page bar (tabs and dots, hidden for one page), `activePage`, lazy loading by page, Move to page select, edit-mode Add/Rename/Reorder/Delete |
 | 3     | later   | Swipe, drag onto a page tab, adjacent prefetch tuning, `retain`/`release`                                                                          |
 
 Tests (`test/core`): round trips with and without `pages` and byte-identical old
-JSON; `pageLayout`/`withPageLayout`; `rowsUsed` including the 7-wide example;
+JSON; `pageLayout`/`withPageLayout`; `placeRows` including the 7-wide example and flexible growth that never adds a row;
 every refusal message; `normalizeLayout` repairs and idempotence. (`test/react`):
 no page bar for one page; tabs and dots markup with accessible names; the select
 lists free columns; only the active page's widgets are in the markup; unchanged
@@ -253,20 +287,25 @@ data loads only on first visit.
 5. **Pagination scales**: only the page in view needs to load.
 6. **Settings and clones belong to the widget**, so they travel with it.
 
+### Decided (2026-10-09, later)
+
+7. **Widgets are whole.** Nothing splits across rows; a widget that overflows
+   the page's rows goes to another page.
+8. **Flexible widgets** may grow slightly into leftover columns of their row.
+
 ### Still open (proposals above)
 
-7. **Capacity rule.** Count rows as the grid flows them (proposed) rather than
-   summing widths? The two agree except when widgets wrap and leave gaps.
-8. **What counts.** Visible widgets including minimized ones; hidden don't
-   (proposed).
-9. **Default `maxRows`.** 4, per your suggestion, overridable per page.
-10. **Overflow repair.** Move extra widgets to the next page with room or a new
-    page (proposed), never hide or drop them.
-11. **Dots versus titles.** Titles on wide screens and dots on narrow ones
+9. **Overflow order.** The first widget that doesn't fit and everything after it
+   move to the next page, keeping order (proposed). The alternative, filling gaps
+   with later smaller widgets, reorders what the viewer arranged.
+10. **What counts.** Visible widgets including minimized ones; hidden don't
     (proposed).
-12. **Locking pages.** Should an administrator be able to lock page structure so
+11. **Default `maxRows`.** 4, overridable per page.
+12. **Dots versus titles.** Titles on wide screens and dots on narrow ones
+    (proposed).
+13. **Locking pages.** Should an administrator be able to lock page structure so
     viewers can't rename or delete the pages they defined?
-13. **Heights.** Count row heights as well as widths later?
-14. **`maxPages`.** No default limit (proposed), optional prop.
-15. **Memory.** Drop payloads of pages left far behind with `retain`/`release`,
+14. **Heights.** Count row heights as well as widths later?
+15. **`maxPages`.** No default limit (proposed), optional prop.
+16. **Memory.** Drop payloads of pages left far behind with `retain`/`release`,
     or keep everything visited?
