@@ -292,12 +292,11 @@ data loads only on first visit.
 7. **Widgets are whole.** Nothing splits across rows; a widget that overflows
    the page's rows goes to another page.
 8. **Flexible widgets** may grow slightly into leftover columns of their row.
+9. **Overflow keeps order.** The first widget that doesn't fit, and everything
+   after it, move to the next page in order.
 
 ### Still open (proposals above)
 
-9. **Overflow order.** The first widget that doesn't fit and everything after it
-   move to the next page, keeping order (proposed). The alternative, filling gaps
-   with later smaller widgets, reorders what the viewer arranged.
 10. **What counts.** Visible widgets including minimized ones; hidden don't
     (proposed).
 11. **Default `maxRows`.** 4, overridable per page.

@@ -1,7 +1,7 @@
 # Design: locked widgets and an edit mode
 
-- **Status:** Draft for review. Decisions 1 to 3 of section 10 are recorded;
-  4 to 6 are still open.
+- **Status:** Design agreed; decisions 1 to 6 of section 10 are recorded. Not
+  built yet.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
@@ -375,7 +375,4 @@ that stays put while the cards around it are reordered.
    the Widget Builder's admin view. Arranging locked widgets is either a separate
    admin UI (default) or `overrideLocks` on `Dashboard` for roles the developer
    names, with the server enforcing. Both are supported.
-
-### Still open
-
-6. **Default for `editMode`.** Keep `always` until 1.0, as proposed?
+6. **`editMode` defaults to `always` for now.** Revisit before 1.0.
