@@ -216,6 +216,23 @@ export interface DashboardProps extends WidgetSettings {
    * everyone else (`enforceLocks`). It never changes the locks themselves.
    */
   readonly overrideLocks?: boolean;
+  /**
+   * `always` (default): move and hide controls show whenever `onLayoutChange`
+   * is set. `toggle`: they show only while editing, behind a Customize
+   * button, so a stray click can't rearrange the page. Minimize and its bar
+   * work in both modes.
+   */
+  readonly editMode?: 'always' | 'toggle';
+  /** Controlled editing state (`editMode="toggle"`). */
+  readonly editing?: boolean;
+  /** Initial editing state when uncontrolled. Default false. */
+  readonly defaultEditing?: boolean;
+  /** Called when the viewer starts or finishes editing. */
+  readonly onEditingChange?: (editing: boolean) => void;
+  /** What Reset layout restores. Default: the empty layout (sortOrder order). */
+  readonly defaultLayout?: DashboardLayout;
+  /** Show the built-in Customize/Done/Reset toolbar (toggle mode). Default true. */
+  readonly toolbar?: boolean;
   readonly onRetry?: (key: string) => void;
   /**
    * Loads the full data for a widget's detail view (widgets whose definition
@@ -279,6 +296,61 @@ function DetailHost({
   );
 }
 
+/**
+ * "Reset the layout?" with "✓" and "X" buttons, inline in the toolbar. Focus
+ * starts on the safe choice, and Escape answers no.
+ */
+function InlineConfirm({
+  message,
+  onAnswer,
+}: {
+  readonly message: string;
+  readonly onAnswer: (yes: boolean) => void;
+}): ReactNode {
+  const slot = useSlotClassName();
+  const { labels } = useWidgetSettings();
+  const noRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    noRef.current?.focus();
+  }, []);
+  return (
+    <span
+      role="group"
+      aria-label={message}
+      className="dwt-confirm"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.stopPropagation();
+          onAnswer(false);
+        }
+      }}
+    >
+      <span role="alert" className="dwt-confirm-message">
+        {message}
+      </span>
+      <button
+        type="button"
+        className={slot('button', 'dwt-button', 'dwt-icon-button')}
+        aria-label={labels.confirmYes}
+        title={labels.confirmYes}
+        onClick={() => onAnswer(true)}
+      >
+        <span aria-hidden="true">✓</span>
+      </button>
+      <button
+        ref={noRef}
+        type="button"
+        className={slot('button', 'dwt-button', 'dwt-icon-button')}
+        aria-label={labels.confirmNo}
+        title={labels.confirmNo}
+        onClick={() => onAnswer(false)}
+      >
+        <span aria-hidden="true">✕</span>
+      </button>
+    </span>
+  );
+}
+
 /** The definition without its lock, for `overrideLocks`. */
 function withoutLock(definition: WidgetDefinition): WidgetDefinition {
   if (definition.locked === undefined) return definition;
@@ -293,6 +365,12 @@ function DashboardInner({
   layout: savedLayout = EMPTY_LAYOUT,
   onLayoutChange,
   overrideLocks = false,
+  editMode = 'always',
+  editing: editingProp,
+  defaultEditing = false,
+  onEditingChange,
+  defaultLayout,
+  toolbar = true,
   onRetry,
   loadDetail,
   onOpenDetail,
@@ -313,6 +391,29 @@ function DashboardInner({
   const visible: WidgetDefinition[] = visibleWidgets(definitions, layout);
   const hidden: WidgetDefinition[] = hiddenWidgets(definitions, layout);
   const editable: boolean = onLayoutChange !== undefined;
+  const toggleMode: boolean = editMode === 'toggle';
+  const [editingState, setEditingState] = useState<boolean>(defaultEditing);
+  const editing: boolean = editingProp ?? editingState;
+  // Move, hide and the other layout controls: always, or only while editing.
+  const controlsShown: boolean = editable && (!toggleMode || editing);
+  // Editing keeps a snapshot of the layout from when it began, for Revert.
+  const [snapshot, setSnapshot] = useState<DashboardLayout | undefined>(
+    undefined
+  );
+  if (toggleMode && editable && editing) {
+    if (snapshot === undefined) setSnapshot(savedLayout);
+  } else if (snapshot !== undefined) {
+    setSnapshot(undefined);
+  }
+  const [confirming, setConfirming] = useState<'reset' | 'revert' | undefined>(
+    undefined
+  );
+  const pending: 'reset' | 'revert' | undefined = editing
+    ? confirming
+    : undefined;
+  const [announcement, setAnnouncement] = useState<string>('');
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const resetRef = useRef<HTMLButtonElement>(null);
   // Minimized widgets leave the grid for their own bar, so they stop taking
   // space. Without layout controls there is no way to restore them, so a
   // read-only dashboard shows them as normal cards.
@@ -335,9 +436,83 @@ function DashboardInner({
     if (next !== layout) onLayoutChange?.(next);
   }
 
+  function setEditing(next: boolean): void {
+    if (editingProp === undefined) setEditingState(next);
+    onEditingChange?.(next);
+    setAnnouncement(next ? labels.editingOn : labels.editingOff);
+    setConfirming(undefined);
+  }
+
+  function answerConfirmation(yes: boolean): void {
+    const which: 'reset' | 'revert' | undefined = pending;
+    setConfirming(undefined);
+    if (yes && which === 'reset') {
+      change(enforceLocks(definitions, defaultLayout ?? EMPTY_LAYOUT));
+    } else if (yes && which === 'revert' && snapshot !== undefined) {
+      change(snapshot);
+    }
+    // Focus goes back to the control that asked.
+    (which === 'revert' ? toggleRef : resetRef).current?.focus();
+  }
+
   return (
-    <div className={slot('dashboard', 'dwt-dashboard', className)}>
-      {editable && hidden.length > 0 && (
+    <div
+      className={slot(
+        'dashboard',
+        'dwt-dashboard',
+        toggleMode && controlsShown && 'dwt-dashboard--editing',
+        className
+      )}
+    >
+      {editable && toggleMode && toolbar && (
+        <div
+          role="group"
+          aria-label={labels.dashboardControls}
+          className={slot('toolbar', 'dwt-toolbar')}
+        >
+          <button
+            ref={toggleRef}
+            type="button"
+            aria-pressed={editing}
+            className={slot('button', 'dwt-button', 'dwt-toolbar-toggle')}
+            onClick={() => setEditing(!editing)}
+          >
+            {editing ? labels.done : labels.customize}
+          </button>
+          {editing && (
+            <>
+              <button
+                ref={resetRef}
+                type="button"
+                className={slot('button', 'dwt-button')}
+                onClick={() => setConfirming('reset')}
+              >
+                {labels.reset}
+              </button>
+              <button
+                type="button"
+                className={slot('button', 'dwt-button')}
+                disabled={snapshot === undefined || savedLayout === snapshot}
+                onClick={() => setConfirming('revert')}
+              >
+                {labels.revertChanges}
+              </button>
+            </>
+          )}
+          {pending !== undefined && (
+            <InlineConfirm
+              message={
+                pending === 'reset' ? labels.confirmReset : labels.confirmRevert
+              }
+              onAnswer={answerConfirmation}
+            />
+          )}
+          <span className="dwt-visually-hidden" aria-live="polite">
+            {announcement}
+          </span>
+        </div>
+      )}
+      {controlsShown && hidden.length > 0 && (
         <div className={slot('hiddenBar', 'dwt-hidden-bar')}>
           <span className="dwt-hidden-label">{labels.hiddenWidgets}</span>
           {hidden.map((definition) => (
@@ -390,14 +565,54 @@ function DashboardInner({
             const key: string = definition.key;
             const title: string = definition.title;
             const lock: ResolvedWidgetLock = resolveWidgetLock(definition);
+            // The widget's own lock, shown even when `overrideLocks` ignores it.
+            const ownLock: ResolvedWidgetLock = resolveWidgetLock(
+              widget.definition
+            );
+            const isLocked: boolean =
+              ownLock.move || ownLock.hide || ownLock.minimize;
+            const lockLabel: string = overrideLocks
+              ? labels.lockedForViewers(title)
+              : labels.locked(title);
             const canMoveEarlier: boolean =
               !lock.move &&
               moveWidgetBy(definitions, layout, key, -1) !== layout;
             const canMoveLater: boolean =
               !lock.move &&
               moveWidgetBy(definitions, layout, key, 1) !== layout;
-            const actions: ReactNode = editable ? (
+            const actions: ReactNode = controlsShown ? (
               <>
+                {isLocked && (
+                  <span
+                    role="img"
+                    className="dwt-lock"
+                    aria-label={lockLabel}
+                    title={lockLabel}
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      width="14"
+                      height="14"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <rect
+                        x="3"
+                        y="7"
+                        width="10"
+                        height="7"
+                        rx="1.5"
+                        fill="currentColor"
+                      />
+                      <path
+                        d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                      />
+                    </svg>
+                  </span>
+                )}
                 {!lock.move && (
                   <>
                     <button
@@ -468,6 +683,7 @@ function DashboardInner({
                 {...spanProps(spans, key)}
                 {...widthProps(twelve, definition)}
                 minimized={isMinimized(layout, key)}
+                editing={toggleMode && controlsShown}
                 {...(actions === undefined ? {} : { actions })}
                 {...(editable && !lock.minimize
                   ? {
