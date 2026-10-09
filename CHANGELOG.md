@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.11.1
+
+### Patch Changes
+
+- f1f5826: Fix a table card's header sort not following its `sort` option: after the viewer (or `optionValues`) chose a different sort, the card kept the header sort it started with. The header now takes the new sort option value.
+
 ## 0.11.0
 
 ### Minor Changes
