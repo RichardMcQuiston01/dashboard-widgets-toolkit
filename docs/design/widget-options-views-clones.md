@@ -1,6 +1,7 @@
 # Design: widget options, alternate views and clones
 
-- **Status:** Draft for review
+- **Status:** Draft for review. Decisions on the gear, Apply, width, Reset and
+  defaults are recorded in section 15; the rest are open.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
 - **Builds on:** `lock-and-edit-mode.md` (not yet built)
@@ -21,6 +22,11 @@ tailor a widget itself, through a **gear button** on the card that opens an
 3. **Alternate views and clones.** A widget can offer other ways to display
    the same data (a table as a bar list or a chart), and a viewer can clone a
    widget to keep two views side by side.
+
+Under all three sits one rule: **every default is data in the definition**
+(default sort, default view, default columns), and a viewer's choices only
+override it. That keeps definitions JSON, so a future **Widget Builder** can
+generate them (section 11).
 
 The package still never fetches or stores anything. Everything a viewer
 chooses lives in the layout JSON that the consumer already persists, and
@@ -85,8 +91,11 @@ interface WidgetSettings {
   readonly title?: string;
   readonly width?: number;
   readonly view?: string;
-  readonly options?: Readonly<Record<string, string | number | boolean>>;
+  readonly options?: Readonly<Record<string, OptionValue>>;
 }
+
+/** A column list is an array of column keys; the rest are scalars. */
+type OptionValue = string | number | boolean | readonly string[];
 
 interface WidgetClone {
   readonly key: string; // unique across definitions and clones
@@ -116,25 +125,53 @@ interface WidgetClone {
 
 A gear icon button in the card header (an icon button like the others, with the
 accessible name "Options for Revenue") opens `WidgetOptionsDialog`, a native
-modal `<dialog>` built the same way as the detail view's:
+modal `<dialog>` built the same way as the detail view's.
+
+**The gear shows only in edit mode.** It is one of the customization controls
+that appear after the viewer presses Customize, so it can't be hit by accident
+while reading. This means the gear needs `editMode: 'toggle'`; in `'always'`
+mode there is no edit mode to show it in, so no gear.
+
+The dialog holds:
 
 - **Title:** a text field, placeholder showing the author's title, at most 80
   characters. Plain text only (React escapes it; it is never parsed as HTML).
   Empty means "use the default".
-- **Width:** a number-of-twelfths field (a select or stepper) limited to the
-  definition's range, with the current share shown ("6 of 12").
-- Further fields from sections 5 and 6.
-- **Apply**, **Cancel** (Esc), and **Reset to defaults** (clears this widget's
-  settings).
+- **Width:** a choice from 2 to 12 (next section), limited to the definition's
+  range.
+- Further fields from sections 5 and 6 (declared options, view).
+- **Apply**, **Cancel**, **Reset to defaults** and **Revert to before editing**
+  (see "Reset and revert" below).
 
-Apply commits through `onLayoutChange`, one call for the whole dialog. There is
-no live preview: previewing a changed option could reload data on every
-keystroke, and the dialog stays simple. (Open question 2.)
+### Apply, with confirmation
 
-Where the gear shows follows the edit-mode design: in `editMode: 'toggle'` it
-appears while editing; in `'always'` mode it is always there when
-`onLayoutChange` is set. Focus returns to the gear on close; a visually hidden
-live region announces "Options saved".
+Nothing is saved until **Apply**. There is no live preview: previewing a
+changed option could reload data on every keystroke, and the dialog stays
+simple. Two confirmations keep it safe:
+
+- **Closing with unsaved changes** (Cancel, Esc, a click outside) asks
+  "Discard your changes?" first. Closing with no changes just closes.
+- **Applying** commits through `onLayoutChange` in one call and then announces
+  "Options saved" in a live region, with the card showing the result behind the
+  closing dialog.
+
+Focus returns to the gear on close. (Whether Apply should also ask "Apply these
+changes?" before saving is open question 11; this design does not add a second
+prompt to every save.)
+
+### Width: a share of the dashboard
+
+The width choice is the existing 12-column scale: **2 is one sixth of the
+dashboard's width and 12 is all of it**, measured inside the page's margins and
+padding (the grid's content box), not the browser window. The dialog labels each
+step so nobody has to do the arithmetic:
+
+| Value | 2   | 3   | 4   | 5    | 6   | 7    | 8   | 9   | 10  | 11    | 12   |
+| ----- | --- | --- | --- | ---- | --- | ---- | --- | --- | --- | ----- | ---- |
+| Share | 1/6 | 1/4 | 1/3 | 5/12 | 1/2 | 7/12 | 2/3 | 3/4 | 5/6 | 11/12 | Full |
+
+Column gaps are taken out of the cards, not out of the share, so a "1/2" widget
+and its neighbor still fill the row exactly.
 
 ### Width limits
 
@@ -150,7 +187,8 @@ The effective width is `settings.width`, else `definition.width`, else the
 size default. A viewer who chose a width gets it: the effective definition
 drops the width half of `fill` (`both` becomes `height`, `width` becomes
 nothing). A card that silently grew beyond the width the viewer picked would
-look like a bug. (Open question 3.) The responsive rules (twice the width under
+look like a bug. This follows from the width being a fixed share of the
+dashboard (decided, section 15). The responsive rules (twice the width under
 900px, the whole row under 560px) still apply, so a saved width is the wide
 layout's width, not a phone's.
 
@@ -159,6 +197,32 @@ layout's width, not a phone's.
 Because every label is built from the title ("Hide Revenue", "Move Revenue
 earlier"), the effective title flows through unchanged. The detail view's
 heading uses `detail.title` when the author set one, else the effective title.
+
+### Reset and revert
+
+Two different ways back, both behind a confirmation:
+
+- **Reset to defaults** (in the widget's dialog) clears _that widget's_
+  settings, so it returns to what the definition (and the organization default
+  layout) says. It never touches other widgets, and **it never touches clones**
+  of the widget, which keep their own settings.
+- **Revert to before editing** restores what the widget looked like when the
+  viewer pressed Customize. The edit session keeps a **backup**: when edit mode
+  starts, `Dashboard` takes a snapshot of the layout (it is an immutable value,
+  so this is a reference, not a copy). "Revert to before editing" in a widget's
+  dialog restores that widget's settings from the snapshot; **Revert changes** in
+  the toolbar restores the whole layout from it, which also removes clones made
+  during the session.
+
+Each asks "Reset these options?" or "Revert to how this looked before you
+started editing?" in a small confirmation dialog (an `alertdialog` the toolkit
+renders, not `window.confirm`), with the safe button focused by default. The
+snapshot lives in memory for the edit session; keeping it across sessions is
+open question 12.
+
+The toolbar's **Reset layout** (lock design) resets only the arrangement
+(order, hidden, minimized) to the default, also after a confirmation. It does
+not clear settings or remove clones.
 
 ## 5. Declared options
 
@@ -191,6 +255,15 @@ type WidgetOption =
       default?: string; // 'c1:desc'
       /** 'provider' (default) sends it to the provider; 'client' sorts here. */
       apply?: 'provider' | 'client';
+    }
+  | {
+      type: 'columns'; // which table columns show, and in what order
+      key: string; // by convention 'columns'
+      label: string;
+      columns: readonly { key: string; label: string }[];
+      default: readonly string[]; // column keys, in order
+      /** 'provider' (default) sends it to the provider; 'client' hides here. */
+      apply?: 'provider' | 'client';
     };
 
 interface WidgetDefinition {
@@ -220,7 +293,7 @@ Providers receive them:
 interface ProviderOptions {
   readonly signal: AbortSignal;
   /** Every declared option, resolved. Empty when the definition has none. */
-  readonly options: Readonly<Record<string, string | number | boolean>>;
+  readonly options: Readonly<Record<string, OptionValue>>;
 }
 ```
 
@@ -255,6 +328,16 @@ is `columnKey:asc|desc`, the same text the detail view already puts in URLs.
 
 If a viewer then clicks a column header in the card, that is a temporary,
 unsaved sort on top of the default, as today.
+
+### The `columns` option
+
+The same idea for table columns: the author lists the columns a viewer may show
+(`default` is the shown set and its order), and the viewer ticks and orders
+them in the dialog. A `client` apply hides and reorders columns of the payload in
+the browser; a `provider` apply passes the key list so the provider can skip
+expensive columns. The value is an array of column keys, so it is the only option
+type that is not a scalar. The detail view's planned "column visibility" reads
+the same value.
 
 ### Other typical options
 
@@ -391,14 +474,16 @@ replacing it, so the UI needs no separate "replace" concept.
   there, so a fully locked widget has no gear and cannot be cloned. Either can
   be switched on alone with the object form. `enforceLocks` and
   `normalizeLayout` drop settings and clones that a lock forbids.
-- **Edit mode.** The gear is a customization control and follows the same
-  visibility table. Reset (`defaultLayout`) now also restores settings and
-  clones, which makes the open question about a confirmation more pressing
-  (lock design, question 4; here, question 8).
+- **Edit mode.** The gear is a customization control that appears only while
+  editing (so it needs `editMode: 'toggle'`). The toolbar's Reset layout resets
+  arrangement only and asks first; **Revert changes** restores the pre-edit
+  snapshot (see "Reset and revert"). This settles the lock design's question
+  about a Reset confirmation: it asks.
 - **Admin defaults.** `defaultLayout` is a full `DashboardLayout`, so an
   administrator can ship an organization default that includes widths, titles,
   options, views and even clones, using the same editing UI with
-  `overrideLocks`.
+  `overrideLocks`. A widget's "Reset to defaults" returns to the definition plus
+  this organization default (section 11).
 - **Drag and drop.** Clones are ordinary entries in `order`, so they drag like
   anything else. A resize handle on the card edge becomes a shortcut to the
   same `width` setting and can come later with drag and drop.
@@ -430,30 +515,87 @@ name, a bounded number) before using it in a query. The docs say so next to the
 
 New `DashboardLabels` entries, all overridable: `options` ("Options"),
 `optionsFor(title)`, `optionsTitle`, `optionsWidth`, `optionsView`, `apply`,
-`resetToDefaults`, `optionsSaved`, `duplicate`, `duplicateOf(title)`,
+`resetToDefaults`, `revertToBeforeEditing`, `revertChanges`, `confirmDiscard`,
+`confirmReset`, `confirmRevert`, `confirm`, `keepEditing`, `optionsSaved`, `duplicate`, `duplicateOf(title)`,
 `deleteWidget(title)`, `copySuffix` ("copy"), and validation messages for the
 width and title fields. Classes follow the convention: `dwt-options`,
 `dwt-options-field`, `dwt-gear`, and a `dialog` slot in `classNames`. The dialog
 reuses the detail dialog's styles. `styles.css` stays optional.
 
-## 11. Phasing
+## 11. Defaults and the Widget Builder
+
+Every widget should arrive with sensible settings already chosen: a default sort,
+a default view, a default set of columns. They are not special cases; they are
+the `default` of each declared option and a new `defaultView` on the definition:
+
+```ts
+interface WidgetDefinition {
+  // ...existing
+  /** The view shown until a viewer picks another (a `views` key). Default: the base kind. */
+  readonly defaultView?: string;
+}
+```
+
+A widget's effective settings come from three layers, later ones winning:
+
+1. **The definition:** option defaults, `defaultView`, `width`, `title`.
+2. **The organization default layout** (`defaultLayout`), if the consumer ships one.
+3. **The viewer's saved settings** (`layout.settings`).
+
+A temporary column-header click in the card is a session detail on top of
+these, never saved.
+
+### Why this matters for a builder
+
+An administrator-facing **Widget Builder** is a plausible later feature: a form
+that lets a non-developer create a widget by choosing a data source, a display
+type, the columns and a default sort. Nothing in it needs new machinery if the
+rules above hold:
+
+- A builder's output is a `WidgetDefinition` as JSON: `kind`, `views`,
+  `defaultView`, `options` with their defaults, `width`, `minWidth`, `maxWidth`,
+  `detail`, `tableControls`. Because definitions are plain data (no functions;
+  conversions are named and parameterized), it can be stored, versioned and
+  edited by a UI.
+- `validateWidgetDefinition` is the builder's guard: whatever it produces must
+  pass, and its messages (which name the field path) become the form's errors.
+- **Data stays code.** The builder cannot invent a data source. A consumer
+  registers the providers they have, and a source description tells the builder
+  what each can offer: its fields (key, label, type), which sorts and filters it
+  supports, how many rows it returns. The builder then offers only valid
+  combinations ("table, columns Name and Sold, default sort Sold descending").
+  The source description is a data-source design (the "adapters" idea in
+  `widget-extensions.md`), not part of this one.
+- The viewer-facing pieces in this design (the Options dialog and the form
+  rendering of declared options) can be reused inside the builder, because both
+  edit the same option declarations: one for a definition's defaults, one for a
+  viewer's overrides.
+
+The builder itself is out of scope here. It is listed as a later phase so the
+data model stays honest: **anything the builder will set must already be
+expressible as definition data.**
+
+## 12. Phasing
 
 Each phase is a minor release with its own changeset, README and
 GETTING_STARTED text, and a ROADMAP update. Version numbers are indicative; they
 follow the lock and edit-mode releases (0.8.0 and 0.9.0).
 
-| Phase | Version | Scope                                                                                                                                                                               |
-| ----- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | 0.10.0  | `layout.settings`, `applySettings`, `normalizeLayout`, `minWidth`/`maxWidth`, gear + Options dialog with title and width, `locked.options`                                          |
-| 2     | 0.11.0  | Declared options (`choice`, `number`, `boolean`, `sort`), `ProviderOptions.options`, per-widget reload, cache keys, client-side sort, seeding of table controls and the detail view |
-| 3     | 0.12.0  | `views` and conversions (provider-supplied and converted), the View field                                                                                                           |
-| 4     | 0.13.0  | `clones`, `maxClones`, `locked.clone`, Duplicate and Delete                                                                                                                         |
+| Phase | Version | Scope                                                                                                                                                                                                                                      |
+| ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1     | 0.10.0  | Declared options with defaults (`choice`, `number`, `boolean`, `sort`, `columns`), `ProviderOptions.options`, per-widget reload, cache keys, client-side sort and columns, seeding of table controls and the detail view. No gear needed   |
+| 2     | 0.11.0  | `layout.settings`, `applySettings`, `normalizeLayout`, `minWidth`/`maxWidth`, gear and Options dialog (title, width, declared options), Apply and discard confirmations, Reset to defaults, pre-edit snapshot and Revert, `locked.options` |
+| 3     | 0.12.0  | `views`, `defaultView` and conversions (provider-supplied and converted), the View field                                                                                                                                                   |
+| 4     | 0.13.0  | `clones`, `maxClones`, `locked.clone`, Duplicate and Delete                                                                                                                                                                                |
+| 5     | later   | Widget Builder and data-source descriptions, in their own design                                                                                                                                                                           |
 
-The phases are independent after phase 1. Phase 2 is the most valuable on its
-own (default sort and "top N" for real data); phase 4 needs phase 3 to be
+Phase 1 is the most valuable on its own and needs no new UI: authors get default
+sorts, "top N" and column sets, with the viewer's choice arriving later in phase 2
+through the same declarations. It is also what a Widget Builder bakes in, so it
+comes first. Phase 2 needs edit mode (0.9.0). Phase 4 needs phase 3 to be
 interesting but not to work.
 
-## 12. Testing
+## 13. Testing
 
 Pure logic, in `test/core`: `parseLayout`/`serializeLayout` round trips with and
 without the new fields and byte-identical output for old layouts; `applySettings`
@@ -469,6 +611,12 @@ markup, field labels, a dialog for a widget with no options or views (only title
 and width), locked widgets without a gear, and unchanged output when none of the
 new props or fields are used.
 
+Confirmation and reset, in `test/react` and `test/core`: edit mode takes the
+snapshot; Reset to defaults and per-widget Revert leave clones alone; Revert
+changes restores the whole layout; closing a changed dialog asks before
+discarding and an unchanged one does not; no gear in `always` mode; the width
+choices carry their share labels.
+
 Loader, in `test/core`: changing option values reloads only that widget, shows
 the previous payload as `stale` meanwhile, and a clone loads through its
 original's provider and shares its cache entry.
@@ -478,7 +626,7 @@ title and width, set a default sort on the products table and see the rows
 change, switch the products table to a bar list, clone it, and reload the page to
 confirm the layout persists.
 
-## 13. Risks
+## 14. Risks
 
 - **Scope creep toward a BI tool.** The line is "choose among what the author
   declared". Resist free-form field pickers; they are a different product.
@@ -492,34 +640,52 @@ confirm the layout persists.
 - **Accessibility of the dialog.** It is a form in a native modal: labelled
   fields, errors tied to fields with `aria-describedby`, focus restored to the
   gear, no color-only cues. Tested with keyboard-only runs.
+- **Confirmation fatigue.** Prompts guard only destructive actions (discard,
+  reset, revert), never a routine Apply, so people don't learn to click through.
+- **Builder drift.** If the builder ever emits something the viewer UI can't
+  edit, the two diverge. Both are tied to `validateWidgetDefinition` and the same
+  option declarations to prevent it.
 - **Stale settings.** A saved option value for a choice the author later
   removed falls back to the default instead of failing.
 
-## 14. Open questions
+## 15. Decisions and open questions
 
-1. **Where does the gear show?** In `toggle` mode, only while editing (as
-   proposed), or always, since changing a title or a sort feels more like
-   reading than rearranging?
-2. **Apply-only or live preview?** Apply-only is proposed, because a live preview
-   could reload data on every change. Acceptable?
-3. **Viewer width versus `fill: 'width'`.** The viewer's choice wins and turns
-   the width part of `fill` off. Agree?
-4. **Option types.** `choice`, `number`, `boolean` and `sort` first. Is a free
-   `text` option (a search term, a tag) or a date range needed soon?
-5. **Who picks the columns for a converted view?** The author, in the `convert`
+### Decided (2026-10-09)
+
+1. **The gear shows only in edit mode.** It can't be hit by accident while
+   reading. (It therefore needs `editMode: 'toggle'`.)
+2. **Apply-only, with confirmation.** No live preview. Closing with unsaved
+   changes asks before discarding, and Apply confirms the save.
+3. **Width is a fixed share of the dashboard, 2 to 12.** 2 is one sixth and 12 is
+   the full width, inside the page margins and padding. Because it is a fixed
+   share, the viewer's choice wins over `fill: 'width'`.
+4. **Reset is per widget and asks first.** It reverts that widget's settings and
+   never touches its clones. A pre-edit backup supports "Revert to before
+   editing", per widget and for the whole layout.
+5. **Defaults live in the definition.** Each widget carries defaults (sort, view,
+   columns) as data, so a future Widget Builder can bake them in. Declared options
+   and defaults ship first (phase 1), and viewer overrides follow.
+
+### Still open
+
+6. **Option types.** `choice`, `number`, `boolean`, `sort` and `columns` first. Is
+   a free `text` option (a search term, a tag) or a date range needed soon?
+7. **Who picks the columns for a converted view?** The author, in the `convert`
    parameters (proposed). Should viewers ever choose the label and value
    columns, accepting more UI and more ways to fail?
-6. **Provider-supplied views for the first release of views.** Both kinds are
+8. **Provider-supplied views in the first release of views.** Both kinds are
    proposed together. Would you rather ship converted views only and add
    provider-supplied ones later?
-7. **Clone limits and naming.** 12 clones by default, titles "X (copy)", keys
-   `from#n`. Reasonable? Should a clone be allowed to change its _width_ and
-   _title_ only (a "second copy" use) and not its view, in a first cut?
-8. **Reset scope.** Reset now removes settings and clones as well as order and
-   visibility. Should it ask first, and should there be a separate "Reset this
-   widget" (already in the dialog) versus "Reset layout" (everything)?
-9. **Detail heading.** Use the viewer's title for the detail dialog when the
-   author gave none (proposed)?
-10. **Phase order.** Options dialog, then declared options, then views, then
-    clones. Would you move declared options (default sort) first, ahead of the
-    gear, by exposing them as plain props in the meantime?
+9. **Clone limits and naming.** 12 clones by default, titles "X (copy)", keys
+   `from#n`. Reasonable? Should a clone change only its width and title (a
+   "second copy") and not its view, in a first cut?
+10. **Detail heading.** Use the viewer's title for the detail dialog when the
+    author gave none (proposed)?
+11. **A second prompt on Apply.** "Confirmation" is read here as: confirm before
+    discarding, and confirm the save afterwards. Did you mean a prompt before
+    every Apply ("Apply these changes?")?
+12. **Backup lifetime.** The pre-edit snapshot lasts for the edit session. Should
+    the consumer be able to store it, so Revert still works after a reload (a
+    `backup` prop and an `onBackup` callback)?
+13. **Where the Widget Builder lives.** Later, in its own design: in this package
+    as another subpath (for example `./builder`), or a separate package?

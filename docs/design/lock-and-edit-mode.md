@@ -199,15 +199,16 @@ changelog; it is not part of this change.
 
 ### What shows when
 
-| Control                           | `always` | `toggle`, not editing | `toggle`, editing |
-| --------------------------------- | -------- | --------------------- | ----------------- |
-| Move earlier / later, drag handle | yes      | no                    | yes (free only)   |
-| Hide                              | yes      | no                    | yes (free only)   |
-| Minimize toggle                   | yes      | yes                   | yes               |
-| "Hidden:" bar (restore)           | yes      | no                    | yes               |
-| "Minimized:" bar (restore)        | yes      | yes                   | yes               |
-| Lock indicator on locked cards    | yes      | no                    | yes               |
-| Customize / Done / Reset toolbar  | no       | yes                   | yes               |
+| Control                           | `always` | `toggle`, not editing | `toggle`, editing   |
+| --------------------------------- | -------- | --------------------- | ------------------- |
+| Move earlier / later, drag handle | yes      | no                    | yes (free only)     |
+| Hide                              | yes      | no                    | yes (free only)     |
+| Minimize toggle                   | yes      | yes                   | yes                 |
+| "Hidden:" bar (restore)           | yes      | no                    | yes                 |
+| "Minimized:" bar (restore)        | yes      | yes                   | yes                 |
+| Lock indicator on locked cards    | yes      | no                    | yes                 |
+| Options gear (see options design) | no       | no                    | yes (unless locked) |
+| Customize / Done / Reset toolbar  | no       | yes                   | yes                 |
 
 The "(free only)" and every minimize cell mean "unless the widget's lock covers
 it". Minimize and its bar stay available outside edit mode: collapsing a card
@@ -224,11 +225,16 @@ A small row above the grid, rendered by `Dashboard`:
 - **Customize** (when not editing) and **Done** (when editing): one button
   whose label changes. It carries `aria-pressed` so assistive technology
   reports the state without relying on the label alone.
-- **Reset** (editing only): calls
+- **Reset layout** (editing only): after a confirmation ("Reset the layout to
+  the default?"), calls
   `onLayoutChange(enforceLocks(definitions, defaultLayout ?? EMPTY_LAYOUT))`.
-  Locked widgets are unaffected. Reset is a single undoable-by-hand action; a
-  confirmation or undo toast is left to the consumer through `onLayoutChange`
-  (see open questions).
+  Locked widgets are unaffected. It resets the arrangement (order, hidden,
+  minimized) only; widget settings and clones (see
+  `widget-options-views-clones.md`) are left as they are.
+- **Revert changes** (editing only, enabled once something changed): after a
+  confirmation, restores the layout as it was when Customize was pressed. The
+  edit session keeps that snapshot in memory (a layout is an immutable value, so
+  it is a reference, not a copy). Done discards it.
 - A visually hidden `aria-live="polite"` region announces "Editing dashboard.
   Use the buttons on each card to reorder or hide it." and "Finished editing."
 
@@ -263,6 +269,9 @@ New `DashboardLabels` entries, all overridable like the rest:
 customize: string; // "Customize"
 done: string; // "Done"
 reset: string; // "Reset layout"
+revertChanges: string; // "Revert changes"
+confirmReset: string; // "Reset the layout to the default?"
+confirmRevert: string; // "Revert to how this looked before you started editing?"
 editingOn: string; // "Editing dashboard. Use the buttons…"
 editingOff: string; // "Finished editing."
 locked: (title: string) => string; // "Revenue is locked"
@@ -341,11 +350,13 @@ that stays put while the cards around it are reordered.
    edit mode, and the "Minimized:" bar does too.
 3. **Pinned slots are counted among visible widgets.** Hiding free widgets above
    a pinned one shifts it up with them; the arrangement never has gaps.
+4. **Reset asks first, and edit mode keeps a backup.** Reset layout needs a
+   confirmation (a built-in alert dialog, not `window.confirm`). Pressing
+   Customize snapshots the layout, and Revert changes restores it. Reset affects
+   the arrangement only.
 
 ### Still open
 
-4. **Reset.** One click with no confirmation. Add a built-in confirmation or
-   an undo, or leave that to the consumer?
 5. **`overrideLocks`.** Is a prop worth having, or is "build the definitions
    without `locked`" enough for administrators?
 6. **Default for `editMode`.** Keep `always` until 1.0, as proposed?
