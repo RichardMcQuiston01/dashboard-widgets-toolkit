@@ -289,16 +289,50 @@
   font-weight: 600;
 }
 
-:where(.dwt-move-select) {
-  box-sizing: border-box;
-  max-width: 9rem;
-  height: 28px;
+:where(.dwt-move-menu) {
+  position: relative;
+  display: inline-flex;
+}
+
+/* A small floating panel over the card, under the Move button. */
+:where(.dwt-move-popover) {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 11rem;
+  max-width: 16rem;
+  padding: 4px;
+  background: var(--dwt-surface, #fff);
+  color: var(--dwt-text);
+  border: 1px solid var(--dwt-border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.18);
+}
+
+:where(.dwt-move-heading) {
+  margin: 0;
+  padding: 4px 8px;
+  color: var(--dwt-text-secondary);
+  font-size: 0.75rem;
+}
+
+:where(.dwt-move-option) {
+  padding: 6px 8px;
   font: inherit;
   font-size: 0.8125rem;
-  color: var(--dwt-text);
-  background: var(--dwt-surface, transparent);
-  border: 1px solid var(--dwt-border);
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  border: 0;
   border-radius: 6px;
+  cursor: pointer;
+}
+
+:where(.dwt-move-option:hover, .dwt-move-option:focus-visible) {
+  background: var(--dwt-surface-muted, rgb(127 127 127 / 0.15));
 }
 
 :where(.dwt-page-panel) {
@@ -351,12 +385,16 @@
 
 :where(.dwt-card-header) {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
 }
 
+/* The title keeps a readable width; when the edit controls don't fit beside
+   it (a narrow card with Move to page), they wrap below instead of covering it. */
 :where(.dwt-card-heading) {
+  flex: 1 1 8rem;
   min-width: 0;
 }
 
@@ -375,7 +413,10 @@
 
 :where(.dwt-card-actions) {
   display: flex;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
+  margin-left: auto;
   gap: 2px;
 }
 

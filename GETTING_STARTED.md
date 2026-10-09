@@ -638,9 +638,10 @@ page in view. With one page (or none) there is no page bar.
   dashboard) widgets on other pages load the first time their page is shown, and
   keep their data when the viewer comes back.
 - **Editing.** With `onLayoutChange`, editing shows **Add page**, Rename, Move
-  left/right and Delete (asks first) for the page in view, and each card gets a
-  **Move to page** select that lists the other pages with their free rows and a
-  "New page…" choice. Moves, restores and deletes that would overflow a page are
+  left/right and Delete (a trash icon; it asks first) for the page in view. Add
+  page asks for a name first, and Escape or ✕ drops the new page again. Each
+  card gets a **Move to page** icon that opens a small floating menu of the
+  other pages with their free rows and a "New page…" choice. Moves, restores and deletes that would overflow a page are
   refused with a message ("Page "Stock" has no room for "Alpha": it would need
   row 3, and the page allows 2."). `maxPages` caps how many pages can be added.
 - Labels are overridable (`pageBar`, `pageTabName`, `addPage`, `moveToPage`,

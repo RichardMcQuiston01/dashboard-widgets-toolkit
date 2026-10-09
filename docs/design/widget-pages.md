@@ -156,7 +156,8 @@ empty columns (see the options design). Growth never changes the count of rows:
 
 ## 5. Moving between pages
 
-- **Move to page…** is a select in each card's edit-mode controls and in the
+- **Move to page…** is an icon in each card's edit-mode controls that opens a
+  small floating menu (built), and a select in the
   Options dialog ("Page"). It lists pages with their free rows ("Sales, 2 rows
   free") and "New page…" at the end. The widget goes to the end of the
   target page. This is the single-pointer, keyboard-friendly way and is always
