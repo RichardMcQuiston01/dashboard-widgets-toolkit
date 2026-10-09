@@ -26,7 +26,7 @@
   deep links, page-size choice and column visibility. See
   [docs/design/detail-view.md](./docs/design/detail-view.md).
 - **Locked widgets and an edit mode.** `locked` on a definition (pinned
-  position, no hide), and a Customize/Done toggle that shows the layout
+  position, no hide or minimize), and a Customize/Done toggle that shows the layout
   controls only while editing. Designed in
   [docs/design/lock-and-edit-mode.md](./docs/design/lock-and-edit-mode.md);
   drag and drop builds on it.
