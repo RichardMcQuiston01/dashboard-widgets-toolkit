@@ -829,6 +829,220 @@ void describe('WidgetGrid and Dashboard', () => {
     });
   });
 
+  void describe('pages', () => {
+    const pageDefs = [
+      { key: 'a', title: 'Alpha', kind: 'TEXT', width: 6, sortOrder: 1 },
+      { key: 'b', title: 'Bravo', kind: 'TEXT', width: 6, sortOrder: 2 },
+      { key: 'c', title: 'Charlie', kind: 'TEXT', width: 12, sortOrder: 3 },
+      {
+        key: 'pin',
+        title: 'Pinned',
+        kind: 'TEXT',
+        width: 6,
+        sortOrder: 4,
+        locked: { move: true },
+      },
+    ] as const;
+    const pageWidgets: DashboardWidget[] = pageDefs.map((definition) => ({
+      definition: definition as never,
+      status: 'ok' as const,
+      data: {
+        kind: 'TEXT' as const,
+        value: `text of ${definition.key}`,
+        label: definition.title,
+      },
+    }));
+    const twoPages = {
+      order: [],
+      hidden: [],
+      minimized: [],
+      pages: [
+        {
+          key: 'p1',
+          title: 'Sales',
+          order: ['a', 'b'],
+          hidden: [],
+          minimized: [],
+        },
+        {
+          key: 'p2',
+          title: 'Stock',
+          order: ['c'],
+          hidden: [],
+          minimized: [],
+        },
+      ],
+    };
+    const render = (props: Record<string, unknown> = {}): string =>
+      renderToStaticMarkup(
+        <Dashboard widgets={pageWidgets} layout={twoPages} {...props} />
+      );
+
+    void it('shows no page bar without pages or with one page', () => {
+      assert.doesNotMatch(
+        renderToStaticMarkup(<Dashboard widgets={pageWidgets} />),
+        /role="tablist"/
+      );
+      const one = render({
+        layout: { ...twoPages, pages: [twoPages.pages[0]] },
+      });
+      assert.doesNotMatch(one, /role="tablist"/);
+      assert.doesNotMatch(one, /Add page/);
+    });
+
+    void it('shows a tab list for two pages, the first selected', () => {
+      const markup = render();
+      assert.match(markup, /role="tablist" aria-label="Pages"/);
+      assert.match(
+        markup,
+        /role="tab"[^>]*aria-selected="true"[^>]*aria-label="Page 1 of 2: Sales"[^>]*tabindex="0"/
+      );
+      assert.match(
+        markup,
+        /role="tab"[^>]*aria-selected="false"[^>]*aria-label="Page 2 of 2: Stock"[^>]*tabindex="-1"/
+      );
+      assert.match(markup, /role="tabpanel"[^>]*aria-labelledby="[^"]*-tab-0"/);
+      assert.match(markup, /aria-controls="([^"]+)"/);
+    });
+
+    void it('renders only the page in view', () => {
+      const first = render();
+      assert.match(first, /Alpha<\/h2>/);
+      assert.match(first, /Bravo<\/h2>/);
+      assert.doesNotMatch(first, /Charlie<\/h2>/);
+      const second = render({ defaultActivePage: 'p2' });
+      assert.match(second, /Charlie<\/h2>/);
+      assert.doesNotMatch(second, /Alpha<\/h2>/);
+      assert.match(
+        second,
+        /aria-selected="true"[^>]*aria-label="Page 2 of 2: Stock"/
+      );
+      assert.match(render({ activePage: 'p2' }), /Charlie<\/h2>/);
+    });
+
+    void it('falls back to the first page for an unknown active page', () => {
+      assert.match(render({ activePage: 'nope' }), /Alpha<\/h2>/);
+    });
+
+    void it('puts a widget locked against moving on its home page', () => {
+      const markup = render({
+        widgets: [
+          ...pageWidgets.slice(0, 3),
+          {
+            ...(pageWidgets[3] as DashboardWidget),
+            definition: { ...pageDefs[3], page: 'Stock' } as never,
+          },
+        ],
+        defaultActivePage: 'p2',
+      });
+      assert.match(markup, /Pinned<\/h2>/);
+    });
+
+    void it('says so when a page has no widgets', () => {
+      const markup = render({
+        widgets: pageWidgets.slice(0, 2),
+        defaultActivePage: 'p2',
+      });
+      assert.match(markup, /This page has no widgets/);
+    });
+
+    void it('keeps the page bar for read-only viewers but no management', () => {
+      const markup = render();
+      assert.match(markup, /role="tablist"/);
+      assert.doesNotMatch(markup, /Add page/);
+      assert.doesNotMatch(markup, /Move Alpha to another page/);
+    });
+
+    void it('lists hidden widgets of the page in view only', () => {
+      const markup = render({
+        onLayoutChange: () => undefined,
+        layout: {
+          ...twoPages,
+          pages: [
+            { ...twoPages.pages[0], hidden: ['b'], order: ['a'] },
+            twoPages.pages[1],
+          ],
+        },
+      });
+      assert.match(markup, /aria-label="Show Bravo"/);
+      assert.doesNotMatch(markup, /aria-label="Show Charlie"/);
+    });
+
+    void it('offers page management and a move-to-page select while editing', () => {
+      const markup = render({ onLayoutChange: () => undefined });
+      assert.match(markup, />Add page</);
+      assert.match(markup, /aria-label="Rename Sales"/);
+      assert.match(markup, /aria-label="Move Sales page left"[^>]*disabled=""/);
+      assert.match(markup, /aria-label="Move Sales page right"/);
+      assert.match(markup, /aria-label="Delete Sales"/);
+      assert.match(markup, /aria-label="Move Alpha to another page"/);
+      assert.match(
+        markup,
+        /<option value="p2">Stock \(3 rows free\)<\/option>/
+      );
+      assert.match(markup, /<option value="__new-page__">New page…<\/option>/);
+    });
+
+    void it('counts free rows from the page maxRows, and maxPages hides New page', () => {
+      const markup = render({
+        onLayoutChange: () => undefined,
+        maxRows: 2,
+        maxPages: 2,
+      });
+      assert.match(markup, /Stock \(1 row free\)/);
+      assert.doesNotMatch(markup, /New page…/);
+      assert.match(markup, /disabled=""[^>]*>Add page</);
+    });
+
+    void it('offers no move-to-page select on a pinned widget or with one page', () => {
+      const markup = render({
+        onLayoutChange: () => undefined,
+        defaultActivePage: 'p1',
+        widgets: [
+          pageWidgets[0] as DashboardWidget,
+          {
+            ...(pageWidgets[3] as DashboardWidget),
+            definition: { ...pageDefs[3], page: 'Sales' } as never,
+          },
+        ],
+      });
+      assert.match(markup, /Move Alpha to another page/);
+      assert.doesNotMatch(markup, /Move Pinned to another page/);
+      const single = renderToStaticMarkup(
+        <Dashboard widgets={pageWidgets} onLayoutChange={() => undefined} />
+      );
+      assert.doesNotMatch(single, /to another page/);
+      assert.match(single, />Add page</);
+    });
+
+    void it('shows page management only while editing in toggle mode', () => {
+      const idle = render({
+        onLayoutChange: () => undefined,
+        editMode: 'toggle',
+      });
+      assert.doesNotMatch(idle, /Add page/);
+      assert.match(idle, /role="tablist"/);
+      const editing = render({
+        onLayoutChange: () => undefined,
+        editMode: 'toggle',
+        defaultEditing: true,
+      });
+      assert.match(editing, />Add page</);
+    });
+
+    void it('overrides page labels', () => {
+      const markup = render({
+        labels: {
+          pageBar: 'Seiten',
+          pageTabName: (i: number, n: number, t: string) =>
+            `Seite ${i} von ${n}: ${t}`,
+        },
+      });
+      assert.match(markup, /aria-label="Seiten"/);
+      assert.match(markup, /aria-label="Seite 1 von 2: Sales"/);
+    });
+  });
+
   void it('Dashboard without onLayoutChange is read-only', () => {
     const markup = renderToStaticMarkup(<Dashboard widgets={widgets} />);
     assert.doesNotMatch(markup, /<button[^>]*aria-label="(Hide|Move)/);

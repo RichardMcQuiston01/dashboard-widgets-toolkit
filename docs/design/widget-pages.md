@@ -212,13 +212,16 @@ left/right** and **Delete** for the active page.
 
 ## 7. Loading: why this scales
 
-`useWidgets` takes the widgets to load. `Dashboard` passes only the active page's
-visible widgets (`loadPages: 'active'`, the default). Options:
+`Dashboard` renders only the page in view. `useWidgets` already starts a widget
+the first time its card is near the viewport (`loadWhen: 'visible'`), so widgets
+on other pages load when their page is first shown and nothing more is needed.
+(This phase made `useWidgets` pick up cards that appear after the first render,
+which also fixes a widget restored from the Hidden bar never loading.) The
+options below stay design ideas for later:
 
-- `'active'`: load the page in view; others load when first visited.
 - `'adjacent'`: also prefetch the next and previous pages after the active page
   has finished.
-- `'all'`: today's behavior, for small dashboards.
+- `'all'`: today's behavior, `loadWhen: 'mount'`.
 
 Pages already visited keep their payloads under the loader's existing cache and
 refresh rules, so going back is instant and stale data is refreshed per the
@@ -261,11 +264,11 @@ New `DashboardLabels`: `pageBar` ("Pages"), `pageOf(index, count, title)`,
 Indicative; after edit mode (0.9.0) and the options dialog (0.11.0), before clones
 (which need capacity checks):
 
-| Phase | Version | Scope                                                                                                                                              |
-| ----- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | 0.10.0  | **Built.** Core: `pages` in the layout, helpers, `placeRows`/`fitCount`, `normalizeLayout`, definition `page`                                      |
-| 2     | 0.10.0  | React: page bar (tabs and dots, hidden for one page), `activePage`, lazy loading by page, Move to page select, edit-mode Add/Rename/Reorder/Delete |
-| 3     | later   | Swipe, drag onto a page tab, adjacent prefetch tuning, `retain`/`release`                                                                          |
+| Phase | Version | Scope                                                                                                                                                         |
+| ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | 0.10.0  | **Built.** Core: `pages` in the layout, helpers, `placeRows`/`fitCount`, `normalizeLayout`, definition `page`                                                 |
+| 2     | 0.10.0  | **Built.** React: page bar (tabs and dots, hidden for one page), `activePage`, lazy loading by page, Move to page select, edit-mode Add/Rename/Reorder/Delete |
+| 3     | later   | Swipe, drag onto a page tab, adjacent prefetch tuning, `retain`/`release`                                                                                     |
 
 Tests (`test/core`): round trips with and without `pages` and byte-identical old
 JSON; `pageLayout`/`withPageLayout`; `placeRows` including the 7-wide example and flexible growth that never adds a row;
