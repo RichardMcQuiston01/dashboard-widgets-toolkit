@@ -43,6 +43,8 @@ export interface WidgetCardProps {
    * which card scrolled into view. `ResolvedWidgetCard` sets it for you.
    */
   readonly widgetKey?: string;
+  /** Marks the card as being edited (dashed outline); set by `Dashboard`. */
+  readonly editing?: boolean;
   /** 2 to 6; default 2. */
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
@@ -70,6 +72,7 @@ export function WidgetCard({
   columnSpan,
   width,
   widgetKey,
+  editing = false,
   headingLevel = 2,
   className,
   children,
@@ -121,6 +124,7 @@ export function WidgetCard({
         'dwt-card',
         `dwt-card--${status}`,
         minimized && 'dwt-card--minimized',
+        editing && 'dwt-card--editing',
         size !== undefined && `dwt-card--size-${size}`,
         fillsHeight(fill) && 'dwt-card--fill-height',
         fillsWidth(fill) && 'dwt-card--fill-width',
@@ -252,6 +256,8 @@ export interface ResolvedWidgetCardProps {
   /** See `WidgetCardProps.onView`. */
   readonly onView?: () => void;
   readonly onRetry?: () => void;
+  /** See `WidgetCardProps.editing`. */
+  readonly editing?: boolean;
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
 }

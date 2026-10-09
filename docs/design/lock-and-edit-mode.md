@@ -1,8 +1,7 @@
 # Design: locked widgets and an edit mode
 
-- **Status:** Design agreed; decisions 1 to 6 of section 10 are recorded.
-  Phase 1 (core locks, `Dashboard` enforcement, `overrideLocks`) is built; edit
-  mode (phase 2) is not.
+- **Status:** Design agreed and built: phase 1 (locks) and phase 2 (edit mode).
+  Drag and drop (phase 3) is not.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
 - **Author:** Richard McQuiston (drafted with Claude Code)

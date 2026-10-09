@@ -25,9 +25,8 @@
   datasets are filtered, sorted and paged by the consumer's provider, plus URL
   deep links, page-size choice and column visibility. See
   [docs/design/detail-view.md](./docs/design/detail-view.md).
-- **Edit mode.** A Customize/Done toggle (with Reset and Revert) that shows
-  the layout controls only while editing, plus a lock indicator. Locked widgets
-  (`locked`, pinned slots, `enforceLocks`) are built; the edit mode is next.
+- **Edit mode** (built, unreleased). `editMode="toggle"` with a Customize/Done
+  toolbar, Reset layout, Revert changes and a lock icon on locked cards.
   Designed in
   [docs/design/lock-and-edit-mode.md](./docs/design/lock-and-edit-mode.md);
   drag and drop builds on it.

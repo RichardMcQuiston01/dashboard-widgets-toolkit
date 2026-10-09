@@ -368,6 +368,38 @@ separate admin view, or pass `overrideLocks` to `Dashboard` for the roles you
 trust (and `enforceLocks(..., { overrideLocks: true })` on the server only for
 those users). `overrideLocks` never changes the locks themselves.
 
+### Edit mode: Customize and Done
+
+By default `Dashboard` shows move, hide and minimize controls on every card
+whenever you pass `onLayoutChange`. Set `editMode="toggle"` to show them only
+after the viewer presses **Customize**, so a stray click can't rearrange the
+page:
+
+```tsx
+<Dashboard
+  widgets={widgets}
+  layout={layout}
+  onLayoutChange={saveLayout}
+  editMode="toggle"
+  defaultLayout={organizationDefault} // what Reset layout restores
+/>
+```
+
+While editing, the toolbar offers **Done**, **Reset layout** and **Revert
+changes**; cards get a dashed outline, a "Hidden:" bar for restoring widgets,
+and a lock icon on locked ones. Reset puts the order, hidden and minimized lists
+back to `defaultLayout` (default: `sortOrder`), and Revert restores the layout
+as it was when Customize was pressed. Both ask first with an inline "✓" / "X"
+confirmation (focus starts on "X", Escape means no). Minimizing, and the
+"Minimized:" bar, work outside edit mode too, unless a widget locks it.
+
+To use your own button, control it with `editing` and `onEditingChange` and
+hide the built-in toolbar with `toolbar={false}`. The text is overridable
+(`labels.customize`, `done`, `reset`, `revertChanges`, `confirmReset`,
+`confirmRevert`, `locked`, and more), and the toolbar takes the `toolbar`
+class slot. With `overrideLocks`, locked cards show "locked for viewers"
+instead.
+
 ### Filling space
 
 By default each card is only as big as its content, so a

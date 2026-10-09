@@ -735,6 +735,100 @@ void describe('WidgetGrid and Dashboard', () => {
     assert.match(markup, /aria-label="Hide Revenue"/);
   });
 
+  void describe('edit mode', () => {
+    const lockedWidgets: DashboardWidget[] = [
+      {
+        definition: { ...definitions[0]!, locked: true },
+        status: 'loading',
+      },
+      { definition: definitions[1]!, status: 'loading' },
+      { definition: definitions[2]!, status: 'loading' },
+    ];
+    const render = (props: Record<string, unknown> = {}): string =>
+      renderToStaticMarkup(
+        <Dashboard
+          widgets={lockedWidgets}
+          layout={{ order: [], hidden: ['broken'], minimized: [] }}
+          onLayoutChange={() => undefined}
+          {...props}
+        />
+      );
+
+    void it('always mode is unchanged: no toolbar, controls and lock icon show', () => {
+      const markup = render();
+      assert.doesNotMatch(markup, /dwt-toolbar/);
+      assert.match(markup, /aria-label="Hide Low stock"/);
+      assert.match(markup, /aria-label="Revenue is locked"/);
+      assert.doesNotMatch(markup, /dwt-dashboard--editing/);
+    });
+
+    void it('toggle mode shows only Customize until editing', () => {
+      const markup = render({ editMode: 'toggle' });
+      assert.match(markup, /aria-pressed="false"[^>]*>Customize</);
+      assert.doesNotMatch(markup, /aria-label="Move /);
+      assert.doesNotMatch(markup, /aria-label="Hide /);
+      assert.doesNotMatch(markup, /dwt-hidden-bar/);
+      assert.doesNotMatch(markup, /is locked/);
+      // Minimizing stays available outside edit mode.
+      assert.match(markup, /aria-label="Minimize Low stock"/);
+      assert.doesNotMatch(markup, /Reset layout/);
+    });
+
+    void it('toggle mode while editing shows controls, lock icons and the toolbar', () => {
+      const markup = render({ editMode: 'toggle', defaultEditing: true });
+      assert.match(markup, /aria-pressed="true"[^>]*>Done</);
+      assert.match(markup, />Reset layout</);
+      assert.match(markup, /disabled=""[^>]*>Revert changes</);
+      assert.match(markup, /aria-label="Hide Low stock"/);
+      assert.match(markup, /class="dwt-hidden-bar"/);
+      assert.match(markup, /aria-label="Revenue is locked"/);
+      // A fully locked card has no controls.
+      assert.doesNotMatch(markup, /aria-label="Hide Revenue"/);
+      assert.doesNotMatch(markup, /aria-label="Minimize Revenue"/);
+      assert.match(markup, /dwt-dashboard--editing/);
+      assert.match(markup, /dwt-card--editing/);
+    });
+
+    void it('controlled editing and toolbar={false}', () => {
+      const markup = render({
+        editMode: 'toggle',
+        editing: true,
+        toolbar: false,
+      });
+      assert.doesNotMatch(markup, /dwt-toolbar/);
+      assert.match(markup, /aria-label="Hide Low stock"/);
+    });
+
+    void it('overrideLocks names the lock "locked for viewers" and restores controls', () => {
+      const markup = render({
+        editMode: 'toggle',
+        defaultEditing: true,
+        overrideLocks: true,
+      });
+      assert.match(markup, /aria-label="Revenue is locked for viewers"/);
+      assert.match(markup, /aria-label="Hide Revenue"/);
+    });
+
+    void it('has no toolbar without onLayoutChange', () => {
+      const markup = renderToStaticMarkup(
+        <Dashboard widgets={lockedWidgets} editMode="toggle" />
+      );
+      assert.doesNotMatch(markup, /dwt-toolbar/);
+    });
+
+    void it('labels can be overridden', () => {
+      const markup = renderToStaticMarkup(
+        <Dashboard
+          widgets={lockedWidgets}
+          onLayoutChange={() => undefined}
+          editMode="toggle"
+          labels={{ customize: 'Edit' }}
+        />
+      );
+      assert.match(markup, />Edit</);
+    });
+  });
+
   void it('Dashboard without onLayoutChange is read-only', () => {
     const markup = renderToStaticMarkup(<Dashboard widgets={widgets} />);
     assert.doesNotMatch(markup, /<button[^>]*aria-label="(Hide|Move)/);
