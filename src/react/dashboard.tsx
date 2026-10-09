@@ -7,7 +7,11 @@ import {
   type RefObject,
 } from 'react';
 
-import type { WidgetDefinition } from '../core/definition.js';
+import {
+  resolveWidgetLock,
+  type ResolvedWidgetLock,
+  type WidgetDefinition,
+} from '../core/definition.js';
 import {
   WIDTH_COLUMNS,
   fillColumnSpans,
@@ -18,6 +22,7 @@ import {
 } from '../core/grid.js';
 import {
   EMPTY_LAYOUT,
+  enforceLocks,
   hiddenWidgets,
   isMinimized,
   moveWidgetBy,
@@ -204,6 +209,13 @@ export interface DashboardProps extends WidgetSettings {
    * restore; persist it. Without it the layout is read-only (no controls).
    */
   readonly onLayoutChange?: (layout: DashboardLayout) => void;
+  /**
+   * Ignore widget `locked` settings, so locked widgets can be moved, hidden
+   * and minimized. For administrators editing the default layout: pass it
+   * only for roles you trust, and enforce locks again on the server for
+   * everyone else (`enforceLocks`). It never changes the locks themselves.
+   */
+  readonly overrideLocks?: boolean;
   readonly onRetry?: (key: string) => void;
   /**
    * Loads the full data for a widget's detail view (widgets whose definition
@@ -267,10 +279,20 @@ function DetailHost({
   );
 }
 
+/** The definition without its lock, for `overrideLocks`. */
+function withoutLock(definition: WidgetDefinition): WidgetDefinition {
+  if (definition.locked === undefined) return definition;
+  const copy: { -readonly [K in keyof WidgetDefinition]: WidgetDefinition[K] } =
+    { ...definition };
+  delete copy.locked;
+  return copy;
+}
+
 function DashboardInner({
   widgets,
-  layout = EMPTY_LAYOUT,
+  layout: savedLayout = EMPTY_LAYOUT,
   onLayoutChange,
+  overrideLocks = false,
   onRetry,
   loadDetail,
   onOpenDetail,
@@ -279,7 +301,12 @@ function DashboardInner({
 }: DashboardProps): ReactNode {
   const slot = useSlotClassName();
   const { labels } = useWidgetSettings();
-  const definitions: WidgetDefinition[] = widgets.map((w) => w.definition);
+  const definitions: WidgetDefinition[] = widgets.map((w) =>
+    overrideLocks ? withoutLock(w.definition) : w.definition
+  );
+  // A saved layout can predate a lock (or be edited by hand), so what a lock
+  // forbids is removed before anything is shown.
+  const layout: DashboardLayout = enforceLocks(definitions, savedLayout);
   const byKey = new Map<string, DashboardWidget>(
     widgets.map((w) => [w.definition.key, w])
   );
@@ -362,41 +389,62 @@ function DashboardInner({
             if (widget === undefined) return null;
             const key: string = definition.key;
             const title: string = definition.title;
+            const lock: ResolvedWidgetLock = resolveWidgetLock(definition);
+            const canMoveEarlier: boolean =
+              !lock.move &&
+              moveWidgetBy(definitions, layout, key, -1) !== layout;
+            const canMoveLater: boolean =
+              !lock.move &&
+              moveWidgetBy(definitions, layout, key, 1) !== layout;
             const actions: ReactNode = editable ? (
               <>
-                <button
-                  type="button"
-                  className={slot('button', 'dwt-button', 'dwt-icon-button')}
-                  aria-label={labels.moveEarlier(title)}
-                  title={labels.moveEarlier(title)}
-                  disabled={index === 0}
-                  onClick={() =>
-                    change(moveWidgetBy(definitions, layout, key, -1))
-                  }
-                >
-                  <span aria-hidden="true">↑</span>
-                </button>
-                <button
-                  type="button"
-                  className={slot('button', 'dwt-button', 'dwt-icon-button')}
-                  aria-label={labels.moveLater(title)}
-                  title={labels.moveLater(title)}
-                  disabled={index === shown.length - 1}
-                  onClick={() =>
-                    change(moveWidgetBy(definitions, layout, key, 1))
-                  }
-                >
-                  <span aria-hidden="true">↓</span>
-                </button>
-                <button
-                  type="button"
-                  className={slot('button', 'dwt-button', 'dwt-icon-button')}
-                  aria-label={labels.hide(title)}
-                  title={labels.hide(title)}
-                  onClick={() => change(hideWidget(layout, key))}
-                >
-                  <span aria-hidden="true">×</span>
-                </button>
+                {!lock.move && (
+                  <>
+                    <button
+                      type="button"
+                      className={slot(
+                        'button',
+                        'dwt-button',
+                        'dwt-icon-button'
+                      )}
+                      aria-label={labels.moveEarlier(title)}
+                      title={labels.moveEarlier(title)}
+                      disabled={index === 0 || !canMoveEarlier}
+                      onClick={() =>
+                        change(moveWidgetBy(definitions, layout, key, -1))
+                      }
+                    >
+                      <span aria-hidden="true">↑</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={slot(
+                        'button',
+                        'dwt-button',
+                        'dwt-icon-button'
+                      )}
+                      aria-label={labels.moveLater(title)}
+                      title={labels.moveLater(title)}
+                      disabled={index === shown.length - 1 || !canMoveLater}
+                      onClick={() =>
+                        change(moveWidgetBy(definitions, layout, key, 1))
+                      }
+                    >
+                      <span aria-hidden="true">↓</span>
+                    </button>
+                  </>
+                )}
+                {!lock.hide && (
+                  <button
+                    type="button"
+                    className={slot('button', 'dwt-button', 'dwt-icon-button')}
+                    aria-label={labels.hide(title)}
+                    title={labels.hide(title)}
+                    onClick={() => change(hideWidget(layout, key))}
+                  >
+                    <span aria-hidden="true">×</span>
+                  </button>
+                )}
               </>
             ) : undefined;
             const viewable: boolean =
@@ -421,7 +469,7 @@ function DashboardInner({
                 {...widthProps(twelve, definition)}
                 minimized={isMinimized(layout, key)}
                 {...(actions === undefined ? {} : { actions })}
-                {...(editable
+                {...(editable && !lock.minimize
                   ? {
                       onToggleMinimized: () =>
                         change(toggleMinimized(layout, key)),

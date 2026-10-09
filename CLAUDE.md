@@ -69,6 +69,18 @@ documented in the code and README, which win if they disagree.
 - `docs/design/widget-extensions.md`: async loading shipped (`useWidgets`,
   `createWidgetLoader`). Still planned: adapters and payload builders,
   drag-and-drop reordering, push streams.
+- `docs/design/lock-and-edit-mode.md`: locked widgets (`locked`, pinned slots,
+  `enforceLocks`, `overrideLocks`) shipped as phase 1; the Customize/Done edit
+  mode (phase 2) is not built yet.
+- `docs/design/widget-options-views-clones.md`: gear/Options dialog (title,
+  width, declared options passed to providers), alternate views and clones,
+  stored in the layout. Not built yet; builds on the lock design.
+- `docs/design/widget-pages.md`: pages of widgets (per-page layout, capacity of
+  about 4 rows, moving widgets between pages, page bar hidden for one page,
+  lazy loading by page). Not built yet.
+- `docs/design/storage-adapters.md`: a storage adapter contract, I/O-free
+  persistence helpers and a `useStoredLayout` hook; concrete adapters stay in
+  consumer code. Not built yet.
 
 ## Commands (Bun only)
 
@@ -120,7 +132,8 @@ functions it uses. That's fine: the core has no singletons or classes.
 The package never fetches, stores or queries anything. Consumers supply
 providers (a Prisma query, an HTTP call) keyed by widget key, and persist
 the layout themselves (`serializeLayout` / `parseLayout`). Never add an
-ORM, a DB driver, `fetch`, or storage code. Links render as plain anchors
+ORM, a DB driver, `fetch`, or storage code (contracts and I/O-free helpers for
+storage adapters are fine; see `docs/design/storage-adapters.md`). Links render as plain anchors
 with `rel="noreferrer"`; images are plain `<img>` tags. Only http(s),
 mailto and relative URLs are rendered (`url.ts`); the validator rejects the
 rest, and the renderers fall back to text even for unvalidated data.

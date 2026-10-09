@@ -672,6 +672,69 @@ void describe('WidgetGrid and Dashboard', () => {
     assert.doesNotMatch(sameTab, /dwt-external-icon/);
   });
 
+  void it('Dashboard withholds the controls a lock covers', () => {
+    const lockedWidgets: DashboardWidget[] = [
+      {
+        definition: { ...definitions[0]!, locked: true },
+        status: 'ok',
+        data: { kind: 'KPI', value: 5, format: 'number', label: 'Orders' },
+      },
+      {
+        definition: { ...definitions[1]!, locked: { hide: true } },
+        status: 'loading',
+      },
+      { definition: definitions[2]!, status: 'loading' },
+    ];
+    const markup = renderToStaticMarkup(
+      <Dashboard widgets={lockedWidgets} onLayoutChange={() => undefined} />
+    );
+    // Fully locked: no move, hide or minimize controls.
+    assert.doesNotMatch(markup, /aria-label="Move Revenue/);
+    assert.doesNotMatch(markup, /aria-label="Hide Revenue"/);
+    assert.doesNotMatch(markup, /aria-label="Minimize Revenue"/);
+    // Hide-locked: can still move and minimize.
+    assert.match(markup, /aria-label="Move Low stock later"/);
+    assert.doesNotMatch(markup, /aria-label="Hide Low stock"/);
+    assert.match(markup, /aria-label="Hide Broken"/);
+  });
+
+  void it('Dashboard enforces a lock on a saved layout', () => {
+    const lockedWidgets: DashboardWidget[] = [
+      {
+        definition: { ...definitions[0]!, locked: true },
+        status: 'loading',
+      },
+    ];
+    const markup = renderToStaticMarkup(
+      <Dashboard
+        widgets={lockedWidgets}
+        layout={{ order: [], hidden: ['revenue'], minimized: ['revenue'] }}
+        onLayoutChange={() => undefined}
+      />
+    );
+    assert.match(markup, /Revenue<\/h2>/);
+    assert.doesNotMatch(markup, /dwt-minimized-bar/);
+  });
+
+  void it('overrideLocks restores the controls', () => {
+    const lockedWidgets: DashboardWidget[] = [
+      {
+        definition: { ...definitions[0]!, locked: true },
+        status: 'loading',
+      },
+      { definition: definitions[2]!, status: 'loading' },
+    ];
+    const markup = renderToStaticMarkup(
+      <Dashboard
+        widgets={lockedWidgets}
+        onLayoutChange={() => undefined}
+        overrideLocks
+      />
+    );
+    assert.match(markup, /aria-label="Move Revenue later"/);
+    assert.match(markup, /aria-label="Hide Revenue"/);
+  });
+
   void it('Dashboard without onLayoutChange is read-only', () => {
     const markup = renderToStaticMarkup(<Dashboard widgets={widgets} />);
     assert.doesNotMatch(markup, /<button[^>]*aria-label="(Hide|Move)/);

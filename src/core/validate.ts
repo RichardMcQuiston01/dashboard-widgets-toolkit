@@ -409,6 +409,20 @@ function checkTableControlsOption(
   }
 }
 
+/** Checks a definition's `locked`: a boolean or `{ move, hide, minimize }`. */
+function checkLockedOption(locked: unknown, problems: Problems): void {
+  if (locked === undefined || typeof locked === 'boolean') return;
+  if (!isRecord(locked)) {
+    problems.push(
+      `locked must be true, false or an object, got ${describeType(locked)}.`
+    );
+    return;
+  }
+  optionalBoolean(locked, 'move', 'locked', problems);
+  optionalBoolean(locked, 'hide', 'locked', problems);
+  optionalBoolean(locked, 'minimize', 'locked', problems);
+}
+
 function formatProblems(prefix: string, problems: Problems): string {
   const shown: Problems = problems.slice(0, MAX_REPORTED_PROBLEMS);
   const more: number = problems.length - shown.length;
@@ -506,6 +520,7 @@ export function validateWidgetDefinition(
   }
   checkDetailOption(value['detail'], problems);
   checkTableControlsOption(value['tableControls'], value['kind'], problems);
+  checkLockedOption(value['locked'], problems);
   if (value['fill'] !== undefined) {
     requireOneOf(value, 'fill', WIDGET_FILLS, '', problems);
   }
