@@ -61,6 +61,7 @@ import {
   type DetailSort,
 } from '../core/detail.js';
 import { ResolvedWidgetCard } from './card.js';
+import { MoveToPageMenu } from './move-menu.js';
 import {
   WidgetDetail,
   WidgetDetailDialog,
@@ -690,6 +691,10 @@ function DashboardInner({
   const [announcement, setAnnouncement] = useState<string>('');
   const [pageAnnouncement, setPageAnnouncement] = useState<string>('');
   const [pageError, setPageError] = useState<string | undefined>(undefined);
+  /** A page just added through Add page and still being named: cancelling removes it. */
+  const [newPage, setNewPage] = useState<
+    { readonly key: string; readonly activeBefore: string } | undefined
+  >(undefined);
   const [pageEditor, setPageEditor] = useState<
     { readonly mode: 'rename' | 'delete'; readonly key: string } | undefined
   >(undefined);
@@ -734,6 +739,7 @@ function DashboardInner({
     onActivePageChange?.(pageKey);
     setPageError(undefined);
     setPageEditor(undefined);
+    setNewPage(undefined);
     setPageAnnouncement(
       labels.pageTabName(
         index + 1,
@@ -752,6 +758,7 @@ function DashboardInner({
     change(added.value);
     const created: LayoutPage | undefined = added.value.pages?.at(-1);
     if (created !== undefined) {
+      setNewPage({ key: created.key, activeBefore: activeKey });
       if (activePageProp === undefined) setActiveState(created.key);
       onActivePageChange?.(created.key);
       setPageError(undefined);
@@ -764,7 +771,23 @@ function DashboardInner({
     if (!renamed.ok) return renamed.error;
     change(renamed.value);
     setPageEditor(undefined);
+    setNewPage(undefined);
     return undefined;
+  }
+
+  /** Escape or ✕ in the page name form: a page that was just added goes away again. */
+  function cancelPageEditor(): void {
+    const fresh = newPage;
+    setPageEditor(undefined);
+    setNewPage(undefined);
+    if (fresh === undefined || fresh.key !== activeKey) return;
+    // The page is brand new and empty, so dropping it is exact: nothing moves.
+    const pagesWithout: LayoutPage[] = pages.filter(
+      (page) => page.key !== fresh.key
+    );
+    if (pagesWithout.length === pages.length) return;
+    change({ ...layout, pages: pagesWithout });
+    selectPage(fresh.activeBefore);
   }
 
   function deletePageAction(): void {
@@ -939,7 +962,7 @@ function DashboardInner({
               key={activeKey}
               initial={activePage.title}
               onSubmit={renamePageAction}
-              onCancel={() => setPageEditor(undefined)}
+              onCancel={cancelPageEditor}
             />
           )}
           {paged && editorMode !== 'rename' && (
@@ -984,7 +1007,22 @@ function DashboardInner({
                   setPageEditor({ mode: 'delete', key: activeKey })
                 }
               >
-                <span aria-hidden="true">×</span>
+                <svg
+                  viewBox="0 0 16 16"
+                  width="14"
+                  height="14"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path
+                    d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5M6.8 7v3.5M9.2 7v3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </button>
             </>
           )}
@@ -1148,24 +1186,16 @@ function DashboardInner({
                         <span aria-hidden="true">↓</span>
                       </button>
                       {paged && (
-                        <select
-                          className="dwt-move-select"
-                          aria-label={labels.moveToPage(title)}
-                          value=""
-                          onChange={(event) => {
-                            if (event.target.value !== '') {
-                              moveWidgetAction(key, event.target.value);
-                            }
-                          }}
-                        >
-                          <option value="">
-                            {labels.moveToPagePlaceholder}
-                          </option>
-                          {pages
-                            .filter((page) => page.key !== activeKey)
-                            .map((page) => (
-                              <option key={page.key} value={page.key}>
-                                {labels.moveToPageOption(
+                        <MoveToPageMenu
+                          label={labels.moveToPage(title)}
+                          heading={labels.moveToPagePlaceholder}
+                          onPick={(pageKey) => moveWidgetAction(key, pageKey)}
+                          options={[
+                            ...pages
+                              .filter((page) => page.key !== activeKey)
+                              .map((page) => ({
+                                value: page.key,
+                                label: labels.moveToPageOption(
                                   page.title,
                                   pageRoom(
                                     definitions,
@@ -1173,16 +1203,19 @@ function DashboardInner({
                                     page.key,
                                     roomOptions
                                   )?.rowsFree ?? 0
-                                )}
-                              </option>
-                            ))}
-                          {(maxPages === undefined ||
-                            pages.length < maxPages) && (
-                            <option value={NEW_PAGE_VALUE}>
-                              {labels.newPageOption}
-                            </option>
-                          )}
-                        </select>
+                                ),
+                              })),
+                            ...(maxPages === undefined ||
+                            pages.length < maxPages
+                              ? [
+                                  {
+                                    value: NEW_PAGE_VALUE,
+                                    label: labels.newPageOption,
+                                  },
+                                ]
+                              : []),
+                          ]}
+                        />
                       )}
                     </>
                   )}
