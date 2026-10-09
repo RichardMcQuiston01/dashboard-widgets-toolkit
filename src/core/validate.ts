@@ -521,6 +521,13 @@ export function validateWidgetDefinition(
   checkDetailOption(value['detail'], problems);
   checkTableControlsOption(value['tableControls'], value['kind'], problems);
   checkLockedOption(value['locked'], problems);
+  if (value['page'] !== undefined) {
+    if (typeof value['page'] !== 'string' || value['page'].trim() === '') {
+      problems.push(
+        `page must be a non-empty page key or title, got ${describeType(value['page'])}.`
+      );
+    }
+  }
   if (value['fill'] !== undefined) {
     requireOneOf(value, 'fill', WIDGET_FILLS, '', problems);
   }

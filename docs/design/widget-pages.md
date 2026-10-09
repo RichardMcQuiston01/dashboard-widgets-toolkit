@@ -56,7 +56,7 @@ interface DashboardLayout {
 }
 
 interface LayoutPage {
-  readonly key: string; // a UUID; stable when the page is renamed or moved
+  readonly key: string; // unique and stable: `page-1`, or your own id
   readonly title: string; // "Sales", at most 30 characters
   readonly order: readonly string[];
   readonly hidden: readonly string[];
@@ -163,9 +163,10 @@ empty columns (see the options design). Growth never changes the count of rows:
   available.
 - **Drag onto a page tab** is added when drag and drop ships; the select remains
   as the WCAG 2.5.7 alternative.
-- **Locks.** `locked.move` also keeps a widget on its page (a pinned slot stays
-  pinned on its page). Cross-page moves of a locked widget are refused with the
-  existing message style.
+- **Locks.** A widget locked against moving always shows on its **home page**
+  (`definition.page`, else the first page), whatever a saved layout says, and
+  moving it to another page is refused. A pinned slot stays pinned on that page.
+  To pin a widget on a later page, give it `page: 'Inventory'`.
 - **Hidden widgets** belong to the page they were hidden on; restoring returns
   them there (if there is room, else the restore asks which page).
 - **Clones** are created on the original's page, right after it, and can then be
@@ -211,13 +212,16 @@ left/right** and **Delete** for the active page.
 
 ## 7. Loading: why this scales
 
-`useWidgets` takes the widgets to load. `Dashboard` passes only the active page's
-visible widgets (`loadPages: 'active'`, the default). Options:
+`Dashboard` renders only the page in view. `useWidgets` already starts a widget
+the first time its card is near the viewport (`loadWhen: 'visible'`), so widgets
+on other pages load when their page is first shown and nothing more is needed.
+(This phase made `useWidgets` pick up cards that appear after the first render,
+which also fixes a widget restored from the Hidden bar never loading.) The
+options below stay design ideas for later:
 
-- `'active'`: load the page in view; others load when first visited.
 - `'adjacent'`: also prefetch the next and previous pages after the active page
   has finished.
-- `'all'`: today's behavior, for small dashboards.
+- `'all'`: today's behavior, `loadWhen: 'mount'`.
 
 Pages already visited keep their payloads under the loader's existing cache and
 refresh rules, so going back is instant and stale data is refreshed per the
@@ -260,11 +264,11 @@ New `DashboardLabels`: `pageBar` ("Pages"), `pageOf(index, count, title)`,
 Indicative; after edit mode (0.9.0) and the options dialog (0.11.0), before clones
 (which need capacity checks):
 
-| Phase | Version | Scope                                                                                                                                              |
-| ----- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | 0.12.0  | Core: `pages` in the layout, helpers, `placeRows`/`fitCount`, page rules in `normalizeLayout`, definition `page`                                   |
-| 2     | 0.12.0  | React: page bar (tabs and dots, hidden for one page), `activePage`, lazy loading by page, Move to page select, edit-mode Add/Rename/Reorder/Delete |
-| 3     | later   | Swipe, drag onto a page tab, adjacent prefetch tuning, `retain`/`release`                                                                          |
+| Phase | Version | Scope                                                                                                                                                         |
+| ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | 0.10.0  | **Built.** Core: `pages` in the layout, helpers, `placeRows`/`fitCount`, `normalizeLayout`, definition `page`                                                 |
+| 2     | 0.10.0  | **Built.** React: page bar (tabs and dots, hidden for one page), `activePage`, lazy loading by page, Move to page select, edit-mode Add/Rename/Reorder/Delete |
+| 3     | later   | Swipe, drag onto a page tab, adjacent prefetch tuning, `retain`/`release`                                                                                     |
 
 Tests (`test/core`): round trips with and without `pages` and byte-identical old
 JSON; `pageLayout`/`withPageLayout`; `placeRows` including the 7-wide example and flexible growth that never adds a row;
