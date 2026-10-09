@@ -281,6 +281,17 @@ function InteractiveTable({
   const searchId: string = useId();
   const [search, setSearch] = useState<string>('');
   const [sort, setSort] = useState<DetailSort | undefined>(initialSort);
+  // A changed sort option replaces the header sort (derived state, so no
+  // effect and no extra render with stale rows).
+  const seed: string =
+    initialSort === undefined
+      ? ''
+      : `${initialSort.column}:${initialSort.direction}`;
+  const [seededWith, setSeededWith] = useState<string>(seed);
+  if (seededWith !== seed) {
+    setSeededWith(seed);
+    setSort(initialSort);
+  }
   const localeTag: string | undefined =
     typeof locale === 'string' ? locale : locale?.[0];
 
