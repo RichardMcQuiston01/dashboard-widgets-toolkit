@@ -19,6 +19,16 @@ import {
   type WidgetPayload,
 } from './payload.js';
 import { DETAIL_MODES, MAX_DETAIL_PAGE_SIZE } from './detail.js';
+import {
+  DATE_RANGE_PRESETS,
+  MAX_TEXT_OPTION_LENGTH,
+  MAX_WIDGET_OPTIONS,
+  OPTION_KEY_PATTERN,
+  WIDGET_OPTION_TYPES,
+  isColumnKeyFor,
+  isIsoInterval,
+  parseSortValue,
+} from './options.js';
 import { MAX_WIDGET_WIDTH, MIN_WIDGET_WIDTH, isWidgetWidth } from './grid.js';
 import { err, ok, type Result } from './result.js';
 import { isSafeHref, isSafeImageUrl } from './url.js';
@@ -423,6 +433,365 @@ function checkLockedOption(locked: unknown, problems: Problems): void {
   optionalBoolean(locked, 'minimize', 'locked', problems);
 }
 
+/** Checks a list of column choices (`{ key, label }`) for a sort or columns option. */
+function checkOptionColumns(
+  option: Record_,
+  path: string,
+  kind: unknown,
+  problems: Problems
+): readonly string[] {
+  const columns: unknown = option['columns'];
+  if (!Array.isArray(columns) || columns.length === 0) {
+    problems.push(
+      `${join(path, 'columns')} must be a non-empty array of { key, label }, got ${describeType(columns)}.`
+    );
+    return [];
+  }
+  const keys: string[] = [];
+  columns.forEach((entry: unknown, index: number) => {
+    const entryPath = `${path}.columns[${index}]`;
+    if (!isRecord(entry)) {
+      problems.push(
+        `${entryPath} must be an object, got ${describeType(entry)}.`
+      );
+      return;
+    }
+    requireString(entry, 'label', entryPath, problems);
+    const key: unknown = entry['key'];
+    if (typeof key !== 'string') {
+      problems.push(
+        `${entryPath}.key must be a string, got ${describeType(key)}.`
+      );
+    } else if (typeof kind === 'string' && !isColumnKeyFor(kind, key)) {
+      problems.push(
+        `${entryPath}.key "${key}" is not a column of a ${kind} widget (${
+          kind === 'TABLE' ? '"c0", "c1", ...' : '"label" or "value"'
+        }).`
+      );
+    } else if (keys.includes(key)) {
+      problems.push(`${entryPath}.key "${key}" is used twice.`);
+    } else {
+      keys.push(key);
+    }
+  });
+  return keys;
+}
+
+function checkOption(
+  option: unknown,
+  path: string,
+  kind: unknown,
+  seenKeys: Set<string>,
+  seenTypes: Set<string>,
+  problems: Problems
+): void {
+  if (!isRecord(option)) {
+    problems.push(`${path} must be an object, got ${describeType(option)}.`);
+    return;
+  }
+  const type: unknown = option['type'];
+  if (
+    typeof type !== 'string' ||
+    !WIDGET_OPTION_TYPES.includes(type as never)
+  ) {
+    requireOneOf(option, 'type', WIDGET_OPTION_TYPES, path, problems);
+    return;
+  }
+  const key: unknown = option['key'];
+  if (typeof key !== 'string' || !OPTION_KEY_PATTERN.test(key)) {
+    problems.push(
+      `${path}.key must be letters, digits, "_" or "-", starting with a letter (40 characters at most), got ${
+        typeof key === 'string' ? JSON.stringify(key) : describeType(key)
+      }.`
+    );
+  } else if (seenKeys.has(key)) {
+    problems.push(`${path}.key "${key}" is used by another option.`);
+  } else {
+    seenKeys.add(key);
+  }
+  requireString(option, 'label', path, problems);
+
+  const fallback: unknown = option['default'];
+  switch (type) {
+    case 'choice': {
+      const choices: unknown = option['choices'];
+      const values: string[] = [];
+      if (!Array.isArray(choices) || choices.length === 0) {
+        problems.push(
+          `${path}.choices must be a non-empty array of { value, label }, got ${describeType(choices)}.`
+        );
+      } else {
+        choices.forEach((choice: unknown, index: number) => {
+          const choicePath = `${path}.choices[${index}]`;
+          if (!isRecord(choice)) {
+            problems.push(
+              `${choicePath} must be an object, got ${describeType(choice)}.`
+            );
+            return;
+          }
+          requireString(choice, 'label', choicePath, problems);
+          const value: unknown = choice['value'];
+          if (typeof value !== 'string' || value === '') {
+            problems.push(
+              `${choicePath}.value must be a non-empty string, got ${describeType(value)}.`
+            );
+          } else if (values.includes(value)) {
+            problems.push(`${choicePath}.value "${value}" is used twice.`);
+          } else {
+            values.push(value);
+          }
+        });
+      }
+      if (values.length > 0)
+        requireOneOf(option, 'default', values, path, problems);
+      break;
+    }
+    case 'number': {
+      const { min, max, step } = option as {
+        min?: unknown;
+        max?: unknown;
+        step?: unknown;
+      };
+      requireNumber(option, 'min', path, problems);
+      requireNumber(option, 'max', path, problems);
+      if (typeof min === 'number' && typeof max === 'number' && min > max) {
+        problems.push(
+          `${path}.min (${min}) must not be more than max (${max}).`
+        );
+      }
+      if (
+        step !== undefined &&
+        !(typeof step === 'number' && Number.isFinite(step) && step > 0)
+      ) {
+        problems.push(
+          `${path}.step must be a number above 0, got ${describeType(step)}.`
+        );
+      }
+      if (typeof fallback !== 'number' || !Number.isFinite(fallback)) {
+        problems.push(
+          `${path}.default must be a finite number, got ${describeType(fallback)}.`
+        );
+      } else if (
+        typeof min === 'number' &&
+        typeof max === 'number' &&
+        (fallback < min || fallback > max)
+      ) {
+        problems.push(
+          `${path}.default (${fallback}) must be between min (${min}) and max (${max}).`
+        );
+      } else if (
+        typeof min === 'number' &&
+        typeof step === 'number' &&
+        step > 0 &&
+        Math.abs(
+          (fallback - min) / step - Math.round((fallback - min) / step)
+        ) > 1e-9
+      ) {
+        problems.push(
+          `${path}.default (${fallback}) must be ${min} plus a whole number of steps of ${step}.`
+        );
+      }
+      break;
+    }
+    case 'boolean':
+      if (typeof fallback !== 'boolean') {
+        problems.push(
+          `${path}.default must be a boolean, got ${describeType(fallback)}.`
+        );
+      }
+      break;
+    case 'text': {
+      const maxLength: unknown = option['maxLength'];
+      if (
+        typeof maxLength !== 'number' ||
+        !Number.isInteger(maxLength) ||
+        maxLength < 1 ||
+        maxLength > MAX_TEXT_OPTION_LENGTH
+      ) {
+        problems.push(
+          `${path}.maxLength must be a whole number from 1 to ${MAX_TEXT_OPTION_LENGTH}, got ${
+            typeof maxLength === 'number' ? maxLength : describeType(maxLength)
+          }.`
+        );
+      }
+      if (typeof fallback !== 'string') {
+        problems.push(
+          `${path}.default must be a string, got ${describeType(fallback)}.`
+        );
+      } else if (typeof maxLength === 'number' && fallback.length > maxLength) {
+        problems.push(
+          `${path}.default is ${fallback.length} characters; maxLength is ${maxLength}.`
+        );
+      }
+      break;
+    }
+    case 'dateRange': {
+      const presets: unknown = option['presets'];
+      const offered: string[] = [];
+      if (presets !== undefined) {
+        if (!Array.isArray(presets) || presets.length === 0) {
+          problems.push(
+            `${path}.presets must be a non-empty array of { value, label }, got ${describeType(presets)}.`
+          );
+        } else {
+          presets.forEach((preset: unknown, index: number) => {
+            const presetPath = `${path}.presets[${index}]`;
+            if (!isRecord(preset)) {
+              problems.push(
+                `${presetPath} must be an object, got ${describeType(preset)}.`
+              );
+              return;
+            }
+            requireString(preset, 'label', presetPath, problems);
+            requireOneOf(
+              preset,
+              'value',
+              DATE_RANGE_PRESETS,
+              presetPath,
+              problems
+            );
+            if (typeof preset['value'] === 'string')
+              offered.push(preset['value']);
+          });
+        }
+      }
+      const allowed: readonly string[] =
+        offered.length > 0 ? offered : DATE_RANGE_PRESETS;
+      if (
+        typeof fallback !== 'string' ||
+        !(allowed.includes(fallback) || isIsoInterval(fallback))
+      ) {
+        problems.push(
+          `${path}.default must be one of ${allowed.map((p) => `"${p}"`).join(', ')} or an interval like "2026-01-01/2026-01-31", got ${
+            typeof fallback === 'string'
+              ? JSON.stringify(fallback)
+              : describeType(fallback)
+          }.`
+        );
+      }
+      break;
+    }
+    case 'color':
+      if (typeof fallback !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(fallback)) {
+        problems.push(
+          `${path}.default must be a color like "#1c5cab", got ${
+            typeof fallback === 'string'
+              ? JSON.stringify(fallback)
+              : describeType(fallback)
+          }.`
+        );
+      }
+      break;
+    case 'sort':
+    case 'columns': {
+      const supported: boolean =
+        type === 'sort'
+          ? kind === 'TABLE' || kind === 'BAR_LIST'
+          : kind === 'TABLE';
+      if (!supported && typeof kind === 'string') {
+        problems.push(
+          `${path} is a ${type} option, which only applies to ${
+            type === 'sort' ? 'TABLE and BAR_LIST' : 'TABLE'
+          } widgets, but kind is "${kind}".`
+        );
+      }
+      if (seenTypes.has(type)) {
+        problems.push(
+          `${path} is a second ${type} option; a widget has at most one.`
+        );
+      }
+      seenTypes.add(type);
+      const columnKeys: readonly string[] = checkOptionColumns(
+        option,
+        path,
+        supported ? kind : undefined,
+        problems
+      );
+      if (option['apply'] !== undefined) {
+        requireOneOf(option, 'apply', ['provider', 'client'], path, problems);
+      }
+      if (type === 'sort') {
+        if (fallback !== undefined) {
+          const sort =
+            typeof fallback === 'string' ? parseSortValue(fallback) : undefined;
+          if (sort === undefined) {
+            problems.push(
+              `${path}.default must look like "c1:desc" ("column:asc" or "column:desc"), got ${
+                typeof fallback === 'string'
+                  ? JSON.stringify(fallback)
+                  : describeType(fallback)
+              }.`
+            );
+          } else if (
+            columnKeys.length > 0 &&
+            !columnKeys.includes(sort.column)
+          ) {
+            requireOneOf(
+              { default: sort.column },
+              'default',
+              columnKeys,
+              path,
+              problems
+            );
+          }
+        }
+      } else if (
+        !Array.isArray(fallback) ||
+        fallback.length === 0 ||
+        fallback.some((k: unknown) => typeof k !== 'string')
+      ) {
+        problems.push(
+          `${path}.default must be a non-empty array of column keys, got ${describeType(fallback)}.`
+        );
+      } else {
+        const shown = new Set<string>();
+        for (const columnKey of fallback as string[]) {
+          if (columnKeys.length > 0 && !columnKeys.includes(columnKey)) {
+            problems.push(
+              `${path}.default has "${columnKey}", which is not one of the columns (${columnKeys.map((c) => `"${c}"`).join(', ')}).`
+            );
+          } else if (shown.has(columnKey)) {
+            problems.push(`${path}.default lists "${columnKey}" twice.`);
+          }
+          shown.add(columnKey);
+        }
+      }
+      break;
+    }
+  }
+}
+
+/** Checks a definition's `options` list. */
+function checkOptions(
+  options: unknown,
+  kind: unknown,
+  problems: Problems
+): void {
+  if (options === undefined) return;
+  if (!Array.isArray(options)) {
+    problems.push(`options must be an array, got ${describeType(options)}.`);
+    return;
+  }
+  if (options.length > MAX_WIDGET_OPTIONS) {
+    problems.push(
+      `options lists ${options.length} options; the most a widget may declare is ${MAX_WIDGET_OPTIONS}.`
+    );
+    return;
+  }
+  const seenKeys = new Set<string>();
+  const seenTypes = new Set<string>();
+  options.forEach((option: unknown, index: number) => {
+    checkOption(
+      option,
+      `options[${index}]`,
+      kind,
+      seenKeys,
+      seenTypes,
+      problems
+    );
+  });
+}
+
 function formatProblems(prefix: string, problems: Problems): string {
   const shown: Problems = problems.slice(0, MAX_REPORTED_PROBLEMS);
   const more: number = problems.length - shown.length;
@@ -521,6 +890,7 @@ export function validateWidgetDefinition(
   checkDetailOption(value['detail'], problems);
   checkTableControlsOption(value['tableControls'], value['kind'], problems);
   checkLockedOption(value['locked'], problems);
+  checkOptions(value['options'], value['kind'], problems);
   if (value['page'] !== undefined) {
     if (typeof value['page'] !== 'string' || value['page'].trim() === '') {
       problems.push(

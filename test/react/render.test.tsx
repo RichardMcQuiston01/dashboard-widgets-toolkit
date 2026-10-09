@@ -1185,3 +1185,50 @@ void describe('table controls', () => {
     assert.doesNotMatch(searchOnly, /dwt-detail-sort/);
   });
 });
+
+void describe('declared options in the UI', () => {
+  const definition: WidgetDefinition = {
+    key: 'sales',
+    title: 'Sales',
+    kind: 'TABLE',
+    tableControls: true,
+    options: [
+      {
+        key: 'order',
+        type: 'sort',
+        label: 'Order',
+        columns: [
+          { key: 'c0', label: 'Name' },
+          { key: 'c1', label: 'Sold' },
+        ],
+        default: 'c1:desc',
+        apply: 'client',
+      },
+    ],
+  };
+  const data: WidgetData = {
+    kind: 'TABLE',
+    columns: [{ label: 'Name' }, { label: 'Sold', numeric: true }],
+    rows: [
+      [{ text: 'b' }, { text: '2' }],
+      [{ text: 'a' }, { text: '10' }],
+    ],
+  };
+
+  void it('starts the header sort from the widget sort option', () => {
+    const widget: DashboardWidget = {
+      definition,
+      status: 'ok',
+      data,
+      options: { order: 'c1:desc' },
+    };
+    const markup = html(<WidgetGrid widgets={[widget]} />);
+    assert.match(markup, /aria-sort="descending"/);
+  });
+
+  void it('leaves headers unsorted without option values', () => {
+    const widget: DashboardWidget = { definition, status: 'ok', data };
+    const markup = html(<WidgetGrid widgets={[widget]} />);
+    assert.doesNotMatch(markup, /aria-sort="(ascending|descending)"/);
+  });
+});

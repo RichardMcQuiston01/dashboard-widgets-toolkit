@@ -13,13 +13,21 @@
 
 import type { WidgetDefinition } from './definition.js';
 import {
+  optionsCacheSuffix,
+  sameOptionValues,
+  type OptionValues,
+} from './options.js';
+import {
   cacheKeyFor,
+  finalizeWidget,
   loadingWidgets,
+  optionValuesFor,
   resolvePayload,
-  resolveWidget,
+  resolveWidgetUnapplied,
   widgetsFor,
   type DashboardWidget,
   type ResolveOptions,
+  type ResolvedWidget,
   type WidgetContext,
   type WidgetProviders,
 } from './resolve.js';
@@ -54,6 +62,16 @@ export interface WidgetLoader {
    * than the interval would otherwise be restarted forever and never finish).
    */
   refresh(key?: string, options?: RefreshOptions): void;
+  /**
+   * Sets the values chosen for a widget's options (all of them: keys left out
+   * go back to their defaults). A choice only the toolkit applies (`sort` or
+   * `columns` with `apply: 'client'`) re-derives the payload it already has.
+   * A choice your provider sees reloads that widget alone: what is shown stays
+   * (marked `stale`) until the new data arrives, and an earlier answer for the
+   * same choices comes back from the cache. Does nothing when the resolved
+   * values don't change.
+   */
+  setOptions(key: string, chosen: Readonly<Record<string, unknown>>): void;
   /** Aborts everything in flight and ignores any later result. */
   dispose(): void;
 }
@@ -61,7 +79,20 @@ export interface WidgetLoader {
 export function createWidgetLoader<C extends WidgetContext>(
   options: WidgetLoaderOptions<C>
 ): WidgetLoader {
-  const { definitions, providers, context, ...resolveOptions } = options;
+  const { definitions, providers, context, ...baseOptions } = options;
+  // What was chosen per widget; `setOptions` changes it.
+  const chosen = new Map<string, Readonly<Record<string, unknown>>>(
+    Object.entries(baseOptions.optionValues ?? {}).flatMap(([key, values]) =>
+      values === undefined ? [] : [[key, values] as const]
+    )
+  );
+  const resolveOptions: ResolveOptions = baseOptions;
+  /** The resolve options as they are right now, with the current choices. */
+  function currentOptions(): ResolveOptions {
+    return { ...resolveOptions, optionValues: Object.fromEntries(chosen) };
+  }
+  // The payload as the provider returned it, before client-side options.
+  const unapplied = new Map<string, ResolvedWidget>();
   const visible: WidgetDefinition[] = widgetsFor(definitions, context.roles);
   let snapshot: readonly DashboardWidget[] = loadingWidgets(visible);
 
@@ -114,19 +145,19 @@ export function createWidgetLoader<C extends WidgetContext>(
     const isCurrent = (): boolean =>
       !disposed && generations.get(key) === generation;
 
-    if (readCache && resolveOptions.cache !== undefined) {
+    const runOptions: ResolveOptions = currentOptions();
+    const values: OptionValues = optionValuesFor(definition, runOptions);
+    if (readCache && runOptions.cache !== undefined) {
       try {
-        const entry = await resolveOptions.cache.get(
-          cacheKeyFor(definition, resolveOptions)
+        const entry = await runOptions.cache.get(
+          cacheKeyFor(definition, runOptions, values)
         );
         if (entry !== undefined && isCurrent()) {
-          const cached = resolvePayload(
-            definition,
-            entry.payload,
-            resolveOptions
-          );
+          const cached = resolvePayload(definition, entry.payload, runOptions);
           if (cached.status === 'ok') {
-            replace(key, { ...cached, updatedAt: entry.storedAt, stale: true });
+            const stale = { ...cached, updatedAt: entry.storedAt, stale: true };
+            unapplied.set(key, stale);
+            replace(key, finalizeWidget(stale, values));
           }
         }
       } catch {
@@ -138,13 +169,15 @@ export function createWidgetLoader<C extends WidgetContext>(
     const provider = Object.prototype.hasOwnProperty.call(providers, key)
       ? providers[key]
       : undefined;
-    const result = await resolveWidget(definition, provider, context, {
-      ...resolveOptions,
+    const result = await resolveWidgetUnapplied(definition, provider, context, {
+      ...runOptions,
       signal: controller.signal,
     });
     if (!isCurrent()) return;
     inFlight.delete(key);
-    replace(key, result);
+    if (result.status === 'ok') unapplied.set(key, result);
+    else unapplied.delete(key);
+    replace(key, finalizeWidget(result, values));
   }
 
   function start(definition: WidgetDefinition, readCache: boolean): void {
@@ -185,6 +218,38 @@ export function createWidgetLoader<C extends WidgetContext>(
     }
   }
 
+  function setOptions(
+    key: string,
+    values: Readonly<Record<string, unknown>>
+  ): void {
+    if (disposed) return;
+    const definition: WidgetDefinition | undefined = definitionFor(key);
+    if (definition === undefined) return;
+    const before: OptionValues = optionValuesFor(definition, currentOptions());
+    chosen.set(key, { ...values });
+    const runOptions: ResolveOptions = currentOptions();
+    const after: OptionValues = optionValuesFor(definition, runOptions);
+    if (sameOptionValues(before, after) || !started.has(key)) return;
+    const kept: ResolvedWidget | undefined = unapplied.get(key);
+    if (
+      kept !== undefined &&
+      optionsCacheSuffix(definition, before, runOptions) ===
+        optionsCacheSuffix(definition, after, runOptions)
+    ) {
+      // Only a choice the toolkit applies changed: no need to ask again.
+      replace(key, finalizeWidget(kept, after));
+      return;
+    }
+    const current: DashboardWidget | undefined = snapshot.find(
+      (widget) => widget.definition.key === key
+    );
+    if (current?.status === 'ok') replace(key, { ...current, stale: true });
+    else if (current?.status === 'error') {
+      replace(key, { definition, status: 'loading' });
+    }
+    start(definition, true);
+  }
+
   function dispose(): void {
     disposed = true;
     abortAll(new Error('The widget loader was disposed.'));
@@ -204,6 +269,7 @@ export function createWidgetLoader<C extends WidgetContext>(
     load,
     loadAll,
     refresh,
+    setOptions,
     dispose,
   };
 }

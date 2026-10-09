@@ -1,4 +1,5 @@
 import type { WidgetDetailOptions, WidgetTableControls } from './detail.js';
+import type { WidgetOption } from './options.js';
 import type { WidgetKind } from './payload.js';
 
 /** A size hint for grid layouts; renderers may map it to column spans. */
@@ -68,6 +69,12 @@ export interface WidgetDefinition {
    * without it, on the first page. Ignored when the layout has no pages.
    */
   readonly page?: string;
+  /**
+   * Choices the author offers, with defaults: a default sort, "top N", a
+   * period, which columns show. The chosen values reach your provider as
+   * `ProviderOptions.options`. See `options.ts`.
+   */
+  readonly options?: readonly WidgetOption[];
 }
 
 /** What a viewer may not do to a locked widget. */

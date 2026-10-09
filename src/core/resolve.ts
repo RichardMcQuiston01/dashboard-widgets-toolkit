@@ -11,6 +11,13 @@ import {
   type WidgetDefinition,
 } from './definition.js';
 import {
+  applyClientOptions,
+  optionsCacheSuffix,
+  resolveOptionValues,
+  type OptionContext,
+  type OptionValues,
+} from './options.js';
+import {
   emptyTextFor,
   type WidgetData,
   type WidgetPayload,
@@ -32,6 +39,13 @@ export interface ProviderOptions {
    * provider that ignores it is still abandoned, just not stopped.
    */
   readonly signal: AbortSignal;
+  /**
+   * The widget's declared options, resolved: what was chosen when it is valid,
+   * else the default. Empty when the definition declares none. Treat values
+   * that reach a database query (`text`, `sort`, `columns`) as untrusted input
+   * and check them again on the server.
+   */
+  readonly options: OptionValues;
 }
 
 /**
@@ -58,6 +72,8 @@ export interface OkWidget {
   readonly updatedAt?: number;
   /** True while cached data is shown and a fresh load is still running. */
   readonly stale?: boolean;
+  /** The widget's resolved option values; present when it declares options. */
+  readonly options?: OptionValues;
 }
 
 export interface EmptyWidget {
@@ -65,6 +81,8 @@ export interface EmptyWidget {
   readonly status: 'empty';
   /** Why there is nothing to show, e.g. "No orders synced yet." */
   readonly emptyText: string;
+  /** The widget's resolved option values; present when it declares options. */
+  readonly options?: OptionValues;
 }
 
 export interface ErrorWidget {
@@ -72,6 +90,8 @@ export interface ErrorWidget {
   readonly status: 'error';
   /** Names the widget and what failed. */
   readonly error: string;
+  /** The widget's resolved option values; present when it declares options. */
+  readonly options?: OptionValues;
 }
 
 /** One widget after its provider ran. */
@@ -81,6 +101,8 @@ export type ResolvedWidget = OkWidget | EmptyWidget | ErrorWidget;
 export interface LoadingWidget {
   readonly definition: WidgetDefinition;
   readonly status: 'loading';
+  /** The widget's resolved option values; present when it declares options. */
+  readonly options?: OptionValues;
 }
 
 /** Anything a dashboard can render: resolved, or still loading. */
@@ -106,7 +128,15 @@ export interface WidgetCache {
   set(key: string, entry: CachedPayload): void | Promise<void>;
 }
 
-export interface ResolveOptions {
+export interface ResolveOptions extends OptionContext {
+  /**
+   * The values chosen for each widget's options, by widget key. Values a
+   * widget didn't declare, or that aren't valid for the option, are ignored
+   * and the option's default is used.
+   */
+  readonly optionValues?: Readonly<
+    Record<string, Readonly<Record<string, unknown>> | undefined>
+  >;
   /**
    * Validate each provider's payload with `validateWidgetData` (and check
    * its kind matches the definition). Default true; turn off only for
@@ -171,14 +201,57 @@ export function loadingWidgets(
   return definitions.map((definition) => ({ definition, status: 'loading' }));
 }
 
-/** The cache key for a widget under these options. */
+/**
+ * The cache key for a widget under these options. With resolved option
+ * `values`, choices that differ from the defaults are appended, so "top 5 by
+ * units" and "top 10 by revenue" are cached apart, while a widget on its
+ * defaults keeps its plain key.
+ */
 export function cacheKeyFor(
   definition: WidgetDefinition,
-  options: ResolveOptions
+  options: ResolveOptions,
+  values?: OptionValues
 ): string {
-  return options.cacheKey === undefined
-    ? definition.key
-    : options.cacheKey(definition);
+  const base: string =
+    options.cacheKey === undefined
+      ? definition.key
+      : options.cacheKey(definition);
+  return values === undefined
+    ? base
+    : `${base}${optionsCacheSuffix(definition, values, options)}`;
+}
+
+/** The resolved option values for a widget under these resolve options. */
+export function optionValuesFor(
+  definition: WidgetDefinition,
+  options: ResolveOptions
+): OptionValues {
+  return resolveOptionValues(
+    definition,
+    options.optionValues?.[definition.key],
+    options
+  );
+}
+
+/**
+ * Applies the options marked `apply: 'client'` to an `ok` widget's payload and
+ * records the resolved values on the widget (when it declares options). Other
+ * widgets only get the values. Returns the same object when nothing changes.
+ */
+export function finalizeWidget<W extends DashboardWidget>(
+  widget: W,
+  values: OptionValues
+): W {
+  if (Object.keys(values).length === 0) return widget;
+  if (widget.status === 'ok') {
+    const data: WidgetData = applyClientOptions(
+      widget.definition,
+      widget.data,
+      values
+    );
+    return { ...widget, data, options: values };
+  }
+  return { ...widget, options: values };
 }
 
 /** Thrown inside the resolver when a load is canceled or times out. */
@@ -194,6 +267,26 @@ export async function resolveWidget<C extends WidgetContext>(
   context: C,
   options: ResolveOptions = {}
 ): Promise<ResolvedWidget> {
+  const values: OptionValues = optionValuesFor(definition, options);
+  return finalizeWidget(
+    await resolveWidgetUnapplied(definition, provider, context, options),
+    values
+  );
+}
+
+/**
+ * Like `resolveWidget`, but leaves the payload as the provider returned it:
+ * options marked `apply: 'client'` are not applied (see `finalizeWidget`). For
+ * loaders that keep the payload so a client-side choice can change without
+ * asking the provider again.
+ */
+export async function resolveWidgetUnapplied<C extends WidgetContext>(
+  definition: WidgetDefinition,
+  provider: WidgetProvider<C> | undefined,
+  context: C,
+  options: ResolveOptions = {}
+): Promise<ResolvedWidget> {
+  const values: OptionValues = optionValuesFor(definition, options);
   const quotedKey: string = JSON.stringify(definition.key);
   if (provider === undefined) {
     return failedWidget(
@@ -241,7 +334,10 @@ export async function resolveWidget<C extends WidgetContext>(
       Promise.resolve().then(() => {
         // Cancelled before the provider got a turn: never call it.
         if (controller.signal.aborted) throw new LoadInterruption();
-        return provider(context, definition, { signal: controller.signal });
+        return provider(context, definition, {
+          signal: controller.signal,
+          options: values,
+        });
       }),
       interrupted,
     ]);
@@ -269,7 +365,7 @@ export async function resolveWidget<C extends WidgetContext>(
   const storedAt: number = Date.now();
   if (options.cache !== undefined) {
     try {
-      await options.cache.set(cacheKeyFor(definition, options), {
+      await options.cache.set(cacheKeyFor(definition, options, values), {
         payload: resolved.data,
         storedAt,
       });
