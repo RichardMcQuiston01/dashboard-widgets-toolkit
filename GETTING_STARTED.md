@@ -400,6 +400,48 @@ hide the built-in toolbar with `toolbar={false}`. The text is overridable
 class slot. With `overrideLocks`, locked cards show "locked for viewers"
 instead.
 
+### Pages of widgets (core)
+
+A dashboard can be split into pages, like the home screens of a phone. A layout
+without `pages` is one implicit page, so nothing changes for existing layouts.
+Each page has its own `order`, `hidden` and `minimized` lists, a title, and a
+capacity of `maxRows` rows of 12 columns (default 4, per page or per call).
+Widgets are never split: a widget that doesn't fit in the rest of a row starts
+the next row whole, and a page that needs more rows than it allows overflows to
+another page.
+
+```ts
+import {
+  addPage,
+  moveWidgetToPage,
+  normalizeLayout,
+  pageRoom,
+  pageWidgets,
+} from '@richardmcquiston01/dashboard-widgets-toolkit';
+
+const added = addPage(layout, { title: 'Inventory' }); // Result<DashboardLayout>
+if (!added.ok) throw new Error(added.error);
+const moved = moveWidgetToPage(definitions, added.value, 'low-stock', 'page-1');
+if (!moved.ok) showMessage(moved.error); // e.g. 'Page "Inventory" has no room for ...'
+
+pageRoom(definitions, layout, 'page-1'); // { maxRows, rowsUsed, rowsFree }
+pageWidgets(definitions, layout, 'page-1'); // visible widgets, in order
+```
+
+- `definition.page` names a widget's home page (a page key or title): widgets no
+  page lists yet show there, and a widget locked against moving always does.
+- `pageLayout` and `withPageLayout` give one page as an ordinary layout, so the
+  move, hide and minimize functions work on a page unchanged.
+- Rows are counted the way the grid draws them (`placeRows`), and widgets
+  marked `fill: 'width'` grow into the leftover columns without adding a row.
+- Run `normalizeLayout(definitions, parseLayout(input), { maxRows })` where you
+  save a layout. It drops unknown widgets, enforces locks, keeps each widget on
+  one page, fixes titles, and moves overflow, in order, to the next page with
+  room or a new page. Nothing is hidden to make room.
+
+The React page bar, a Move to page control and lazy loading by page are not built
+yet; the pure functions are what they will be made from.
+
 ### Filling space
 
 By default each card is only as big as its content, so a

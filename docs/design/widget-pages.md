@@ -56,7 +56,7 @@ interface DashboardLayout {
 }
 
 interface LayoutPage {
-  readonly key: string; // a UUID; stable when the page is renamed or moved
+  readonly key: string; // unique and stable: `page-1`, or your own id
   readonly title: string; // "Sales", at most 30 characters
   readonly order: readonly string[];
   readonly hidden: readonly string[];
@@ -163,9 +163,10 @@ empty columns (see the options design). Growth never changes the count of rows:
   available.
 - **Drag onto a page tab** is added when drag and drop ships; the select remains
   as the WCAG 2.5.7 alternative.
-- **Locks.** `locked.move` also keeps a widget on its page (a pinned slot stays
-  pinned on its page). Cross-page moves of a locked widget are refused with the
-  existing message style.
+- **Locks.** A widget locked against moving always shows on its **home page**
+  (`definition.page`, else the first page), whatever a saved layout says, and
+  moving it to another page is refused. A pinned slot stays pinned on that page.
+  To pin a widget on a later page, give it `page: 'Inventory'`.
 - **Hidden widgets** belong to the page they were hidden on; restoring returns
   them there (if there is room, else the restore asks which page).
 - **Clones** are created on the original's page, right after it, and can then be
@@ -262,8 +263,8 @@ Indicative; after edit mode (0.9.0) and the options dialog (0.11.0), before clon
 
 | Phase | Version | Scope                                                                                                                                              |
 | ----- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | 0.12.0  | Core: `pages` in the layout, helpers, `placeRows`/`fitCount`, page rules in `normalizeLayout`, definition `page`                                   |
-| 2     | 0.12.0  | React: page bar (tabs and dots, hidden for one page), `activePage`, lazy loading by page, Move to page select, edit-mode Add/Rename/Reorder/Delete |
+| 1     | 0.10.0  | **Built.** Core: `pages` in the layout, helpers, `placeRows`/`fitCount`, `normalizeLayout`, definition `page`                                      |
+| 2     | 0.10.0  | React: page bar (tabs and dots, hidden for one page), `activePage`, lazy loading by page, Move to page select, edit-mode Add/Rename/Reorder/Delete |
 | 3     | later   | Swipe, drag onto a page tab, adjacent prefetch tuning, `retain`/`release`                                                                          |
 
 Tests (`test/core`): round trips with and without `pages` and byte-identical old
