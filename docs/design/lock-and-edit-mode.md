@@ -1,7 +1,7 @@
 # Design: locked widgets and an edit mode
 
-- **Status:** Draft for review. Decisions 1 to 3 of section 10 are recorded;
-  4 to 6 are still open.
+- **Status:** Design agreed; decisions 1 to 6 of section 10 are recorded. Not
+  built yet.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
@@ -150,18 +150,35 @@ await saveLayout(userId, serializeLayout(layout));
 Pass the full definition list for the viewer's role, as `pruneLayout` already
 asks.
 
-### Roles and overrides
+### Roles and overrides: the developer chooses
 
-An administrator who sets up the default layout needs to move locked widgets.
-Two ways, both small, neither needing new concepts:
+Locks set by the developer belong to the definition, so **changing the lock
+itself (adding, removing or changing `locked`) happens in the Widget Builder**,
+in a dedicated admin view the developer builds (see the options design, section
+11). The toolkit has no roles of its own, so how _arranging_ locked widgets works
+is the consuming developer's choice, and both ways are supported:
 
-- Build the definitions without `locked` for that viewer (the consumer already
-  builds definitions per role).
-- Or pass `overrideLocks` to `Dashboard`. It ignores `locked` entirely, and shows the lock indicator as a plain "locked for viewers" mark
-  so the admin can see what they are overriding.
+1. **Separate admin UI (the default).** `Dashboard` always respects locks. The
+   developer gives administrators their own admin view (built with the Builder's
+   functions and the same components) where definitions and the default layout
+   are edited. Nothing in the viewer-facing `Dashboard` can bypass a lock.
+2. **In-place admin editing.** The developer passes `overrideLocks` to
+   `Dashboard` for the roles they choose (for example `overrideLocks={user.isAdmin}`).
+   Locked widgets can then be moved, hidden and minimized in the Dashboard UI,
+   each marked "Locked for viewers" so the admin sees what they are overriding.
+   It never edits the lock itself.
 
-`overrideLocks` is a UI convenience; the server still decides whether to apply
-`enforceLocks` for that user.
+The prop is off unless the developer turns it on, so a developer who wants the
+first approach does nothing. Because the toolkit can't know who is an admin, both
+checks are the consumer's, and the server still decides:
+
+- A viewer's saved layout is passed through `enforceLocks` (or `normalizeLayout`),
+  which has an `overrideLocks` option the server sets only for authorized users. A
+  client that sends `overrideLocks` itself gains nothing.
+- Edits made with `overrideLocks` should be saved to the **organization default
+  layout** (the shared, no-`userKey` scope in `storage-adapters.md`), not to the
+  admin's personal layout; otherwise viewers never see them. The consumer routes
+  the `onLayoutChange` call accordingly.
 
 ### Validation
 
@@ -199,15 +216,16 @@ changelog; it is not part of this change.
 
 ### What shows when
 
-| Control                           | `always` | `toggle`, not editing | `toggle`, editing |
-| --------------------------------- | -------- | --------------------- | ----------------- |
-| Move earlier / later, drag handle | yes      | no                    | yes (free only)   |
-| Hide                              | yes      | no                    | yes (free only)   |
-| Minimize toggle                   | yes      | yes                   | yes               |
-| "Hidden:" bar (restore)           | yes      | no                    | yes               |
-| "Minimized:" bar (restore)        | yes      | yes                   | yes               |
-| Lock indicator on locked cards    | yes      | no                    | yes               |
-| Customize / Done / Reset toolbar  | no       | yes                   | yes               |
+| Control                           | `always` | `toggle`, not editing | `toggle`, editing   |
+| --------------------------------- | -------- | --------------------- | ------------------- |
+| Move earlier / later, drag handle | yes      | no                    | yes (free only)     |
+| Hide                              | yes      | no                    | yes (free only)     |
+| Minimize toggle                   | yes      | yes                   | yes                 |
+| "Hidden:" bar (restore)           | yes      | no                    | yes                 |
+| "Minimized:" bar (restore)        | yes      | yes                   | yes                 |
+| Lock indicator on locked cards    | yes      | no                    | yes                 |
+| Options gear (see options design) | no       | no                    | yes (unless locked) |
+| Customize / Done / Reset toolbar  | no       | yes                   | yes                 |
 
 The "(free only)" and every minimize cell mean "unless the widget's lock covers
 it". Minimize and its bar stay available outside edit mode: collapsing a card
@@ -224,11 +242,16 @@ A small row above the grid, rendered by `Dashboard`:
 - **Customize** (when not editing) and **Done** (when editing): one button
   whose label changes. It carries `aria-pressed` so assistive technology
   reports the state without relying on the label alone.
-- **Reset** (editing only): calls
+- **Reset layout** (editing only): after an inline confirmation ("Reset the
+  layout to the default?" with "✓" and "X"), calls
   `onLayoutChange(enforceLocks(definitions, defaultLayout ?? EMPTY_LAYOUT))`.
-  Locked widgets are unaffected. Reset is a single undoable-by-hand action; a
-  confirmation or undo toast is left to the consumer through `onLayoutChange`
-  (see open questions).
+  Locked widgets are unaffected. It resets the arrangement (order, hidden,
+  minimized) only; widget settings and clones (see
+  `widget-options-views-clones.md`) are left as they are.
+- **Revert changes** (editing only, enabled once something changed): after a
+  confirmation, restores the layout as it was when Customize was pressed. The
+  edit session keeps that snapshot in memory (a layout is an immutable value, so
+  it is a reference, not a copy). Done discards it.
 - A visually hidden `aria-live="polite"` region announces "Editing dashboard.
   Use the buttons on each card to reorder or hide it." and "Finished editing."
 
@@ -263,6 +286,9 @@ New `DashboardLabels` entries, all overridable like the rest:
 customize: string; // "Customize"
 done: string; // "Done"
 reset: string; // "Reset layout"
+revertChanges: string; // "Revert changes"
+confirmReset: string; // "Reset the layout to the default?"
+confirmRevert: string; // "Revert to how this looked before you started editing?"
 editingOn: string; // "Editing dashboard. Use the buttons…"
 editingOff: string; // "Finished editing."
 locked: (title: string) => string; // "Revenue is locked"
@@ -341,11 +367,12 @@ that stays put while the cards around it are reordered.
    edit mode, and the "Minimized:" bar does too.
 3. **Pinned slots are counted among visible widgets.** Hiding free widgets above
    a pinned one shifts it up with them; the arrangement never has gaps.
-
-### Still open
-
-4. **Reset.** One click with no confirmation. Add a built-in confirmation or
-   an undo, or leave that to the consumer?
-5. **`overrideLocks`.** Is a prop worth having, or is "build the definitions
-   without `locked`" enough for administrators?
-6. **Default for `editMode`.** Keep `always` until 1.0, as proposed?
+4. **Reset asks first, and edit mode keeps a backup.** Reset layout needs a
+   confirmation (inline, with "✓" and "X" buttons, not `window.confirm`). Pressing
+   Customize snapshots the layout, and Revert changes restores it. Reset affects
+   the arrangement only.
+5. **Lock editing is a developer choice.** Changing `locked` itself is done in
+   the Widget Builder's admin view. Arranging locked widgets is either a separate
+   admin UI (default) or `overrideLocks` on `Dashboard` for roles the developer
+   names, with the server enforcing. Both are supported.
+6. **`editMode` defaults to `always` for now.** Revisit before 1.0.

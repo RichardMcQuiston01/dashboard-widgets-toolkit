@@ -37,9 +37,22 @@
   Vue 3 apps, over the same core and `styles.css` class names.
 - **Drag-and-drop reordering** in `Dashboard`, on top of `moveWidget`, with
   the move buttons kept as the keyboard-accessible path.
-- **Widget sizes in the layout.** Let viewers resize a widget (grid column
-  and row spans) and persist it alongside order, hidden and minimized, with
-  `defaultSize` as the starting point.
+- **Widget options, alternate views and clones.** Consumer-declared options
+  with defaults (default sort, columns, top N) passed to the provider, then a
+  gear button in edit mode that opens an Options dialog (title, width and those
+  options), then alternate views (a table as a bar list or chart) and clones.
+  Defaults are definition data so a Widget Builder can bake them in later. Replaces "widget sizes in the layout". Designed in
+  [docs/design/widget-options-views-clones.md](./docs/design/widget-options-views-clones.md);
+  builds on the lock and edit mode design.
+- **Widget pages.** Phone-style pages of widgets (about 4 rows each), move
+  widgets between pages, a page bar that appears only with two or more pages,
+  and loading only the page in view. Designed in
+  [docs/design/widget-pages.md](./docs/design/widget-pages.md).
+- **Storage adapters.** A small adapter contract, I/O-free persistence helpers
+  and a `useStoredLayout` hook, so layouts and backups can live in
+  localStorage, a database or a server without the package storing anything.
+  Designed in
+  [docs/design/storage-adapters.md](./docs/design/storage-adapters.md).
 - **Sparkline kind** (`SPARKLINE`), and an optional sparkline on `KPI` tiles
   (12 points, current period in the accent).
 - **More chart forms**: stacked bars for part-to-whole, and area charts.
