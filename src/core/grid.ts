@@ -103,26 +103,75 @@ export function fillWidthSpans(
   return placeAndFill(items, WIDTH_COLUMNS, itemWidth);
 }
 
+/** One row of a placed grid: the widgets in it and their final column spans. */
+export interface PlacedRow {
+  readonly keys: readonly string[];
+  /** Column spans, in `keys` order, after width-fillers took the leftovers. */
+  readonly spans: readonly number[];
+}
+
+/**
+ * The rows `items` occupy in a 12-column grid, exactly as `fillWidthSpans`
+ * places them: left to right, a widget that doesn't fit in the rest of a row
+ * starts the next row whole (a widget is never split), and width-fillers then
+ * grow into the leftover columns. Growth never changes how many rows there
+ * are.
+ */
+export function placeRows(items: readonly GridItem[]): readonly PlacedRow[] {
+  return placeAndFillRows(items, WIDTH_COLUMNS, itemWidth).rows;
+}
+
+/**
+ * How many of `items`, in order, fit in `maxRows` rows of a 12-column grid.
+ * Placement is left to right, so this is the length of the longest prefix
+ * whose rows number at most `maxRows`.
+ */
+export function fitCount(items: readonly GridItem[], maxRows: number): number {
+  const rows: readonly PlacedRow[] = placeRows(items);
+  let count = 0;
+  for (const row of rows.slice(0, Math.max(0, Math.floor(maxRows)))) {
+    count += row.keys.length;
+  }
+  return count;
+}
+
 function placeAndFill(
   items: readonly GridItem[],
   columns: number,
   spanOf: (item: GridItem, trackCount: number) => number
 ): Map<string, number> {
+  return placeAndFillRows(items, columns, spanOf).spans;
+}
+
+function placeAndFillRows(
+  items: readonly GridItem[],
+  columns: number,
+  spanOf: (item: GridItem, trackCount: number) => number
+): { readonly spans: Map<string, number>; readonly rows: PlacedRow[] } {
   const trackCount: number = Math.max(1, Math.floor(columns));
   const spans = new Map<string, number>();
+  const rows: PlacedRow[] = [];
   let row: { item: GridItem; span: number }[] = [];
   let used = 0;
 
   function closeRow(): void {
+    if (row.length === 0) return;
     const fillers = row.filter(({ item }) => fillsWidth(item.fill));
     const leftover: number = trackCount - used;
+    const finalSpans = new Map<string, number>();
     if (fillers.length > 0) {
       const share: number = Math.floor(leftover / fillers.length);
       const remainder: number = leftover % fillers.length;
       fillers.forEach(({ item, span }, index) => {
-        spans.set(item.key, span + share + (index < remainder ? 1 : 0));
+        const grown: number = span + share + (index < remainder ? 1 : 0);
+        spans.set(item.key, grown);
+        finalSpans.set(item.key, grown);
       });
     }
+    rows.push({
+      keys: row.map(({ item }) => item.key),
+      spans: row.map(({ item, span }) => finalSpans.get(item.key) ?? span),
+    });
     row = [];
     used = 0;
   }
@@ -134,5 +183,5 @@ function placeAndFill(
     used += span;
   }
   closeRow();
-  return spans;
+  return { spans, rows };
 }

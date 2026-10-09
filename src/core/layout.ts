@@ -15,6 +15,8 @@ export interface LayoutItem {
   readonly sortOrder?: number;
   /** See `WidgetDefinition.locked`. Pinned widgets hold their slot. */
   readonly locked?: boolean | WidgetLock;
+  /** See `WidgetDefinition.page`: the widget's home page. */
+  readonly page?: string;
 }
 
 export interface DashboardLayout {
@@ -24,7 +26,36 @@ export interface DashboardLayout {
   readonly hidden: readonly string[];
   /** Widget keys collapsed to their header. */
   readonly minimized: readonly string[];
+  /**
+   * Pages of widgets. Absent, the lists above are the one and only page. With
+   * pages, each page owns its own lists and the top-level lists are left
+   * empty. See `pages.ts`.
+   */
+  readonly pages?: readonly LayoutPage[];
 }
+
+/** One page of a paged layout: the same lists as a layout, plus a name. */
+export interface LayoutPage {
+  /** Unique within the layout and stable when the page is renamed or moved. */
+  readonly key: string;
+  /** Shown in the page bar. At most `MAX_PAGE_TITLE_LENGTH` characters. */
+  readonly title: string;
+  readonly order: readonly string[];
+  readonly hidden: readonly string[];
+  readonly minimized: readonly string[];
+  /** Rows this page holds, overriding the dashboard's default. */
+  readonly maxRows?: number;
+}
+
+/** Longest page title; longer saved titles are cut. */
+export const MAX_PAGE_TITLE_LENGTH = 30;
+/**
+ * Most pages `parseLayout` keeps: a safety ceiling against malformed or
+ * hostile JSON, not a product limit.
+ */
+export const MAX_PARSED_PAGES = 50;
+/** Most rows a page may be given with `maxRows`. */
+export const MAX_PAGE_ROWS = 20;
 
 export const EMPTY_LAYOUT: DashboardLayout = Object.freeze({
   order: Object.freeze([]) as readonly string[],
@@ -62,10 +93,62 @@ export function parseLayout(raw: unknown): DashboardLayout {
   const order: string[] = uniqueStrings(record['order']);
   const hidden: string[] = uniqueStrings(record['hidden']);
   const minimized: string[] = uniqueStrings(record['minimized']);
+  const pages: LayoutPage[] = parsePages(record['pages']);
+  if (pages.length > 0) {
+    // With pages, the pages own placement and the top-level lists stay empty.
+    return {
+      order: EMPTY_LAYOUT.order,
+      hidden: EMPTY_LAYOUT.hidden,
+      minimized: EMPTY_LAYOUT.minimized,
+      pages,
+    };
+  }
   if (order.length === 0 && hidden.length === 0 && minimized.length === 0) {
     return EMPTY_LAYOUT;
   }
   return { order, hidden, minimized };
+}
+
+function parsePages(value: unknown): LayoutPage[] {
+  if (!Array.isArray(value)) return [];
+  const pages: LayoutPage[] = [];
+  const keys = new Set<string>();
+  for (const entry of value.slice(0, MAX_PARSED_PAGES)) {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+      continue;
+    }
+    const record = entry as Readonly<Record<string, unknown>>;
+    const key: unknown = record['key'];
+    if (typeof key !== 'string' || key === '' || keys.has(key)) continue;
+    keys.add(key);
+    const rawTitle: unknown = record['title'];
+    const title: string =
+      typeof rawTitle === 'string' && rawTitle.trim() !== ''
+        ? rawTitle.trim().slice(0, MAX_PAGE_TITLE_LENGTH)
+        : `Page ${pages.length + 1}`;
+    const maxRows: unknown = record['maxRows'];
+    // A widget lives on one page: the first page that holds it keeps it.
+    const held = new Set<string>();
+    for (const earlier of pages) {
+      for (const k of [...earlier.order, ...earlier.hidden]) held.add(k);
+    }
+    const keep = (list: unknown): string[] =>
+      uniqueStrings(list).filter((k) => !held.has(k));
+    pages.push({
+      key,
+      title,
+      order: keep(record['order']),
+      hidden: keep(record['hidden']),
+      minimized: keep(record['minimized']),
+      ...(typeof maxRows === 'number' &&
+      Number.isInteger(maxRows) &&
+      maxRows >= 1 &&
+      maxRows <= MAX_PAGE_ROWS
+        ? { maxRows }
+        : {}),
+    });
+  }
+  return pages;
 }
 
 /** The JSON string to persist. */
@@ -74,6 +157,18 @@ export function serializeLayout(layout: DashboardLayout): string {
     order: [...layout.order],
     hidden: [...layout.hidden],
     minimized: [...layout.minimized],
+    ...(layout.pages === undefined || layout.pages.length === 0
+      ? {}
+      : {
+          pages: layout.pages.map((page) => ({
+            key: page.key,
+            title: page.title,
+            order: [...page.order],
+            hidden: [...page.hidden],
+            minimized: [...page.minimized],
+            ...(page.maxRows === undefined ? {} : { maxRows: page.maxRows }),
+          })),
+        }),
   });
 }
 
@@ -328,18 +423,55 @@ export function pruneLayout<T extends LayoutItem>(
   layout: DashboardLayout
 ): DashboardLayout {
   const known = new Set<string>(definitions.map((d) => d.key));
-  const keep = (keys: readonly string[]): string[] =>
-    keys.filter((k) => known.has(k));
-  const next: DashboardLayout = {
-    order: keep(layout.order),
-    hidden: keep(layout.hidden),
-    minimized: keep(layout.minimized),
+  const keep = (keys: readonly string[]): readonly string[] =>
+    keys.every((k) => known.has(k)) ? keys : keys.filter((k) => known.has(k));
+  return mapLayoutLists(layout, (lists) => ({
+    order: keep(lists.order),
+    hidden: keep(lists.hidden),
+    minimized: keep(lists.minimized),
+  }));
+}
+
+/** The three lists a layout and each of its pages carry. */
+interface LayoutLists {
+  readonly order: readonly string[];
+  readonly hidden: readonly string[];
+  readonly minimized: readonly string[];
+}
+
+/**
+ * Applies `change` to the top-level lists and to each page's lists. Returns
+ * the same object when no list changed (compared by identity, so `change`
+ * should return the same arrays it was given when it has nothing to do).
+ */
+function mapLayoutLists(
+  layout: DashboardLayout,
+  change: (lists: LayoutLists) => LayoutLists
+): DashboardLayout {
+  const top: LayoutLists = change(layout);
+  const pages: LayoutPage[] | undefined = layout.pages?.map((page) => {
+    const next: LayoutLists = change(page);
+    return next.order === page.order &&
+      next.hidden === page.hidden &&
+      next.minimized === page.minimized
+      ? page
+      : { ...page, ...next };
+  });
+  const pagesChanged: boolean =
+    pages !== undefined && pages.some((page, i) => page !== layout.pages?.[i]);
+  if (
+    top.order === layout.order &&
+    top.hidden === layout.hidden &&
+    top.minimized === layout.minimized &&
+    !pagesChanged
+  ) {
+    return layout;
+  }
+  return {
+    ...layout,
+    ...top,
+    ...(pages === undefined ? {} : { pages }),
   };
-  return next.order.length === layout.order.length &&
-    next.hidden.length === layout.hidden.length &&
-    next.minimized.length === layout.minimized.length
-    ? layout
-    : next;
 }
 
 /** Options for `enforceLocks`. */
@@ -378,12 +510,9 @@ export function enforceLocks<T extends LayoutItem>(
     keys.some((key) => drop.has(key))
       ? keys.filter((key) => !drop.has(key))
       : keys;
-  const order = without(layout.order, noMove);
-  const hidden = without(layout.hidden, noHide);
-  const minimized = without(layout.minimized, noMinimize);
-  return order === layout.order &&
-    hidden === layout.hidden &&
-    minimized === layout.minimized
-    ? layout
-    : { ...layout, order, hidden, minimized };
+  return mapLayoutLists(layout, (lists) => ({
+    order: without(lists.order, noMove),
+    hidden: without(lists.hidden, noHide),
+    minimized: without(lists.minimized, noMinimize),
+  }));
 }

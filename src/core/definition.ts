@@ -62,6 +62,12 @@ export interface WidgetDefinition {
    * are not locked.
    */
   readonly locked?: boolean | WidgetLock;
+  /**
+   * The widget's home page in a paged dashboard: a page key or title. A
+   * widget no page lists yet (and a widget locked against moving) shows here;
+   * without it, on the first page. Ignored when the layout has no pages.
+   */
+  readonly page?: string;
 }
 
 /** What a viewer may not do to a locked widget. */
