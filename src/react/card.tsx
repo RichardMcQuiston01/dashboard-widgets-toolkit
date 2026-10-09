@@ -3,6 +3,7 @@ import { useId, type CSSProperties, type ReactNode } from 'react';
 import type { WidgetFill, WidgetSize } from '../core/definition.js';
 import { resolveTableControls } from '../core/detail.js';
 import { fillsHeight, fillsWidth } from '../core/grid.js';
+import { sortFromOptions } from '../core/options.js';
 import type { DashboardWidget } from '../core/resolve.js';
 import { WidgetContent } from './renderers.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
@@ -288,6 +289,7 @@ export function ResolvedWidgetCard({
         <WidgetContent
           data={widget.data}
           tableControls={resolveTableControls(definition)}
+          initialSort={sortFromOptions(definition, widget.options)}
         />
       ) : null}
     </WidgetCard>

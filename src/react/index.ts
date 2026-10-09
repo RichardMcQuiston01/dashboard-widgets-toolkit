@@ -44,6 +44,13 @@ export {
   WidgetContent,
 } from './renderers.js';
 export {
+  useStoredLayout,
+  type StoredLayoutConflict,
+  type StoredLayoutStatus,
+  type UseStoredLayoutOptions,
+  type UseStoredLayoutResult,
+} from './use-stored-layout.js';
+export {
   useWidgets,
   type UseWidgetsOptions,
   type UseWidgetsResult,

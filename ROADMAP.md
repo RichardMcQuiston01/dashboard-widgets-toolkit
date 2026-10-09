@@ -37,8 +37,9 @@
   Vue 3 apps, over the same core and `styles.css` class names.
 - **Drag-and-drop reordering** in `Dashboard`, on top of `moveWidget`, with
   the move buttons kept as the keyboard-accessible path.
-- **Widget options, alternate views and clones.** Consumer-declared options
-  with defaults (default sort, columns, top N) passed to the provider, then a
+- **Widget options, alternate views and clones.** Declared options with
+  defaults (default sort, columns, top N) passed to the provider are built
+  (unreleased); next a
   gear button in edit mode that opens an Options dialog (title, width and those
   options), then alternate views (a table as a bar list or chart) and clones.
   Defaults are definition data so a Widget Builder can bake them in later. Replaces "widget sizes in the layout". Designed in
@@ -49,10 +50,10 @@
   or more pages, and loading only the page in view. Swipe, drag onto a page tab
   and payload release for far-away pages come later. Designed in
   [docs/design/widget-pages.md](./docs/design/widget-pages.md).
-- **Storage adapters.** A small adapter contract, I/O-free persistence helpers
-  and a `useStoredLayout` hook, so layouts and backups can live in
-  localStorage, a database or a server without the package storing anything.
-  Designed in
+- **Storage adapters** (built, unreleased). A small adapter contract, I/O-free
+  persistence helpers and a `useStoredLayout` hook, so layouts and backups can
+  live in localStorage, a database or a server without the package storing
+  anything. Stored active page and backup history come later. Designed in
   [docs/design/storage-adapters.md](./docs/design/storage-adapters.md).
 - **Sparkline kind** (`SPARKLINE`), and an optional sparkline on `KPI` tiles
   (12 points, current period in the accent).

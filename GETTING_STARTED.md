@@ -342,6 +342,73 @@ so pair it with `detail` to search the full list. Matching and sorting are the
 detail view's (`queryRows`): case- and accent-insensitive, numeric-aware. The
 validator rejects `tableControls` on any other kind.
 
+### Declared options
+
+Give a widget `options` and each one has a default that providers receive. There
+is no UI for choosing yet; you (or a stored viewer choice) supply the values.
+
+```ts
+const topSellers = defineWidget({
+  key: 'top-sellers',
+  title: 'Top sellers',
+  kind: 'TABLE',
+  options: [
+    {
+      key: 'limit',
+      type: 'number',
+      label: 'Rows',
+      min: 5,
+      max: 50,
+      default: 10,
+    },
+    {
+      key: 'period',
+      type: 'dateRange',
+      label: 'Period',
+      default: 'last30',
+    },
+    {
+      key: 'order',
+      type: 'sort',
+      label: 'Order',
+      columns: [
+        { key: 'c0', label: 'Name' },
+        { key: 'c1', label: 'Sold' },
+      ],
+      default: 'c1:desc',
+      apply: 'client',
+    },
+  ],
+});
+
+const providers = {
+  'top-sellers': async (context, definition, { signal, options }) => {
+    // options.limit === 10, options.period === 'YYYY-MM-DD/YYYY-MM-DD'
+    return loadTopSellers(options.limit, options.period, signal);
+  },
+};
+```
+
+- Resolved values are in `ProviderOptions.options` (always present, `{}` when
+  the widget declares none) and on the resolved widget as `widget.options`.
+  Invalid or unknown chosen values are ignored in favor of the default.
+- `dateRange` accepts a preset (`today`, `yesterday`, `last7`, `last30`,
+  `last90`, `thisMonth`, `lastMonth`, `thisYear`, `lastYear`) or an ISO
+  interval and arrives as an interval; pass `timeZone` and `now` in the resolve
+  options to control "today".
+- `sort` and `columns` apply to `TABLE` (keys `c0`, `c1`, ...) and `BAR_LIST`
+  (`label`, `value`). With `apply: 'client'` the toolkit sorts or trims the
+  payload it got and the choice is not part of the cache key; otherwise your
+  provider receives the value (a truncated table needs that).
+- Cache keys gain `?name=value` for non-default provider-facing values, so
+  different choices never share a cached answer.
+- With `useWidgets`, pass `optionValues` (by widget key) or call `setOptions`;
+  only widgets whose resolved values changed reload, and the old data shows as
+  `stale` meanwhile. `createWidgetLoader` has `setOptions(key, chosen)` and an
+  `optionValues` starting point.
+- A `sort` option also sets the table card's header sort and the detail view's
+  starting sort.
+
 ### Locked widgets
 
 Set `locked: true` on a definition when viewers must not rearrange it (a
@@ -399,6 +466,114 @@ hide the built-in toolbar with `toolbar={false}`. The text is overridable
 `confirmRevert`, `locked`, and more), and the toolbar takes the `toolbar`
 class slot. With `overrideLocks`, locked cards show "locked for viewers"
 instead.
+
+### Storing the layout
+
+The package never reads or writes storage itself. You write a small **adapter**
+for where layouts live; the toolkit supplies everything around it.
+
+```ts
+import {
+  createLayoutPersistence,
+  type StorageAdapter,
+} from '@richardmcquiston01/dashboard-widgets-toolkit/core';
+
+// Consumer code, so localStorage is fine here.
+const localStorageAdapter: StorageAdapter = {
+  async get(key) {
+    try {
+      const value = window.localStorage.getItem(key);
+      return { ok: true, value: value === null ? null : { value } };
+    } catch (cause) {
+      return {
+        ok: false,
+        code: 'unavailable',
+        error: `Could not read "${key}": ${String(cause)}`,
+      };
+    }
+  },
+  async set(key, value) {
+    try {
+      window.localStorage.setItem(key, value);
+      return { ok: true, value: { value } };
+    } catch (cause) {
+      const full =
+        cause instanceof DOMException && cause.name === 'QuotaExceededError';
+      return {
+        ok: false,
+        code: full ? 'quota' : 'unavailable',
+        error: `Could not write "${key}": ${String(cause)}`,
+      };
+    }
+  },
+  remove: async (key) => {
+    window.localStorage.removeItem(key);
+    return { ok: true, value: null };
+  },
+  // Other tabs, via the storage event.
+  subscribe(key, onChange) {
+    const listener = (event: StorageEvent): void => {
+      if (event.key === key) {
+        onChange(event.newValue === null ? null : { value: event.newValue });
+      }
+    };
+    window.addEventListener('storage', listener);
+    return () => window.removeEventListener('storage', listener);
+  },
+};
+
+const persistence = createLayoutPersistence(localStorageAdapter);
+```
+
+An adapter has `get`, `set` and optionally `remove` and `subscribe`. It never
+throws for expected failures: it returns `{ ok: false, code, error }` with a
+code (`unavailable`, `quota`, `forbidden`, `conflict`, `invalid`, `corrupt`) and
+a message that names the key. Return a `revision` (an ETag, a row version) from
+`get` and `set` and honor `ifRevision` in `set` to get conflict detection.
+
+In React, `useStoredLayout` joins it to `Dashboard`:
+
+```tsx
+const stored = useStoredLayout({
+  persistence,
+  scope: { dashboardKey: 'sales', userKey: user.id },
+  definitions,
+  defaultLayout, // shown until loaded and when nothing is stored
+});
+
+<Dashboard
+  widgets={widgets}
+  layout={stored.layout}
+  onLayoutChange={stored.setLayout}
+/>;
+```
+
+- The dashboard never waits on storage. A failed load or save keeps the
+  in-memory layout working and sets `stored.error` (and `status: 'error'`).
+- Saves are debounced (`saveDelayMs`, default 500) and flushed when the page is
+  hidden.
+- `load` repairs what it reads with `normalizeLayout`, so a stored layout never
+  shows widgets that no longer exist; a bare layout from `serializeLayout` is
+  read as is. Layouts over `maxBytes` (default 64 KB) are refused with a message
+  that names the size.
+- When the adapter has revisions, a conflicting save follows `onConflict`:
+  `'ask'` (default: `status: 'conflict'`, then `stored.resolveConflict('mine' |
+'theirs')`), `'overwrite'`, `'keep-theirs'`, or a function
+  `(mine, theirs) => layout` to merge.
+- A change from another tab or device is applied at once when there are no
+  unsaved edits; otherwise it is offered as `stored.remoteLayout`, which you
+  accept or ignore with `stored.resolveRemote('use' | 'ignore')`.
+- `stored.backup` / `stored.setBackup` keep a pre-edit snapshot under its own key.
+
+Wrappers turn one adapter into another: `withPrefix`, `withFallback(primary,
+secondary)` (a server first, localStorage when it's down), `withReadCache`,
+`readOnly`, `withRetry` (you pass `sleep`, so the core has no timers),
+`withEncoding` (compression or your own encryption) and `withLogging` (keys and
+codes, never values). `memoryAdapter()` is for tests and server rendering.
+
+On the server, treat a posted layout as untrusted: run
+`normalizeLayout(definitions, parseLayout(body))` before saving, take the user
+from the session (never from the request), and enforce the size limit.
 
 ### Pages of widgets (core)
 

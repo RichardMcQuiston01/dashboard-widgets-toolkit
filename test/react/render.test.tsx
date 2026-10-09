@@ -4,6 +4,10 @@ import { describe, it } from 'node:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import type { WidgetDefinition } from '../../src/core/definition.js';
+import {
+  createLayoutPersistence,
+  memoryAdapter,
+} from '../../src/core/storage.js';
 import type { GraphWidgetData, WidgetData } from '../../src/core/payload.js';
 import type { DashboardWidget } from '../../src/core/resolve.js';
 import {
@@ -15,6 +19,7 @@ import {
   WidgetGrid,
   WidgetLink,
   WidgetSettingsProvider,
+  useStoredLayout,
   useWidgets,
   barPath,
   buildChartModel,
@@ -1183,5 +1188,89 @@ void describe('table controls', () => {
     );
     assert.match(searchOnly, /type="search"/);
     assert.doesNotMatch(searchOnly, /dwt-detail-sort/);
+  });
+});
+
+void describe('declared options in the UI', () => {
+  const definition: WidgetDefinition = {
+    key: 'sales',
+    title: 'Sales',
+    kind: 'TABLE',
+    tableControls: true,
+    options: [
+      {
+        key: 'order',
+        type: 'sort',
+        label: 'Order',
+        columns: [
+          { key: 'c0', label: 'Name' },
+          { key: 'c1', label: 'Sold' },
+        ],
+        default: 'c1:desc',
+        apply: 'client',
+      },
+    ],
+  };
+  const data: WidgetData = {
+    kind: 'TABLE',
+    columns: [{ label: 'Name' }, { label: 'Sold', numeric: true }],
+    rows: [
+      [{ text: 'b' }, { text: '2' }],
+      [{ text: 'a' }, { text: '10' }],
+    ],
+  };
+
+  void it('starts the header sort from the widget sort option', () => {
+    const widget: DashboardWidget = {
+      definition,
+      status: 'ok',
+      data,
+      options: { order: 'c1:desc' },
+    };
+    const markup = html(<WidgetGrid widgets={[widget]} />);
+    assert.match(markup, /aria-sort="descending"/);
+  });
+
+  void it('leaves headers unsorted without option values', () => {
+    const widget: DashboardWidget = { definition, status: 'ok', data };
+    const markup = html(<WidgetGrid widgets={[widget]} />);
+    assert.doesNotMatch(markup, /aria-sort="(ascending|descending)"/);
+  });
+});
+
+void describe('useStoredLayout', () => {
+  const persistence = createLayoutPersistence(memoryAdapter());
+  const defaultLayout = { order: ['a', 'b'], hidden: [], minimized: [] };
+  const scope = { dashboardKey: 'sales', userKey: 'u1' };
+
+  function Probe({
+    initialLayout,
+  }: {
+    readonly initialLayout?: typeof defaultLayout;
+  }): React.ReactElement {
+    const stored = useStoredLayout({
+      persistence,
+      scope,
+      definitions: [],
+      defaultLayout,
+      ...(initialLayout === undefined ? {} : { initialLayout }),
+    });
+    return (
+      <p>
+        {stored.status}|{stored.layout.order.join(',')}|{String(stored.error)}|
+        {String(stored.backup)}
+      </p>
+    );
+  }
+
+  void it('renders the default layout while loading, with no effects', () => {
+    assert.match(html(<Probe />), /loading\|a,b\|null\|null/);
+  });
+
+  void it('renders the initial layout from the server instead', () => {
+    const markup = html(
+      <Probe initialLayout={{ order: ['b'], hidden: [], minimized: [] }} />
+    );
+    assert.match(markup, /loading\|b\|null\|null/);
   });
 });

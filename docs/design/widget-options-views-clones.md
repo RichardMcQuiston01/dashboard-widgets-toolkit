@@ -760,7 +760,7 @@ follow the lock and edit-mode releases (0.8.0 and 0.9.0).
 
 | Phase | Version | Scope                                                                                                                                                                                                                                                                  |
 | ----- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | 0.10.0  | Declared options with defaults (`choice`, `number`, `boolean`, `text`, `dateRange`, `color`, `sort`, `columns`), `ProviderOptions.options`, per-widget reload, cache keys, client-side sort and columns, seeding of table controls and the detail view. No gear needed |
+| 1     | 0.11.0  | Declared options with defaults (`choice`, `number`, `boolean`, `text`, `dateRange`, `color`, `sort`, `columns`), `ProviderOptions.options`, per-widget reload, cache keys, client-side sort and columns, seeding of table controls and the detail view. No gear needed |
 | 2     | 0.11.0  | `layout.settings`, `applySettings`, `normalizeLayout`, `minWidth`/`maxWidth`, gear and Options dialog (title, width, declared options), Apply and discard confirmations, Reset to defaults, pre-edit snapshot and Revert, `locked.options`                             |
 | 3     | 0.13.0  | `views`, `defaultView` and converted views, the View field; provider-supplied views follow as a later minor                                                                                                                                                            |
 | 4     | 0.14.0  | `clones`, `maxWidgets`, `locked.clone`, Duplicate and Delete, title uniqueness and clone naming                                                                                                                                                                        |
@@ -770,6 +770,13 @@ Independently of the phases, a small **field types** release (`email`, `url`,
 `image`, `color`, `custom` formatters) can ship at any time: it only changes how
 cells render. Pages and storage adapters have their own designs
 (`widget-pages.md`, `storage-adapters.md`).
+
+Phase 1 is built. Differences from the sketch above: `ProviderOptions.options`
+is always present; `sort` and `columns` keys are `c0`, `c1`, ... for `TABLE` and
+`label`/`value` for `BAR_LIST`; client-applied options stay out of cache keys;
+`color` is hex only; a widget has at most 20 options and one `sort` and one
+`columns` option; `text` is capped at 500 characters. The API for choosing
+values is `useWidgets({ optionValues })`, `setOptions` and `loader.setOptions`.
 
 Phase 1 is the most valuable on its own and needs no new UI: authors get default
 sorts, "top N" and column sets, with the viewer's choice arriving later in phase 2
