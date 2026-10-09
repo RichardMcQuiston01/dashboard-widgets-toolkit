@@ -50,10 +50,10 @@
   or more pages, and loading only the page in view. Swipe, drag onto a page tab
   and payload release for far-away pages come later. Designed in
   [docs/design/widget-pages.md](./docs/design/widget-pages.md).
-- **Storage adapters.** A small adapter contract, I/O-free persistence helpers
-  and a `useStoredLayout` hook, so layouts and backups can live in
-  localStorage, a database or a server without the package storing anything.
-  Designed in
+- **Storage adapters** (built, unreleased). A small adapter contract, I/O-free
+  persistence helpers and a `useStoredLayout` hook, so layouts and backups can
+  live in localStorage, a database or a server without the package storing
+  anything. Stored active page and backup history come later. Designed in
   [docs/design/storage-adapters.md](./docs/design/storage-adapters.md).
 - **Sparkline kind** (`SPARKLINE`), and an optional sparkline on `KPI` tiles
   (12 points, current period in the accent).
