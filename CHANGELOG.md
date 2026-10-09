@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.11.0
+
+### Minor Changes
+
+- 47dd8b3: Add storage adapters: the `StorageAdapter` contract, `createLayoutPersistence` (versioned envelope, repair against definitions, size limit, serialized saves, conflict policies, backups, other-tab `watch`), adapter wrappers (`memoryAdapter`, `withPrefix`, `withFallback`, `withReadCache`, `readOnly`, `withRetry`, `withEncoding`, `withLogging`) and the `useStoredLayout` React hook. The package still does no I/O; concrete adapters live in your code.
+- 83ae29e: Add declared widget options with defaults: `WidgetDefinition.options` (`choice`, `number`, `boolean`, `text`, `dateRange`, `color`, `sort`, `columns`), `ProviderOptions.options` for providers, per-widget reload through `loader.setOptions` and `useWidgets({ optionValues })`, option-aware cache keys, client-side sort and columns, and seeding of table headers and the detail view from a sort option.
+
 ## 0.10.0
 
 ### Minor Changes
