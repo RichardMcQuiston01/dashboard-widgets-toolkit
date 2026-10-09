@@ -1,6 +1,7 @@
 # Design: locked widgets and an edit mode
 
-- **Status:** Draft for review
+- **Status:** Draft for review. Decisions 1 to 3 of section 10 are recorded;
+  4 to 6 are still open.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
@@ -76,9 +77,9 @@ interface WidgetLock {
 interface WidgetDefinition {
   // ...existing
   /**
-   * Keeps viewers from rearranging this widget. `true` locks move and hide;
-   * minimize stays available because it is a reading convenience, not a
-   * change to the dashboard. Use an object to choose.
+   * Keeps viewers from rearranging this widget. `true` locks everything:
+   * move, hide and minimize. Use an object to lock only some; fields left out
+   * are not locked.
    */
   readonly locked?: boolean | WidgetLock;
 }
@@ -88,9 +89,10 @@ interface WidgetDefinition {
 default filled in (all `false` when `locked` is absent), the same pattern as
 `resolveDetailOptions` and `resolveTableControls`.
 
-`locked: true` means move and hide, not minimize. This is the one default
-worth reviewing (section 9): the case it targets is "must stay on the page,
-where I put it", and collapsing a card doesn't break that.
+`locked: true` means the widget can't be moved, hidden or minimized. Anything
+short of that is spelled out: `{ move: true, hide: true }` pins and protects a
+widget but still lets the viewer collapse it. A widget that isn't minimize-locked
+can be minimized, in any mode (section 4).
 
 ### Pinned slots
 
@@ -126,14 +128,14 @@ pinned shows exactly the default order.
 
 `LayoutItem` gains `locked?`, so the pure functions can see it:
 
-| Function                | Change                                                                                                                 |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `visibleWidgets`        | Builds the order above when any visible widget is pinned. Unchanged output when none is.                               |
-| `moveWidget`            | Returns the same layout for a pinned key, or when `toIndex` lands on a pinned slot. Indexes are visible-order indexes. |
-| `moveWidgetBy`          | Steps over pinned slots: "later" jumps to the next free slot. Clamps at the ends of the free slots.                    |
-| `hideWidget` and others | Unchanged. They take only `(layout, key)`, so the lock check lives in `enforceLocks` and the UI (below).               |
-| `enforceLocks` (new)    | `enforceLocks(definitions, layout)`: removes locked keys from `hidden` and `minimized` and from `order`. Idempotent.   |
-| `pruneLayout`           | Unchanged.                                                                                                             |
+| Function                | Change                                                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `visibleWidgets`        | Builds the order above when any visible widget is pinned. Unchanged output when none is.                                                                                       |
+| `moveWidget`            | Returns the same layout for a pinned key, or when `toIndex` lands on a pinned slot. Indexes are visible-order indexes.                                                         |
+| `moveWidgetBy`          | Steps over pinned slots: "later" jumps to the next free slot. Clamps at the ends of the free slots.                                                                            |
+| `hideWidget` and others | Unchanged. They take only `(layout, key)`, so the lock check lives in `enforceLocks` and the UI (below).                                                                       |
+| `enforceLocks` (new)    | `enforceLocks(definitions, layout)`: per widget, drops the key from `hidden` if hide-locked, from `minimized` if minimize-locked, and from `order` if move-locked. Idempotent. |
+| `pruneLayout`           | Unchanged.                                                                                                                                                                     |
 
 `enforceLocks` is the single place the rules are stated for code that is not
 the UI. `Dashboard` calls it on the layout it receives, so a saved layout that
@@ -155,8 +157,7 @@ Two ways, both small, neither needing new concepts:
 
 - Build the definitions without `locked` for that viewer (the consumer already
   builds definitions per role).
-- Or pass `overrideLocks` to `Dashboard`. It ignores `locked` for movement and
-  hiding, and shows the lock indicator as a plain "locked for viewers" mark
+- Or pass `overrideLocks` to `Dashboard`. It ignores `locked` entirely, and shows the lock indicator as a plain "locked for viewers" mark
   so the admin can see what they are overriding.
 
 `overrideLocks` is a UI convenience; the server still decides whether to apply
@@ -208,10 +209,13 @@ changelog; it is not part of this change.
 | Lock indicator on locked cards    | yes      | no                    | yes               |
 | Customize / Done / Reset toolbar  | no       | yes                   | yes               |
 
-Why minimize and its bar stay available outside edit mode: collapsing a card is
-something a reader does to focus, and a minimized card must always be
+The "(free only)" and every minimize cell mean "unless the widget's lock covers
+it". Minimize and its bar stay available outside edit mode: collapsing a card
+is something a reader does to focus, and a minimized card must always be
 restorable, so its bar can't depend on edit mode. A widget that must not
-collapse sets `locked.minimize`.
+collapse sets `locked.minimize`, which `locked: true` includes. If a saved
+layout lists a minimize-locked widget as minimized, `enforceLocks` drops it,
+so it shows expanded.
 
 ### Toolbar
 
@@ -235,10 +239,12 @@ small exported `DashboardToolbar` is not needed for that and is left out.
 
 While editing, cards get a dashed outline (`dwt-dashboard--editing` on the root,
 `dwt-card--editing` on cards) so the state is visible without color. Locked
-cards show a lock icon button-shaped but not interactive, in the place the
-move and hide buttons would be, with the accessible name
-`Revenue is locked and can't be moved`. Leaving the buttons' slot occupied
-keeps the header from jumping when a card's lock state changes.
+cards show a lock icon, button-shaped but not interactive, in the place the
+controls it covers would be, with the accessible name `Revenue is locked`. A
+fully locked card (`locked: true`) shows only the icon; a partly locked one
+shows the icon and keeps the controls its lock leaves open. Keeping the icon
+in the controls' slot avoids the header jumping when a card's lock state
+changes.
 
 ### Focus and server rendering
 
@@ -259,7 +265,7 @@ done: string; // "Done"
 reset: string; // "Reset layout"
 editingOn: string; // "Editing dashboard. Use the buttons…"
 editingOff: string; // "Finished editing."
-locked: (title: string) => string; // "Revenue is locked and can't be moved"
+locked: (title: string) => string; // "Revenue is locked"
 lockedForViewers: (title: string) => string; // admin override view
 ```
 
@@ -298,7 +304,7 @@ Drag and drop is designed separately and builds on this:
 Each phase is a minor release with its own changeset, README and
 GETTING_STARTED text, and a ROADMAP update. Phase 1 also makes the smallest
 React change that keeps the core honest: `Dashboard` runs `enforceLocks` on the
-layout it receives and withholds the move and hide buttons on locked widgets.
+layout it receives and withholds the move, hide and minimize controls that a widget's lock covers.
 There is no new UI until phase 2.
 
 ## 9. Testing
@@ -310,28 +316,34 @@ Pure logic (no DOM), in `test/core`:
   shifting a pinned one up.
 - `moveWidget` and `moveWidgetBy` over pinned slots, for pinned keys, and at
   the ends.
-- `enforceLocks`: removes locked keys from `hidden`, `minimized` and `order`;
-  returns the same object when nothing changes; idempotent.
+- `enforceLocks`: per field, removes keys from `hidden`, `minimized` and
+  `order` only where that part is locked; returns the same object when nothing
+  changes; idempotent.
 - `resolveWidgetLock` defaults and `validateWidgetDefinition` messages.
 
 Rendering (`renderToStaticMarkup`, `test/react`): `always` mode unchanged;
 `toggle` mode shows no controls and a Customize button; with
 `defaultEditing` it shows controls, the Done and Reset buttons, and lock
-indicators with the right names; locked widgets have no move or hide buttons.
+indicators with the right names; a fully locked widget has no move, hide or minimize controls, and a partly
+locked one keeps the controls its lock leaves open.
 
 Real browser (Playwright, in the demo app): Customize and Done by keyboard,
 focus stays on the toggle, hiding and restoring, Reset, and a locked widget
 that stays put while the cards around it are reordered.
 
-## 10. Open questions
+## 10. Decisions and open questions
 
-1. **`locked: true` = move and hide, not minimize.** Is that the right default,
-   or should `true` mean all three?
-2. **Minimize outside edit mode.** Kept available because it is a reading
-   convenience. Should it also move behind Customize for a "fixed" dashboard?
-3. **Slot meaning.** Pinned slots are counted among visible widgets, so hiding
-   free widgets above a pinned one shifts it. The alternative (a slot counted
-   among all widgets, leaving a gap) was rejected as confusing. Agree?
+### Decided (2026-10-09)
+
+1. **`locked: true` means move, hide and minimize.** A locked widget can't be
+   moved, hidden or minimized. The object form locks only the fields named.
+2. **Minimize is available unless it is locked.** It stays available outside
+   edit mode, and the "Minimized:" bar does too.
+3. **Pinned slots are counted among visible widgets.** Hiding free widgets above
+   a pinned one shifts it up with them; the arrangement never has gaps.
+
+### Still open
+
 4. **Reset.** One click with no confirmation. Add a built-in confirmation or
    an undo, or leave that to the consumer?
 5. **`overrideLocks`.** Is a prop worth having, or is "build the definitions
