@@ -7,6 +7,7 @@ export type DashboardClassSlot =
   | 'dashboard'
   | 'hiddenBar'
   | 'toolbar'
+  | 'pageBar'
   | 'grid'
   | 'card'
   | 'cardHeader'
@@ -69,6 +70,30 @@ export interface DashboardLabels {
   readonly locked: (title: string) => string;
   /** The lock icon on a card shown to an administrator (`overrideLocks`). */
   readonly lockedForViewers: (title: string) => string;
+  /** Pages: names the tab list, and each tab ("Page 2 of 3: Sales"). */
+  readonly pageBar: string;
+  readonly pageTabName: (index: number, count: number, title: string) => string;
+  readonly previousPageButton: string;
+  readonly nextPageButton: string;
+  /** Page management while editing. */
+  readonly managePages: string;
+  readonly addPage: string;
+  readonly renamePage: (title: string) => string;
+  readonly pageTitle: string;
+  readonly savePageTitle: string;
+  readonly cancelPageTitle: string;
+  readonly deletePage: (title: string) => string;
+  readonly confirmDeletePage: (title: string) => string;
+  readonly movePageLeft: (title: string) => string;
+  readonly movePageRight: (title: string) => string;
+  /** The select on each card that moves it to another page. */
+  readonly moveToPage: (title: string) => string;
+  readonly moveToPagePlaceholder: string;
+  readonly moveToPageOption: (title: string, rowsFree: number) => string;
+  readonly newPageOption: string;
+  readonly movedToPage: (title: string, pageTitle: string) => string;
+  readonly pageFull: (pageTitle: string, maxRows: number) => string;
+  readonly emptyPage: string;
   /** Added to the accessible name of links that open in a new tab. */
   readonly opensInNewTab: string;
   /** The card's View button, opening the detail view. */
@@ -117,6 +142,30 @@ export const DEFAULT_LABELS: DashboardLabels = {
   dashboardControls: 'Dashboard controls',
   locked: (title) => `${title} is locked`,
   lockedForViewers: (title) => `${title} is locked for viewers`,
+  pageBar: 'Pages',
+  pageTabName: (index, count, title) => `Page ${index} of ${count}: ${title}`,
+  previousPageButton: 'Previous page',
+  nextPageButton: 'Next page',
+  managePages: 'Manage pages',
+  addPage: 'Add page',
+  renamePage: (title) => `Rename ${title}`,
+  pageTitle: 'Page title',
+  savePageTitle: 'Save page title',
+  cancelPageTitle: 'Cancel renaming',
+  deletePage: (title) => `Delete ${title}`,
+  confirmDeletePage: (title) =>
+    `Delete the page "${title}" and move its widgets to another page?`,
+  movePageLeft: (title) => `Move ${title} page left`,
+  movePageRight: (title) => `Move ${title} page right`,
+  moveToPage: (title) => `Move ${title} to another page`,
+  moveToPagePlaceholder: 'Move to page…',
+  moveToPageOption: (title, rowsFree) =>
+    `${title} (${rowsFree} ${rowsFree === 1 ? 'row' : 'rows'} free)`,
+  newPageOption: 'New page…',
+  movedToPage: (title, pageTitle) => `${title} moved to ${pageTitle}`,
+  pageFull: (pageTitle, maxRows) =>
+    `Page "${pageTitle}" is full (${maxRows} rows). Move or hide a widget first.`,
+  emptyPage: 'This page has no widgets. Move one here from another page.',
   opensInNewTab: '(opens in a new tab)',
   view: (title) => `View ${title}`,
   close: 'Close',

@@ -1,0 +1,5 @@
+---
+'@richardmcquiston01/dashboard-widgets-toolkit': minor
+---
+
+Pages in `Dashboard`. A layout with `pages` shows a tab list (a real `tablist` with arrow-key, Home and End navigation, collapsing to dots with Previous and Next buttons under 640px) and renders only the page in view; with one page there is no page bar. New props `activePage`, `defaultActivePage`, `onActivePageChange`, `maxRows` and `maxPages`. While editing there are Add page, Rename, Move left/right and Delete (with the inline confirmation) for the page in view, and a Move to page select on each card that lists free rows and offers "New page…". Moves, restores and deletes that would overflow a page are refused with a specific message. New labels (`pageBar`, `pageTabName`, `addPage`, `moveToPage`, `pageFull`, `emptyPage` and more) and a `pageBar` class slot. Because only the page in view renders, `useWidgets` with `loadWhen: 'visible'` loads each page's widgets the first time the page is shown; `useWidgets` now also picks up cards that appear after the first render, so a widget restored from the Hidden bar loads too.

@@ -179,6 +179,132 @@
   font-size: 0.875rem;
 }
 
+:where(.dwt-pages) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+:where(.dwt-page-tabs) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+:where(.dwt-page-tab) {
+  box-sizing: border-box;
+  min-height: 32px;
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--dwt-text-secondary);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+:where(.dwt-page-tab[aria-selected='true']) {
+  color: var(--dwt-text);
+  font-weight: 600;
+  border-bottom-color: var(--dwt-text);
+}
+
+:where(.dwt-page-tab:focus-visible) {
+  outline: 2px solid var(--dwt-focus);
+  outline-offset: 2px;
+}
+
+:where(.dwt-page-dot) {
+  display: none;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--dwt-text-secondary);
+  border-radius: 50%;
+  background: transparent;
+}
+
+:where(.dwt-page-tab[aria-selected='true'] .dwt-page-dot) {
+  border-color: var(--dwt-text);
+  background: var(--dwt-text);
+}
+
+@media (max-width: 640px) {
+  :where(.dwt-pages) {
+    justify-content: center;
+  }
+
+  :where(.dwt-page-tab) {
+    min-width: 24px;
+    min-height: 24px;
+    padding: 6px;
+    border-bottom: 0;
+  }
+
+  :where(.dwt-page-tab-title) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  :where(.dwt-page-dot) {
+    display: block;
+  }
+}
+
+:where(.dwt-page-manage) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+}
+
+:where(.dwt-page-rename) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+:where(.dwt-page-title-input) {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 8px;
+  font: inherit;
+  color: var(--dwt-text);
+  background: var(--dwt-surface, transparent);
+  border: 1px solid var(--dwt-border);
+  border-radius: 6px;
+}
+
+:where(.dwt-page-error) {
+  color: var(--dwt-text);
+  font-weight: 600;
+}
+
+:where(.dwt-move-select) {
+  box-sizing: border-box;
+  max-width: 9rem;
+  height: 28px;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--dwt-text);
+  background: var(--dwt-surface, transparent);
+  border: 1px solid var(--dwt-border);
+  border-radius: 6px;
+}
+
+:where(.dwt-page-panel) {
+  min-width: 0;
+}
+
 :where(.dwt-confirm) {
   display: inline-flex;
   align-items: center;
@@ -750,4 +876,16 @@
   border: 1px solid var(--dwt-border);
   border-radius: 6px;
   padding: 4px 8px;
+}
+
+/* The previous and next buttons only help when the tabs collapse to dots.
+   After .dwt-icon-button so this display wins. */
+:where(.dwt-page-nav) {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  :where(.dwt-page-nav) {
+    display: inline-flex;
+  }
 }

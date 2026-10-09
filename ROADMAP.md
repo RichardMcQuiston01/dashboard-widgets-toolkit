@@ -44,10 +44,10 @@
   Defaults are definition data so a Widget Builder can bake them in later. Replaces "widget sizes in the layout". Designed in
   [docs/design/widget-options-views-clones.md](./docs/design/widget-options-views-clones.md);
   builds on the lock and edit mode design.
-- **Widget pages** (core built, unreleased). Phone-style pages of widgets
-  (about 4 rows each), move widgets between pages, a page bar that appears only
-  with two or more pages, and loading only the page in view. The pure core is
-  done; the React page bar and lazy loading are next. Designed in
+- **Widget pages** (built, unreleased). Phone-style pages of widgets (about 4
+  rows each), move widgets between pages, a page bar that appears only with two
+  or more pages, and loading only the page in view. Swipe, drag onto a page tab
+  and payload release for far-away pages come later. Designed in
   [docs/design/widget-pages.md](./docs/design/widget-pages.md).
 - **Storage adapters.** A small adapter contract, I/O-free persistence helpers
   and a `useStoredLayout` hook, so layouts and backups can live in

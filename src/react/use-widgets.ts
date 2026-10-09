@@ -125,7 +125,9 @@ export function useWidgets<C extends WidgetContext>(
     loadWhen,
   ]);
 
-  // loadWhen 'visible': start a widget the first time its card nears the viewport.
+  // loadWhen 'visible': start a widget the first time its card nears the
+  // viewport. Cards that appear later (another page, a restored widget) are
+  // picked up as they are added, so they load when first shown.
   const cardKeys: string = widgets
     .map((widget) => widget.definition.key)
     .join('\u0000');
@@ -153,10 +155,24 @@ export function useWidgets<C extends WidgetContext>(
       },
       { rootMargin }
     );
-    grid
-      .querySelectorAll('[data-widget-key]')
-      .forEach((card) => observer.observe(card));
-    return () => observer.disconnect();
+    const observed = new WeakSet<Element>();
+    const observeNewCards = (): void => {
+      grid.querySelectorAll('[data-widget-key]').forEach((card) => {
+        if (observed.has(card)) return;
+        observed.add(card);
+        observer.observe(card);
+      });
+    };
+    observeNewCards();
+    const mutations: MutationObserver | undefined =
+      typeof MutationObserver === 'undefined'
+        ? undefined
+        : new MutationObserver(observeNewCards);
+    mutations?.observe(grid, { childList: true, subtree: true });
+    return () => {
+      mutations?.disconnect();
+      observer.disconnect();
+    };
   }, [loader, loadWhen, rootMargin, cardKeys]);
 
   // Polling: reload started widgets, skipping ticks while the tab is hidden.

@@ -78,8 +78,9 @@ documented in the code and README, which win if they disagree.
   stored in the layout. Not built yet; builds on the lock design.
 - `docs/design/widget-pages.md`: pages of widgets (per-page layout, capacity of
   about 4 rows, moving widgets between pages, page bar hidden for one page,
-  lazy loading by page). The core (`pages.ts`, `placeRows`, `normalizeLayout`)
-  is built; the React page bar, Move to page and page management are not.
+  lazy loading by page). Built: the core (`pages.ts`, `placeRows`,
+  `normalizeLayout`) and the React page bar, Move to page and page management.
+  Not built: swipe, drag onto a page tab, `retain`/`release`.
 - `docs/design/storage-adapters.md`: a storage adapter contract, I/O-free
   persistence helpers and a `useStoredLayout` hook; concrete adapters stay in
   consumer code. Not built yet.

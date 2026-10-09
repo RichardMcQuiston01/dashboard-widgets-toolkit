@@ -439,8 +439,38 @@ pageWidgets(definitions, layout, 'page-1'); // visible widgets, in order
   one page, fixes titles, and moves overflow, in order, to the next page with
   room or a new page. Nothing is hidden to make room.
 
-The React page bar, a Move to page control and lazy loading by page are not built
-yet; the pure functions are what they will be made from.
+#### Pages in `Dashboard`
+
+Pass a layout with `pages` and `Dashboard` shows a tab list and renders only the
+page in view. With one page (or none) there is no page bar.
+
+```tsx
+<Dashboard
+  widgets={widgets}
+  layout={layout} // has pages
+  onLayoutChange={saveLayout}
+  maxRows={4} // rows a page holds; a page's own maxRows wins
+  activePage={pageKey} // optional: controlled
+  onActivePageChange={setPageKey}
+/>
+```
+
+- **Tabs and dots.** Tabs are a real `tablist` (arrow keys, Home and End move and
+  select; names read "Page 2 of 3: Sales"). Under 640px they collapse to dots
+  with Previous and Next buttons. Page changes are announced.
+- **Lazy loading by page.** Only the page in view is rendered, so with
+  `useWidgets(..., { loadWhen: 'visible' })` (and `gridRef` around the
+  dashboard) widgets on other pages load the first time their page is shown, and
+  keep their data when the viewer comes back.
+- **Editing.** With `onLayoutChange`, editing shows **Add page**, Rename, Move
+  left/right and Delete (asks first) for the page in view, and each card gets a
+  **Move to page** select that lists the other pages with their free rows and a
+  "New page…" choice. Moves, restores and deletes that would overflow a page are
+  refused with a message ("Page "Stock" has no room for "Alpha": it would need
+  row 3, and the page allows 2."). `maxPages` caps how many pages can be added.
+- Labels are overridable (`pageBar`, `pageTabName`, `addPage`, `moveToPage`,
+  `pageFull`, `emptyPage`, and more); messages from the core functions are
+  English text from `pages.ts`.
 
 ### Filling space
 
