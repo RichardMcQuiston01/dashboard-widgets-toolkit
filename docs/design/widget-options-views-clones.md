@@ -147,17 +147,22 @@ The dialog holds:
 
 Nothing is saved until **Apply**. There is no live preview: previewing a
 changed option could reload data on every keystroke, and the dialog stays
-simple. Two confirmations keep it safe:
+simple. Both **Apply** and **Discard** ask first, with an inline confirmation
+rather than a second dialog:
 
-- **Closing with unsaved changes** (Cancel, Esc, a click outside) asks
-  "Discard your changes?" first. Closing with no changes just closes.
-- **Applying** commits through `onLayoutChange` in one call and then announces
-  "Options saved" in a live region, with the card showing the result behind the
-  closing dialog.
+- Pressing **Apply** replaces the button row with a short message ("Apply these
+  changes?") and two secondary buttons, "✓" (accessible name "Yes, apply") and
+  "X" (accessible name "No, keep editing"). Pressing "✓" commits through
+  `onLayoutChange` in one call, closes the dialog and announces "Options saved"
+  in a live region.
+- Closing with unsaved changes (Cancel, Esc, a click outside) shows "Discard
+  your changes?" with "✓" ("Yes, discard") and "X" ("No, keep editing").
+  Closing with no changes just closes.
+- The message is a live region, focus moves to the safe choice ("X"), and the
+  symbols are never the only label: each button has an accessible name and a
+  tooltip. Esc on the confirmation answers "No".
 
-Focus returns to the gear on close. (Whether Apply should also ask "Apply these
-changes?" before saving is open question 11; this design does not add a second
-prompt to every save.)
+Focus returns to the gear on close.
 
 ### Width: a share of the dashboard
 
@@ -196,7 +201,14 @@ layout's width, not a phone's.
 
 Because every label is built from the title ("Hide Revenue", "Move Revenue
 earlier"), the effective title flows through unchanged. The detail view's
-heading uses `detail.title` when the author set one, else the effective title.
+heading uses the author's `detail.title`, else the author's definition title, not
+the viewer's rename (decided as the author's dialog; see section 15).
+
+**Titles are unique on a page.** Two widgets can't show the same title (compared
+trimmed, case-insensitive and Unicode-normalized). The dialog refuses a
+duplicate with a message tied to the field ("Another widget already uses this
+title") and `normalizeLayout` fixes one that arrives from storage by appending
+"(#n)". Clones follow the naming rules in section 7.
 
 ### Reset and revert
 
@@ -215,10 +227,17 @@ Two different ways back, both behind a confirmation:
   during the session.
 
 Each asks "Reset these options?" or "Revert to how this looked before you
-started editing?" in a small confirmation dialog (an `alertdialog` the toolkit
-renders, not `window.confirm`), with the safe button focused by default. The
-snapshot lives in memory for the edit session; keeping it across sessions is
-open question 12.
+started editing?" with the same inline "✓" / "X" confirmation as Apply (not
+`window.confirm`), the safe button focused by default. The toolbar's Reset
+layout and Revert changes use it too.
+
+**The consumer can store the backup.** By default the snapshot lives in memory
+for the edit session. `Dashboard` also takes an optional `backup` prop (a
+`DashboardLayout`) and an `onBackup(layout)` callback, called when edit mode
+starts, so a consumer can save it wherever it likes and pass it back after a
+reload; Revert then still works. How and where it is stored (localStorage, a
+database, a server) is the consumer's choice; see "Storage adapters" in
+section 15.
 
 The toolbar's **Reset layout** (lock design) resets only the arrangement
 (order, hidden, minimized) to the default, also after a confirmation. It does
@@ -248,6 +267,22 @@ type WidgetOption =
     }
   | { type: 'boolean'; key: string; label: string; default: boolean }
   | {
+      type: 'text'; // free text: a search term, a tag
+      key: string;
+      label: string;
+      maxLength: number;
+      default: string;
+    }
+  | {
+      type: 'dateRange';
+      key: string;
+      label: string;
+      /** Named ranges offered in the form, e.g. 'last7', 'last30', 'thisMonth'. */
+      presets?: readonly { value: string; label: string }[];
+      default: string; // a preset value or an ISO interval
+    }
+  | { type: 'color'; key: string; label: string; default: string }
+  | {
       type: 'sort';
       key: string; // by convention 'sort'
       label: string;
@@ -271,6 +306,9 @@ interface WidgetDefinition {
   readonly options?: readonly WidgetOption[];
 }
 ```
+
+`choice` is the "option" type: a pick from a fixed list. `icon` (a named,
+bounded icon set) is a later type and needs its own design.
 
 Definitions stay plain JSON: no functions, no regexes. Labels are the
 consumer's strings (their own localization), like `title`.
@@ -300,6 +338,19 @@ interface ProviderOptions {
 The third argument was already optional to use, so existing providers keep
 working. A provider that wants "top 10 by revenue" reads `options['limit']` and
 `options['sort']`.
+
+**New type values.**
+
+- `text`: trimmed, at most `maxLength` characters, rendered as plain text and
+  never as HTML. A provider must treat it as untrusted input (section 9).
+- `dateRange`: the value is an ISO interval string `YYYY-MM-DD/YYYY-MM-DD` or a
+  preset key such as `last30`. Presets resolve to a concrete interval before the
+  provider sees them, using a `now` the consumer can inject, so providers always
+  get dates and tests stay deterministic. Dates are calendar days, not instants,
+  so there is no time zone ambiguity in the saved value.
+- `color`: a `#rrggbb` value or a named token from a list the author gives; it is
+  validated, never inserted into CSS unchecked. A color alone never carries
+  meaning (the label says it too).
 
 ### Reloading and caching
 
@@ -345,6 +396,26 @@ the same value.
 or metric, a `boolean` for "include refunds". All reach the provider the same
 way. Nothing here fetches anything; it only tells the consumer's provider what
 the viewer asked for.
+
+### Field types for columns and cells
+
+Separate from option types: these say how a table cell, or a field in a source
+description, is shown. A column declares one, and the renderers apply it:
+
+| Type     | Shown as                                                                                      |
+| -------- | --------------------------------------------------------------------------------------------- |
+| `text`   | Plain text (default).                                                                         |
+| `number` | Right-aligned, formatted with `Intl`; sorts numerically from `value`.                         |
+| `date`   | Formatted with `Intl`; sorts chronologically from an ISO `value`.                             |
+| `email`  | A `mailto:` link. The address is validated and header parameters (`?cc=`, `?body=`) rejected. |
+| `url`    | A link with `target="_blank"` and `rel="noopener noreferrer"`; http and https only.           |
+| `image`  | An `<img>` through `isSafeImageUrl`, with the cell text as its alt text.                      |
+| `color`  | A swatch with the validated value next to its text, never color alone.                        |
+| `icon`   | A named icon from a bounded set. Later, with its own design.                                  |
+
+`url` and `email` reuse `isSafeHref`, so `javascript:` and similar never render;
+unsafe values fall back to plain text, as links do today. A new tab opened with
+`_blank` always carries `noopener`. This ships as its own small phase (section 12) because it is useful before any of the options UI.
 
 ## 6. Alternate views
 
@@ -431,8 +502,8 @@ has settings of its own:
 
 - Created from the dialog ("Duplicate this widget") or a card control in edit
   mode. The new clone gets the key `from#n` (n = highest existing suffix plus
-  one), the title "Revenue (copy)", and its dialog opens straight away so the
-  viewer can pick a view.
+  one), a suggested title (see "Naming" below), and its dialog opens straight
+  away so the viewer can pick a view.
 - Stored as `{ key, from }` in `layout.clones`, its settings in
   `layout.settings[cloneKey]`, and placed in `order` right after its original.
 - `effectiveDefinitions` builds a definition for each clone by copying the
@@ -456,10 +527,36 @@ has settings of its own:
 - A clone exists only while its original is visible to the viewer (roles,
   `active`). If the original disappears, `pruneLayout` and `normalizeLayout`
   drop its clones and their settings.
-- A cap, `maxClones` on `Dashboard` (default 12), keeps layouts and load counts
-  bounded.
+- **No clone limit.** Instead, a page can have an optional `maxWidgets` (see
+  "Limits and pages" below).
 - Clone keys are checked against definitions: a clone whose key collides with a
   real widget key is dropped on parse, never allowed to shadow it.
+
+### Naming
+
+Titles are unique on a page (section 4), so a clone never copies its original's
+title as is:
+
+- **Same display type:** the original's title plus "(#n)", n being the next
+  unused number: "Recent Orders (#1)", "Recent Orders (#2)".
+- **Different display type:** the dialog suggests the title with the view's label
+  ("Recent Orders Line Chart"). The viewer can edit it, and it must still be
+  unique. If the suggestion is taken, the "(#n)" rule applies on top.
+
+The old "(copy)" wording is dropped.
+
+### Limits and pages
+
+There is no per-widget clone cap. Layout size is bounded another way:
+
+- `Dashboard` takes an optional `maxWidgets` for a page. Duplicate is disabled
+  at the limit with a message that names it ("This page already has 20 widgets").
+  What counts toward it (all widgets, or only visible ones) is open question 14.
+- `parseLayout` keeps a high safety ceiling (a few hundred entries) purely
+  against malformed or hostile JSON. It is not a product limit.
+- **Pages of widgets** is a separate, later design: a layout per page, with
+  clones and settings belonging to a page, and `Dashboard` rendering one page's
+  layout. Consumers can already keep one layout per tab of their own.
 
 ### Changing a view in place versus cloning
 
@@ -477,8 +574,9 @@ replacing it, so the UI needs no separate "replace" concept.
 - **Edit mode.** The gear is a customization control that appears only while
   editing (so it needs `editMode: 'toggle'`). The toolbar's Reset layout resets
   arrangement only and asks first; **Revert changes** restores the pre-edit
-  snapshot (see "Reset and revert"). This settles the lock design's question
-  about a Reset confirmation: it asks.
+  snapshot (see "Reset and revert"). Both use the inline "✓" / "X"
+  confirmation. This settles the lock design's question about a Reset
+  confirmation: it asks.
 - **Admin defaults.** `defaultLayout` is a full `DashboardLayout`, so an
   administrator can ship an organization default that includes widths, titles,
   options, views and even clones, using the same editing UI with
@@ -496,8 +594,9 @@ Settings are advisory in the browser and must be checked where the layout is
 stored. `normalizeLayout(definitions, layout)` is the one function for that:
 prune unknown keys, enforce locks, clamp widths to `minWidth`/`maxWidth`, trim
 titles to the limit, drop options and views the definition did not declare or
-whose values are invalid, drop clones the lock or the cap forbids, and drop
-clones whose original is gone. It is idempotent and returns the same object
+whose values are invalid, make titles unique (appending "(#n)"), apply the
+`maxWidgets` limit, drop clones the lock forbids, and drop clones whose original
+is gone. It is idempotent and returns the same object
 when nothing changes.
 
 ```ts
@@ -508,7 +607,7 @@ await saveLayout(userId, serializeLayout(layout));
 Option values are also **untrusted input to your provider**. The toolkit
 validates a value against its declaration in the browser; a server that receives
 `sort=…` or `limit=…` from a client must validate it again (an allowed column
-name, a bounded number) before using it in a query. The docs say so next to the
+name, a bounded number, a well-formed date range) before using it in a query. The docs say so next to the
 `ProviderOptions.options` example.
 
 ## 10. Labels and styling
@@ -516,9 +615,11 @@ name, a bounded number) before using it in a query. The docs say so next to the
 New `DashboardLabels` entries, all overridable: `options` ("Options"),
 `optionsFor(title)`, `optionsTitle`, `optionsWidth`, `optionsView`, `apply`,
 `resetToDefaults`, `revertToBeforeEditing`, `revertChanges`, `confirmDiscard`,
-`confirmReset`, `confirmRevert`, `confirm`, `keepEditing`, `optionsSaved`, `duplicate`, `duplicateOf(title)`,
-`deleteWidget(title)`, `copySuffix` ("copy"), and validation messages for the
-width and title fields. Classes follow the convention: `dwt-options`,
+`confirmReset`, `confirmRevert`, `confirmApply`, `confirmYes` and `confirmNo`
+(the accessible names of "✓" and "X"), `keepEditing`, `optionsSaved`,
+`duplicate`, `duplicateOf(title)`, `deleteWidget(title)`, `titleInUse`,
+`suggestedViewTitle(title, viewLabel)`, `maxWidgetsReached(count)`, and
+validation messages for the width and title fields. Classes follow the convention: `dwt-options`,
 `dwt-options-field`, `dwt-gear`, and a `dialog` slot in `classNames`. The dialog
 reuses the detail dialog's styles. `styles.css` stays optional.
 
@@ -571,8 +672,21 @@ rules above hold:
   edit the same option declarations: one for a definition's defaults, one for a
   viewer's overrides.
 
-The builder itself is out of scope here. It is listed as a later phase so the
-data model stays honest: **anything the builder will set must already be
+**The builder lives in this library** (decided), as headless functions a
+developer wires into their own admin UI, in a `./builder` subpath: create and edit
+a definition immutably, list the options and views valid for a source
+description, validate with `validateWidgetDefinition`, and produce the JSON to
+store. Optional React building blocks (the option form, a definition preview via
+the existing renderers) can follow. It still never fetches or stores anything, so
+the data source descriptions and the storage stay the consumer's code.
+
+**Viewer-created widgets** (a viewer building their own widget, scoped to their
+account) are a later direction on top of the same functions: the consumer stores
+the result per user, offers only an allow-list of sources, and validates on the
+server. Not part of the first builder release.
+
+Its detailed design is a separate document. This section only fixes the rule that
+keeps the data model honest: **anything the builder will set must already be
 expressible as definition data.**
 
 ## 12. Phasing
@@ -581,13 +695,17 @@ Each phase is a minor release with its own changeset, README and
 GETTING_STARTED text, and a ROADMAP update. Version numbers are indicative; they
 follow the lock and edit-mode releases (0.8.0 and 0.9.0).
 
-| Phase | Version | Scope                                                                                                                                                                                                                                      |
-| ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1     | 0.10.0  | Declared options with defaults (`choice`, `number`, `boolean`, `sort`, `columns`), `ProviderOptions.options`, per-widget reload, cache keys, client-side sort and columns, seeding of table controls and the detail view. No gear needed   |
-| 2     | 0.11.0  | `layout.settings`, `applySettings`, `normalizeLayout`, `minWidth`/`maxWidth`, gear and Options dialog (title, width, declared options), Apply and discard confirmations, Reset to defaults, pre-edit snapshot and Revert, `locked.options` |
-| 3     | 0.12.0  | `views`, `defaultView` and conversions (provider-supplied and converted), the View field                                                                                                                                                   |
-| 4     | 0.13.0  | `clones`, `maxClones`, `locked.clone`, Duplicate and Delete                                                                                                                                                                                |
-| 5     | later   | Widget Builder and data-source descriptions, in their own design                                                                                                                                                                           |
+| Phase | Version | Scope                                                                                                                                                                                                                                                                  |
+| ----- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | 0.10.0  | Declared options with defaults (`choice`, `number`, `boolean`, `text`, `dateRange`, `color`, `sort`, `columns`), `ProviderOptions.options`, per-widget reload, cache keys, client-side sort and columns, seeding of table controls and the detail view. No gear needed |
+| 2     | 0.11.0  | `layout.settings`, `applySettings`, `normalizeLayout`, `minWidth`/`maxWidth`, gear and Options dialog (title, width, declared options), Apply and discard confirmations, Reset to defaults, pre-edit snapshot and Revert, `locked.options`                             |
+| 3     | 0.12.0  | `views`, `defaultView` and conversions (provider-supplied and converted), the View field                                                                                                                                                                               |
+| 4     | 0.13.0  | `clones`, `maxWidgets`, `locked.clone`, Duplicate and Delete, title uniqueness and clone naming                                                                                                                                                                        |
+| 5     | later   | Widget Builder in the library (`./builder`) and data-source descriptions, in their own design; viewer-created widgets after that                                                                                                                                       |
+
+Independently of the phases, a small **field types** release (`email`, `url`,
+`image`, `color`; `icon` later) can ship at any time: it only changes how cells
+render. Pages of widgets and storage adapters are separate designs.
 
 Phase 1 is the most valuable on its own and needs no new UI: authors get default
 sorts, "top N" and column sets, with the viewer's choice arriving later in phase 2
@@ -617,6 +735,15 @@ changes restores the whole layout; closing a changed dialog asks before
 discarding and an unchanged one does not; no gear in `always` mode; the width
 choices carry their share labels.
 
+Field types, in `test/react`: `email` renders a `mailto:` link and rejects header
+parameters; `url` opens in a new tab with `noopener noreferrer` and refuses
+`javascript:`; `image` and `color` fall back to text on unsafe values; dates sort
+chronologically. Title rules, in `test/core`: duplicates refused case- and
+whitespace-insensitively, "(#n)" numbering, the suggested view title, and
+`normalizeLayout` de-duplicating. The inline confirmation, in `test/react`: "✓"
+and "X" have accessible names and the safe one is focused. Date range presets
+resolve against an injected `now`.
+
 Loader, in `test/core`: changing option values reloads only that widget, shows
 the previous payload as `stale` meanwhile, and a clone loads through its
 original's provider and shares its cache entry.
@@ -632,16 +759,21 @@ confirm the layout persists.
   declared". Resist free-form field pickers; they are a different product.
 - **Lossy conversions surprising people.** The dialog names what a view shows
   and drops, and the error text names the cell to fix.
-- **Many loads.** Clones with distinct options multiply provider calls. The cap
-  and the cache keys bound it; consumers with expensive providers can lower
-  `maxClones`.
-- **Layout growth.** Titles, option values and the clone count are capped, so a
-  saved layout stays small. `normalizeLayout` enforces the caps on save.
+- **Many loads.** Clones with distinct options multiply provider calls. The cache
+  keys share loads where options match, and `maxWidgets` bounds a page;
+  consumers with expensive providers can set it low.
+- **Unsafe values in typed fields.** `email`, `url`, `image` and `color` render
+  data from providers. They go through the same safe-scheme checks as links and
+  images today, and fall back to text.
+- **Layout growth.** Titles and option values are capped, `maxWidgets` bounds a page and
+  `parseLayout` has a high safety ceiling, so a saved layout stays small.
+  `normalizeLayout` enforces the caps on save.
 - **Accessibility of the dialog.** It is a form in a native modal: labelled
   fields, errors tied to fields with `aria-describedby`, focus restored to the
   gear, no color-only cues. Tested with keyboard-only runs.
-- **Confirmation fatigue.** Prompts guard only destructive actions (discard,
-  reset, revert), never a routine Apply, so people don't learn to click through.
+- **Confirmation fatigue.** Apply, discard, reset and revert all confirm (decided).
+  The confirmation is inline and one click ("✓"), not a second dialog, to keep
+  the cost low.
 - **Builder drift.** If the builder ever emits something the viewer UI can't
   edit, the two diverge. Both are tied to `validateWidgetDefinition` and the same
   option declarations to prevent it.
@@ -655,7 +787,7 @@ confirm the layout persists.
 1. **The gear shows only in edit mode.** It can't be hit by accident while
    reading. (It therefore needs `editMode: 'toggle'`.)
 2. **Apply-only, with confirmation.** No live preview. Closing with unsaved
-   changes asks before discarding, and Apply confirms the save.
+   changes asks before discarding, and Apply asks before saving (item 11).
 3. **Width is a fixed share of the dashboard, 2 to 12.** 2 is one sixth and 12 is
    the full width, inside the page margins and padding. Because it is a fixed
    share, the viewer's choice wins over `fill: 'width'`.
@@ -665,27 +797,44 @@ confirm the layout persists.
 5. **Defaults live in the definition.** Each widget carries defaults (sort, view,
    columns) as data, so a future Widget Builder can bake them in. Declared options
    and defaults ship first (phase 1), and viewer overrides follow.
+6. **Option and field types.** Options: `text`, `choice` (the "option" pick-list),
+   `dateRange`, `color`, plus `number`, `boolean`, `sort` and `columns`; `icon`
+   later. Field types: `email` (clickable `mailto:`), `url` (clickable, new tab),
+   `image`, `color`, and `icon` later.
+7. **The Author chooses the columns of a converted view.** Viewers don't pick
+   label and value columns. Viewer-created widgets scoped to an account are a
+   later direction on the Builder's functions.
+8. **No clone limit.** A page may have an optional `maxWidgets`. Pages of widgets
+   are a separate future design.
+9. **Titles are unique per page.** Same-display-type clones are "Title (#n)";
+   clones with another view suggest the view in the title ("Recent Orders Line
+   Chart"). The detail dialog uses the Author's title.
+10. **Confirm before Discard and Apply**, inline, with secondary "✓" and "X"
+    buttons that have accessible names.
+11. **The consumer can store the backup** (`backup` prop, `onBackup` callback).
+12. **The Widget Builder is part of this library**, as headless functions (a
+    `./builder` subpath) a developer wires into their own app.
 
 ### Still open
 
-6. **Option types.** `choice`, `number`, `boolean`, `sort` and `columns` first. Is
-   a free `text` option (a search term, a tag) or a date range needed soon?
-7. **Who picks the columns for a converted view?** The author, in the `convert`
-   parameters (proposed). Should viewers ever choose the label and value
-   columns, accepting more UI and more ways to fail?
-8. **Provider-supplied views in the first release of views.** Both kinds are
-   proposed together. Would you rather ship converted views only and add
-   provider-supplied ones later?
-9. **Clone limits and naming.** 12 clones by default, titles "X (copy)", keys
-   `from#n`. Reasonable? Should a clone change only its width and title (a
-   "second copy") and not its view, in a first cut?
-10. **Detail heading.** Use the viewer's title for the detail dialog when the
-    author gave none (proposed)?
-11. **A second prompt on Apply.** "Confirmation" is read here as: confirm before
-    discarding, and confirm the save afterwards. Did you mean a prompt before
-    every Apply ("Apply these changes?")?
-12. **Backup lifetime.** The pre-edit snapshot lasts for the edit session. Should
-    the consumer be able to store it, so Revert still works after a reload (a
-    `backup` prop and an `onBackup` callback)?
-13. **Where the Widget Builder lives.** Later, in its own design: in this package
-    as another subpath (for example `./builder`), or a separate package?
+8. **Provider-supplied views in the first views release.** Proposed: ship both
+   kinds. A _converted_ view reshapes the payload already loaded (5 table rows
+   become a bar list; no extra load, limited to what those rows can express). A
+   _provider-supplied_ view calls the consumer's provider again with
+   `options.view = 'line'`, and the provider returns whatever fits (monthly totals
+   that can't be derived from 5 rows). Provider-supplied views are a small
+   addition, since `view` is just another resolved value in `ProviderOptions`, and
+   they are the only way to get a correct chart from a truncated table. Ship both
+   together, or converted only first?
+9. **What counts toward `maxWidgets`.** All widgets on the page, or only the
+   visible ones (hidden ones free up room)?
+10. **Detail dialog heading.** Item 10 is read as "the Author's `detail.title`,
+    else the Author's title, never the viewer's rename". Is that right?
+11. **Icon type.** Which named icon set, and does it ship with the library or does
+    the consumer supply it? Needs its own small design.
+12. **Storage adapters.** A longer discussion: a small interface a developer
+    implements (load, save, and backup of a layout) with recipes for localStorage,
+    a database and a server, without the core ever touching storage. Candidate for
+    its own design doc.
+13. **Pages of widgets.** Its own design: layouts per page, whose clones and
+    settings, and how `Dashboard` switches pages.

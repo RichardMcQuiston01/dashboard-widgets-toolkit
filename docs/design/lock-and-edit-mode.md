@@ -225,8 +225,8 @@ A small row above the grid, rendered by `Dashboard`:
 - **Customize** (when not editing) and **Done** (when editing): one button
   whose label changes. It carries `aria-pressed` so assistive technology
   reports the state without relying on the label alone.
-- **Reset layout** (editing only): after a confirmation ("Reset the layout to
-  the default?"), calls
+- **Reset layout** (editing only): after an inline confirmation ("Reset the
+  layout to the default?" with "✓" and "X"), calls
   `onLayoutChange(enforceLocks(definitions, defaultLayout ?? EMPTY_LAYOUT))`.
   Locked widgets are unaffected. It resets the arrangement (order, hidden,
   minimized) only; widget settings and clones (see
@@ -351,7 +351,7 @@ that stays put while the cards around it are reordered.
 3. **Pinned slots are counted among visible widgets.** Hiding free widgets above
    a pinned one shifts it up with them; the arrangement never has gaps.
 4. **Reset asks first, and edit mode keeps a backup.** Reset layout needs a
-   confirmation (a built-in alert dialog, not `window.confirm`). Pressing
+   confirmation (inline, with "✓" and "X" buttons, not `window.confirm`). Pressing
    Customize snapshots the layout, and Revert changes restores it. Reset affects
    the arrangement only.
 
