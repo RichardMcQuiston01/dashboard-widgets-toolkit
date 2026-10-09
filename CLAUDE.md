@@ -69,6 +69,8 @@ documented in the code and README, which win if they disagree.
 - `docs/design/widget-extensions.md`: async loading shipped (`useWidgets`,
   `createWidgetLoader`). Still planned: adapters and payload builders,
   drag-and-drop reordering, push streams.
+- `docs/design/lock-and-edit-mode.md`: locked widgets (`locked`, pinned slots,
+  `enforceLocks`) and a Customize/Done edit mode. Not built yet.
 
 ## Commands (Bun only)
 
