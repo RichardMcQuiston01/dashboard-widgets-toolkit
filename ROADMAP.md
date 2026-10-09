@@ -25,9 +25,10 @@
   datasets are filtered, sorted and paged by the consumer's provider, plus URL
   deep links, page-size choice and column visibility. See
   [docs/design/detail-view.md](./docs/design/detail-view.md).
-- **Locked widgets and an edit mode.** `locked` on a definition (pinned
-  position, no hide or minimize), and a Customize/Done toggle that shows the layout
-  controls only while editing. Designed in
+- **Edit mode.** A Customize/Done toggle (with Reset and Revert) that shows
+  the layout controls only while editing, plus a lock indicator. Locked widgets
+  (`locked`, pinned slots, `enforceLocks`) are built; the edit mode is next.
+  Designed in
   [docs/design/lock-and-edit-mode.md](./docs/design/lock-and-edit-mode.md);
   drag and drop builds on it.
 

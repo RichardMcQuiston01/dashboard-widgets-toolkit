@@ -70,7 +70,8 @@ documented in the code and README, which win if they disagree.
   `createWidgetLoader`). Still planned: adapters and payload builders,
   drag-and-drop reordering, push streams.
 - `docs/design/lock-and-edit-mode.md`: locked widgets (`locked`, pinned slots,
-  `enforceLocks`) and a Customize/Done edit mode. Not built yet.
+  `enforceLocks`, `overrideLocks`) shipped as phase 1; the Customize/Done edit
+  mode (phase 2) is not built yet.
 - `docs/design/widget-options-views-clones.md`: gear/Options dialog (title,
   width, declared options passed to providers), alternate views and clones,
   stored in the layout. Not built yet; builds on the lock design.

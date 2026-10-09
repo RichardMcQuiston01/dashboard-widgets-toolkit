@@ -8,6 +8,7 @@ import {
 import {
   defineWidget,
   isWidgetVisibleTo,
+  resolveWidgetLock,
   sortDefinitions,
 } from '../../src/core/definition.js';
 import { emptyTextFor, isWidgetKind } from '../../src/core/payload.js';
@@ -199,5 +200,32 @@ void describe('package root', () => {
       'ALERT_LIST',
       'GRAPH',
     ]);
+  });
+});
+
+void describe('resolveWidgetLock', () => {
+  void it('locks move, hide and minimize for true', () => {
+    assert.deepEqual(resolveWidgetLock({ locked: true }), {
+      move: true,
+      hide: true,
+      minimize: true,
+    });
+  });
+
+  void it('locks nothing when absent or false', () => {
+    const none = { move: false, hide: false, minimize: false };
+    assert.deepEqual(resolveWidgetLock({}), none);
+    assert.deepEqual(resolveWidgetLock({ locked: false }), none);
+  });
+
+  void it('locks only the fields set to true in the object form', () => {
+    assert.deepEqual(
+      resolveWidgetLock({ locked: { move: true, hide: true } }),
+      {
+        move: true,
+        hide: true,
+        minimize: false,
+      }
+    );
   });
 });
