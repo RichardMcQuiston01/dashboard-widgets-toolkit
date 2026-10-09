@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import type { WidgetDefinition } from '../../src/core/definition.js';
+import { MoveToPageMenu } from '../../src/react/move-menu.js';
 import {
   createLayoutPersistence,
   memoryAdapter,
@@ -980,22 +981,21 @@ void describe('WidgetGrid and Dashboard', () => {
       assert.match(markup, /aria-label="Move Sales page left"[^>]*disabled=""/);
       assert.match(markup, /aria-label="Move Sales page right"/);
       assert.match(markup, /aria-label="Delete Sales"/);
-      assert.match(markup, /aria-label="Move Alpha to another page"/);
+      // A compact icon button; the pages appear in a popover when it opens.
       assert.match(
         markup,
-        /<option value="p2">Stock \(3 rows free\)<\/option>/
+        /<button[^>]*aria-label="Move Alpha to another page"[^>]*aria-haspopup="menu"[^>]*aria-expanded="false"/
       );
-      assert.match(markup, /<option value="__new-page__">New page…<\/option>/);
+      assert.doesNotMatch(markup, /<select/);
+      assert.doesNotMatch(markup, /role="menu"/);
     });
 
-    void it('counts free rows from the page maxRows, and maxPages hides New page', () => {
+    void it('maxPages stops Add page', () => {
       const markup = render({
         onLayoutChange: () => undefined,
         maxRows: 2,
         maxPages: 2,
       });
-      assert.match(markup, /Stock \(1 row free\)/);
-      assert.doesNotMatch(markup, /New page…/);
       assert.match(markup, /disabled=""[^>]*>Add page</);
     });
 
@@ -1272,5 +1272,46 @@ void describe('useStoredLayout', () => {
       <Probe initialLayout={{ order: ['b'], hidden: [], minimized: [] }} />
     );
     assert.match(markup, /loading\|b\|null\|null/);
+  });
+});
+
+void describe('MoveToPageMenu', () => {
+  const options = [
+    { value: 'p2', label: 'Stock (3 rows free)' },
+    { value: '__new-page__', label: 'New page…' },
+  ];
+
+  void it('is just an icon button until opened', () => {
+    const markup = html(
+      <MoveToPageMenu
+        label="Move Alpha to another page"
+        heading="Move to page"
+        options={options}
+        onPick={() => undefined}
+      />
+    );
+    assert.match(markup, /aria-label="Move Alpha to another page"/);
+    assert.match(markup, /aria-expanded="false"/);
+    assert.doesNotMatch(markup, /Stock/);
+    assert.doesNotMatch(markup, /Move to page/);
+  });
+
+  void it('lists the pages in a floating menu when open', () => {
+    const markup = html(
+      <MoveToPageMenu
+        label="Move Alpha to another page"
+        heading="Move to page"
+        options={options}
+        onPick={() => undefined}
+        initialOpen
+      />
+    );
+    assert.match(markup, /aria-expanded="true"/);
+    assert.match(markup, /class="dwt-move-popover" role="menu"/);
+    assert.match(
+      markup,
+      /<button[^>]*role="menuitem"[^>]*>Stock \(3 rows free\)<\/button>/
+    );
+    assert.match(markup, />New page…<\/button>/);
   });
 });
