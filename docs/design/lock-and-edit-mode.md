@@ -150,18 +150,35 @@ await saveLayout(userId, serializeLayout(layout));
 Pass the full definition list for the viewer's role, as `pruneLayout` already
 asks.
 
-### Roles and overrides
+### Roles and overrides: the developer chooses
 
-An administrator who sets up the default layout needs to move locked widgets.
-Two ways, both small, neither needing new concepts:
+Locks set by the developer belong to the definition, so **changing the lock
+itself (adding, removing or changing `locked`) happens in the Widget Builder**,
+in a dedicated admin view the developer builds (see the options design, section
+11). The toolkit has no roles of its own, so how _arranging_ locked widgets works
+is the consuming developer's choice, and both ways are supported:
 
-- Build the definitions without `locked` for that viewer (the consumer already
-  builds definitions per role).
-- Or pass `overrideLocks` to `Dashboard`. It ignores `locked` entirely, and shows the lock indicator as a plain "locked for viewers" mark
-  so the admin can see what they are overriding.
+1. **Separate admin UI (the default).** `Dashboard` always respects locks. The
+   developer gives administrators their own admin view (built with the Builder's
+   functions and the same components) where definitions and the default layout
+   are edited. Nothing in the viewer-facing `Dashboard` can bypass a lock.
+2. **In-place admin editing.** The developer passes `overrideLocks` to
+   `Dashboard` for the roles they choose (for example `overrideLocks={user.isAdmin}`).
+   Locked widgets can then be moved, hidden and minimized in the Dashboard UI,
+   each marked "Locked for viewers" so the admin sees what they are overriding.
+   It never edits the lock itself.
 
-`overrideLocks` is a UI convenience; the server still decides whether to apply
-`enforceLocks` for that user.
+The prop is off unless the developer turns it on, so a developer who wants the
+first approach does nothing. Because the toolkit can't know who is an admin, both
+checks are the consumer's, and the server still decides:
+
+- A viewer's saved layout is passed through `enforceLocks` (or `normalizeLayout`),
+  which has an `overrideLocks` option the server sets only for authorized users. A
+  client that sends `overrideLocks` itself gains nothing.
+- Edits made with `overrideLocks` should be saved to the **organization default
+  layout** (the shared, no-`userKey` scope in `storage-adapters.md`), not to the
+  admin's personal layout; otherwise viewers never see them. The consumer routes
+  the `onLayoutChange` call accordingly.
 
 ### Validation
 
@@ -354,9 +371,11 @@ that stays put while the cards around it are reordered.
    confirmation (inline, with "✓" and "X" buttons, not `window.confirm`). Pressing
    Customize snapshots the layout, and Revert changes restores it. Reset affects
    the arrangement only.
+5. **Lock editing is a developer choice.** Changing `locked` itself is done in
+   the Widget Builder's admin view. Arranging locked widgets is either a separate
+   admin UI (default) or `overrideLocks` on `Dashboard` for roles the developer
+   names, with the server enforcing. Both are supported.
 
 ### Still open
 
-5. **`overrideLocks`.** Is a prop worth having, or is "build the definitions
-   without `locked`" enough for administrators?
 6. **Default for `editMode`.** Keep `always` until 1.0, as proposed?
