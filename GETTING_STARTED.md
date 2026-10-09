@@ -342,6 +342,32 @@ so pair it with `detail` to search the full list. Matching and sorting are the
 detail view's (`queryRows`): case- and accent-insensitive, numeric-aware. The
 validator rejects `tableControls` on any other kind.
 
+### Locked widgets
+
+Set `locked: true` on a definition when viewers must not rearrange it (a
+compliance notice, a system status tile). It can't be moved, hidden or
+minimized, and `Dashboard` leaves out those controls. Use an object to lock only
+some: `locked: { move: true }` pins the widget but still lets viewers hide or
+minimize it.
+
+A widget locked against moving is **pinned**: its place comes from the
+definitions (its `sortOrder` among the visible widgets), never from the saved
+layout, and the other widgets rearrange around it. Hiding widgets above a pinned
+one shifts it up with them, so the arrangement never has gaps.
+
+A lock is what the UI offers, not security. Run `enforceLocks` where you save a
+layout:
+
+```ts
+const layout = enforceLocks(definitions, parseLayout(request.body.layout));
+await saveLayout(userId, serializeLayout(layout));
+```
+
+For administrators, either build their definitions without `locked`, give them a
+separate admin view, or pass `overrideLocks` to `Dashboard` for the roles you
+trust (and `enforceLocks(..., { overrideLocks: true })` on the server only for
+those users). `overrideLocks` never changes the locks themselves.
+
 ### Filling space
 
 By default each card is only as big as its content, so a

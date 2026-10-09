@@ -3,10 +3,12 @@ import { describe, it } from 'node:test';
 
 import {
   EMPTY_LAYOUT,
+  enforceLocks,
   hiddenWidgets,
   hideWidget,
   minimizeWidget,
   moveWidget,
+  moveWidgetBy,
   moveWidgetDown,
   moveWidgetUp,
   parseLayout,
@@ -213,5 +215,159 @@ void describe('pruneLayout', () => {
       minimized: [],
     };
     assert.equal(pruneLayout(definitions, layout), layout);
+  });
+});
+
+const pinnedMiddle: LayoutItem[] = [
+  { key: 'a', sortOrder: 10 },
+  { key: 'b', sortOrder: 20, locked: { move: true } },
+  { key: 'c', sortOrder: 30 },
+  { key: 'd', sortOrder: 40 },
+];
+
+void describe('pinned widgets', () => {
+  void it('keeps the default order when nothing is pinned', () => {
+    assert.deepEqual(
+      keys(visibleWidgets(definitions, { ...EMPTY_LAYOUT, order: ['c', 'a'] })),
+      ['c', 'a', 'b']
+    );
+  });
+
+  void it('holds a pinned widget in its slot while others rearrange', () => {
+    const layout: DashboardLayout = {
+      ...EMPTY_LAYOUT,
+      order: ['d', 'c', 'a'],
+    };
+    assert.deepEqual(keys(visibleWidgets(pinnedMiddle, layout)), [
+      'd',
+      'b',
+      'c',
+      'a',
+    ]);
+  });
+
+  void it('ignores a saved order that lists the pinned key', () => {
+    const layout: DashboardLayout = {
+      ...EMPTY_LAYOUT,
+      order: ['b', 'd', 'c', 'a'],
+    };
+    assert.deepEqual(keys(visibleWidgets(pinnedMiddle, layout)), [
+      'd',
+      'b',
+      'c',
+      'a',
+    ]);
+  });
+
+  void it('counts slots among visible widgets, so hiding shifts a pinned one up', () => {
+    const layout: DashboardLayout = {
+      ...EMPTY_LAYOUT,
+      order: ['d', 'c'],
+      hidden: ['a'],
+    };
+    assert.deepEqual(keys(visibleWidgets(pinnedMiddle, layout)), [
+      'b',
+      'd',
+      'c',
+    ]);
+  });
+
+  void it('keeps every widget pinned in the default order', () => {
+    const allPinned: LayoutItem[] = definitions.map((d) => ({
+      ...d,
+      locked: true,
+    }));
+    assert.deepEqual(
+      keys(visibleWidgets(allPinned, { ...EMPTY_LAYOUT, order: ['c', 'b'] })),
+      ['a', 'b', 'c']
+    );
+  });
+
+  void it('does not move a pinned widget or onto a pinned slot', () => {
+    assert.equal(moveWidget(pinnedMiddle, EMPTY_LAYOUT, 'b', 0), EMPTY_LAYOUT);
+    assert.equal(moveWidget(pinnedMiddle, EMPTY_LAYOUT, 'a', 1), EMPTY_LAYOUT);
+  });
+
+  void it('moves a free widget across a pinned slot to a free slot', () => {
+    const moved = moveWidget(pinnedMiddle, EMPTY_LAYOUT, 'a', 2);
+    assert.deepEqual(keys(visibleWidgets(pinnedMiddle, moved)), [
+      'c',
+      'b',
+      'a',
+      'd',
+    ]);
+  });
+
+  void it('moveWidgetBy steps over pinned slots and clamps at the free ends', () => {
+    const later = moveWidgetBy(pinnedMiddle, EMPTY_LAYOUT, 'a', 1);
+    assert.deepEqual(keys(visibleWidgets(pinnedMiddle, later)), [
+      'c',
+      'b',
+      'a',
+      'd',
+    ]);
+    assert.deepEqual(
+      keys(
+        visibleWidgets(
+          pinnedMiddle,
+          moveWidgetBy(pinnedMiddle, EMPTY_LAYOUT, 'a', 99)
+        )
+      ),
+      ['c', 'b', 'd', 'a']
+    );
+    assert.equal(
+      moveWidgetBy(pinnedMiddle, EMPTY_LAYOUT, 'a', -1),
+      EMPTY_LAYOUT
+    );
+    assert.equal(
+      moveWidgetBy(pinnedMiddle, EMPTY_LAYOUT, 'b', 1),
+      EMPTY_LAYOUT
+    );
+  });
+
+  void it('keeps two pinned widgets in their relative order', () => {
+    const two: LayoutItem[] = [
+      { key: 'p', sortOrder: 1, locked: { move: true } },
+      { key: 'x', sortOrder: 2 },
+      { key: 'q', sortOrder: 3, locked: { move: true } },
+      { key: 'y', sortOrder: 4 },
+    ];
+    assert.deepEqual(
+      keys(visibleWidgets(two, { ...EMPTY_LAYOUT, order: ['y', 'x'] })),
+      ['p', 'y', 'q', 'x']
+    );
+  });
+});
+
+void describe('enforceLocks', () => {
+  const locked: LayoutItem[] = [
+    { key: 'moveLocked', locked: { move: true } },
+    { key: 'hideLocked', locked: { hide: true } },
+    { key: 'minimizeLocked', locked: { minimize: true } },
+    { key: 'all', locked: true },
+    { key: 'free' },
+  ];
+  const layout: DashboardLayout = {
+    order: ['moveLocked', 'free', 'all'],
+    hidden: ['hideLocked', 'free', 'all'],
+    minimized: ['minimizeLocked', 'free', 'all'],
+  };
+
+  void it('removes only what each lock forbids', () => {
+    assert.deepEqual(enforceLocks(locked, layout), {
+      order: ['free'],
+      hidden: ['free'],
+      minimized: ['free'],
+    });
+  });
+
+  void it('is idempotent and returns the same object when nothing changes', () => {
+    const once = enforceLocks(locked, layout);
+    assert.equal(enforceLocks(locked, once), once);
+    assert.equal(enforceLocks(definitions, layout), layout);
+  });
+
+  void it('does nothing with overrideLocks', () => {
+    assert.equal(enforceLocks(locked, layout, { overrideLocks: true }), layout);
   });
 });

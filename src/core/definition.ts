@@ -56,6 +56,54 @@ export interface WidgetDefinition {
   readonly tableControls?: boolean | WidgetTableControls;
   /** Fill free space in the row (height, width or both). Default: none. */
   readonly fill?: WidgetFill;
+  /**
+   * Keeps viewers from rearranging this widget. `true` locks everything:
+   * move, hide and minimize. Use an object to lock only some; fields left out
+   * are not locked.
+   */
+  readonly locked?: boolean | WidgetLock;
+}
+
+/** What a viewer may not do to a locked widget. */
+export interface WidgetLock {
+  /** Can't be reordered, and holds its place (a pinned slot). */
+  readonly move?: boolean;
+  /** Can't be hidden. */
+  readonly hide?: boolean;
+  /** Can't be collapsed to its header. */
+  readonly minimize?: boolean;
+}
+
+/** `WidgetLock` with every default filled in. */
+export type ResolvedWidgetLock = Required<WidgetLock>;
+
+const NOT_LOCKED: ResolvedWidgetLock = Object.freeze({
+  move: false,
+  hide: false,
+  minimize: false,
+});
+const FULLY_LOCKED: ResolvedWidgetLock = Object.freeze({
+  move: true,
+  hide: true,
+  minimize: true,
+});
+
+/**
+ * Reads a widget's `locked` setting with defaults: `true` locks move, hide
+ * and minimize, an object locks the fields it sets to `true`, and anything
+ * else (absent, `false`) locks nothing.
+ */
+export function resolveWidgetLock(
+  definition: Pick<WidgetDefinition, 'locked'>
+): ResolvedWidgetLock {
+  const setting: boolean | WidgetLock | undefined = definition.locked;
+  if (setting === true) return FULLY_LOCKED;
+  if (setting === undefined || setting === false) return NOT_LOCKED;
+  return {
+    move: setting.move === true,
+    hide: setting.hide === true,
+    minimize: setting.minimize === true,
+  };
 }
 
 /**

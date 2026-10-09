@@ -224,6 +224,40 @@ void describe('validateWidgetData', () => {
   });
 });
 
+void describe('validateWidgetDefinition locked', () => {
+  const base = { key: 'x', title: 'X', kind: 'TEXT' } as const;
+
+  void it('accepts a boolean or an object of booleans', () => {
+    assert.ok(validateWidgetDefinition({ ...base, locked: true }).ok);
+    assert.ok(validateWidgetDefinition({ ...base, locked: false }).ok);
+    assert.ok(
+      validateWidgetDefinition({
+        ...base,
+        locked: { move: true, hide: false, minimize: true },
+      }).ok
+    );
+  });
+
+  void it('names the bad field', () => {
+    const field = validateWidgetDefinition({
+      ...base,
+      locked: { move: 'yes' },
+    });
+    assert.equal(field.ok, false);
+    if (!field.ok) {
+      assert.match(field.error, /locked\.move must be a boolean, got string\./);
+    }
+    const whole = validateWidgetDefinition({ ...base, locked: 'all' });
+    assert.equal(whole.ok, false);
+    if (!whole.ok) {
+      assert.match(
+        whole.error,
+        /locked must be true, false or an object, got string\./
+      );
+    }
+  });
+});
+
 void describe('validateWidgetDefinition', () => {
   void it('accepts a full definition', () => {
     const result = validateWidgetDefinition({
