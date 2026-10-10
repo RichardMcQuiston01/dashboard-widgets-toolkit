@@ -204,16 +204,22 @@ void describe('package root', () => {
 });
 
 void describe('resolveWidgetLock', () => {
-  void it('locks move, hide and minimize for true', () => {
+  void it('locks move, hide, minimize and options for true', () => {
     assert.deepEqual(resolveWidgetLock({ locked: true }), {
       move: true,
       hide: true,
       minimize: true,
+      options: true,
     });
   });
 
   void it('locks nothing when absent or false', () => {
-    const none = { move: false, hide: false, minimize: false };
+    const none = {
+      move: false,
+      hide: false,
+      minimize: false,
+      options: false,
+    };
     assert.deepEqual(resolveWidgetLock({}), none);
     assert.deepEqual(resolveWidgetLock({ locked: false }), none);
   });
@@ -225,7 +231,12 @@ void describe('resolveWidgetLock', () => {
         move: true,
         hide: true,
         minimize: false,
+        options: false,
       }
+    );
+    assert.equal(
+      resolveWidgetLock({ locked: { options: true } }).options,
+      true
     );
   });
 });

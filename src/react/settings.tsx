@@ -30,7 +30,8 @@ export type DashboardClassSlot =
   | 'legend'
   | 'tooltip'
   | 'tableTwin'
-  | 'detail';
+  | 'detail'
+  | 'dialog';
 
 /**
  * Extra classes per slot, appended to the `dwt-*` class (never replacing
@@ -92,6 +93,34 @@ export interface DashboardLabels {
   readonly menuMoveEarlier: string;
   readonly menuMoveLater: string;
   readonly menuHide: string;
+  /** The card menu's item that opens the Options dialog. */
+  readonly menuOptions: string;
+  /** The Options dialog: heading, fields and buttons. */
+  readonly optionsFor: (title: string) => string;
+  readonly optionsTitleField: string;
+  readonly titleInUse: string;
+  readonly optionsWidthField: string;
+  readonly widthDefault: string;
+  /** e.g. "6 of 12 (1/2)". */
+  readonly widthOption: (width: number, share: string) => string;
+  readonly optionsFlexible: string;
+  readonly optionsDeclared: string;
+  readonly apply: string;
+  readonly cancel: string;
+  readonly resetToDefaults: string;
+  readonly revertToBeforeEditing: string;
+  readonly confirmApply: string;
+  readonly confirmDiscard: string;
+  readonly confirmResetOptions: string;
+  readonly confirmRevertOptions: string;
+  /** Announced after Apply, Reset or Revert. */
+  readonly optionsSaved: (title: string) => string;
+  readonly sortDefault: string;
+  readonly sortAscending: string;
+  readonly sortDescending: string;
+  readonly moveColumnUp: (column: string) => string;
+  readonly moveColumnDown: (column: string) => string;
+  readonly customRange: (value: string) => string;
   /** The card menu's heading over the pages a widget can move to. */
   readonly moveToPage: (title: string) => string;
   readonly moveToPagePlaceholder: string;
@@ -167,6 +196,31 @@ export const DEFAULT_LABELS: DashboardLabels = {
   menuMoveEarlier: 'Move earlier',
   menuMoveLater: 'Move later',
   menuHide: 'Hide',
+  menuOptions: 'Options…',
+  optionsFor: (title) => `Options for ${title}`,
+  optionsTitleField: 'Title',
+  titleInUse: 'Another widget already uses this title.',
+  optionsWidthField: 'Width',
+  widthDefault: 'Default',
+  widthOption: (width, share) => `${width} of 12 (${share})`,
+  optionsFlexible: 'Grow to fill empty space in the row',
+  optionsDeclared: 'Data',
+  apply: 'Apply',
+  cancel: 'Cancel',
+  resetToDefaults: 'Reset to defaults',
+  revertToBeforeEditing: 'Revert to before editing',
+  confirmApply: 'Apply these changes?',
+  confirmDiscard: 'Discard your changes?',
+  confirmResetOptions: 'Reset these options to their defaults?',
+  confirmRevertOptions:
+    'Revert these options to how they were before you started editing?',
+  optionsSaved: (title) => `Options saved for ${title}`,
+  sortDefault: 'Default order',
+  sortAscending: 'Ascending',
+  sortDescending: 'Descending',
+  moveColumnUp: (column) => `Move ${column} up`,
+  moveColumnDown: (column) => `Move ${column} down`,
+  customRange: (value) => `Custom: ${value}`,
   moveToPage: (title) => `Move ${title} to another page`,
   moveToPagePlaceholder: 'Move to page…',
   moveToPageOption: (title, rowsFree) =>

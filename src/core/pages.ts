@@ -23,6 +23,7 @@ import {
   type LayoutPage,
 } from './layout.js';
 import { err, ok, type Result } from './result.js';
+import { effectiveDefinitions, normalizeSettings } from './settings.js';
 
 /** The key of the implicit page of a layout that has no `pages`. */
 export const DEFAULT_PAGE_KEY = 'default';
@@ -588,13 +589,22 @@ export function normalizeLayout<T extends PageItem>(
   options: NormalizeOptions = {}
 ): DashboardLayout {
   const known: DashboardLayout = pruneLayout(definitions, layout);
-  const locked: DashboardLayout = enforceLocks(definitions, known, options);
+  const enforced: DashboardLayout = enforceLocks(definitions, known, options);
+  const locked: DashboardLayout = normalizeSettings(
+    definitions,
+    enforced,
+    options
+  );
   if (!hasPages(locked)) return locked === layout ? layout : locked;
 
-  const defs: readonly T[] =
+  // The widths a viewer chose count toward a page's capacity.
+  const defs: readonly T[] = effectiveDefinitions(
     options.overrideLocks === true
       ? definitions.map(withoutLockField)
-      : definitions;
+      : definitions,
+    locked,
+    options
+  );
 
   // Pages: one per key, one page per widget, clean titles.
   const taken = new Set<string>();
@@ -739,7 +749,8 @@ export function normalizeLayout<T extends PageItem>(
 
   const result: DashboardLayout = work();
   return samePages(layout.pages ?? [], pages) &&
-    sameKeys(layout.order, result.order)
+    sameKeys(layout.order, result.order) &&
+    locked.settings === layout.settings
     ? layout
     : result;
 }
