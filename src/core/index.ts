@@ -18,5 +18,6 @@ export * from './resolve.js';
 export * from './result.js';
 export * from './scale.js';
 export * from './storage.js';
+export * from './theme.js';
 export * from './url.js';
 export * from './validate.js';

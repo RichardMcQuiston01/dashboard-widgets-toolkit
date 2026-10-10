@@ -35,6 +35,7 @@ src/
     pages.ts            pages of widgets: helpers, capacity, normalizeLayout
     options.ts          declared options: resolve values, cache suffix, client sort/columns
     storage.ts          StorageAdapter contract, wrappers, createLayoutPersistence
+    theme.ts            createTheme: validated, scoped CSS for the --dwt-* tokens
     format.ts           Intl formatting, percent change, kpiDelta
     scale.ts            niceStep, niceDomain, labelStride
     url.ts              isSafeHref / isSafeImageUrl
@@ -89,6 +90,9 @@ documented in the code and README, which win if they disagree.
   `createLayoutPersistence` and `useStoredLayout` are built; concrete adapters
   stay in consumer code (recipes in GETTING_STARTED). Not built: stored active
   page, backup history, a companion package.
+- `docs/design/theming.md`: theming. `createTheme` and the token reference are
+  built. Still planned: a `WidgetTheme` React wrapper, contrast and color-vision
+  checks, presets.
 
 ## Commands (Bun only)
 
