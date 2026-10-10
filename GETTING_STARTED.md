@@ -723,6 +723,64 @@ stops the request. Existing two-argument providers keep working.
   `subscribe`/`getSnapshot`, `load`, `refresh` and `dispose`; `resolveWidget`
   and `resolveWidgets` accept `timeoutMs`, `signal` and `cache` too.
 
+### Theming
+
+Every color, the font and the main spacing come from `--dwt-*` custom
+properties. The optional `styles.css` sets them on `.dwt-dashboard` and
+`.dwt-card` (light, and dark by `prefers-color-scheme`, `data-theme="dark"` or a
+`dark` class on `<html>`). Override any of them in your own CSS, or generate the
+CSS with `createTheme`.
+
+| `createTheme` key                       | Variable                                                         | Light                                                             | Dark                                                              |
+| --------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `surface`                               | `--dwt-surface`                                                  | `#fcfcfb`                                                         | `#1a1a19`                                                         |
+| `page`                                  | `--dwt-page`                                                     | `#f9f9f7`                                                         | `#0d0d0d`                                                         |
+| `text`                                  | `--dwt-text`                                                     | `#0b0b0b`                                                         | `#ffffff`                                                         |
+| `textSecondary`                         | `--dwt-text-secondary`                                           | `#52514e`                                                         | `#c3c2b7`                                                         |
+| `textMuted`                             | `--dwt-text-muted`                                               | `#6b6a66`                                                         | `#a3a29b`                                                         |
+| `border`                                | `--dwt-border`                                                   | `rgba(11, 11, 11, 0.1)`                                           | `rgba(255, 255, 255, 0.1)`                                        |
+| `grid`                                  | `--dwt-grid`                                                     | `#e1e0d9`                                                         | `#2c2c2a`                                                         |
+| `baseline`                              | `--dwt-baseline`                                                 | `#c3c2b7`                                                         | `#383835`                                                         |
+| `crosshair`                             | `--dwt-crosshair`                                                | `#898781`                                                         | `#898781`                                                         |
+| `link`                                  | `--dwt-link`                                                     | `#1c5cab`                                                         | `#86b6ef`                                                         |
+| `focus`                                 | `--dwt-focus`                                                    | `#2a78d6`                                                         | `#3987e5`                                                         |
+| `good`                                  | `--dwt-good`                                                     | `#006300`                                                         | `#0ca30c`                                                         |
+| `bad`                                   | `--dwt-bad`                                                      | `#d03b3b`                                                         | `#e66767`                                                         |
+| `meterTrack`                            | `--dwt-meter-track`                                              | `#cde2fb`                                                         | `#104281`                                                         |
+| `barTrack`                              | `--dwt-bar-track`                                                | `#f0efec`                                                         | `#383835`                                                         |
+| `buttonHover`                           | `--dwt-button-hover`                                             | `rgba(11, 11, 11, 0.06)`                                          | `rgba(255, 255, 255, 0.08)`                                       |
+| `series` (1 to 8)                       | `--dwt-series-1` to `-8`                                         | `#2a78d6 #eb6834 #1baf7a #eda100 #e87ba4 #008300 #4a3aa7 #e34948` | `#3987e5 #d95926 #199e70 #c98500 #d55181 #008300 #9085e9 #e66767` |
+| `font`                                  | `--dwt-font`                                                     | `system-ui, -apple-system, 'Segoe UI', sans-serif`                | same                                                              |
+| `radius`, `gap`, `padding`, `minColumn` | `--dwt-radius`, `--dwt-gap`, `--dwt-padding`, `--dwt-min-column` | `8px`, `16px`, `16px`, `280px`                                    | same                                                              |
+
+The defaults are declared on the dashboard element itself, so a variable set on
+`:root` or on a wrapper `<div>` is shadowed and does nothing. Target
+`.dwt-dashboard` and `.dwt-card`, or let `createTheme` write the selectors:
+
+```ts
+import { createTheme } from '@richardmcquiston01/dashboard-widgets-toolkit/core';
+
+const result = createTheme({
+  name: 'brand',
+  base: { link: '#0a7d5a', radius: '12px' },
+  dark: { surface: '#10161a', series: ['#4cc2a1', '#f2a65a'] },
+});
+if (!result.ok) {
+  throw new Error(result.error); // names the mode, token and value
+}
+// Put result.value.css in a <style> element (or your SSR <head>), then add
+// data-dwt-theme="brand" to any ancestor of the dashboard.
+```
+
+`base` applies in both modes, `light` and `dark` only in theirs and win over
+`base`. A token you leave out keeps its built-in value, so a theme can change just
+the accent. Colors accept `#hex`, `rgb()`, `hsl()`, `oklch()` and similar,
+`var(--name)` and keywords; lengths need a unit. Anything that could end the
+declaration (`;`, braces, `url(`, comments) is rejected with an error. Pass
+`scope` to use your own ancestor selector instead of the `data-dwt-theme`
+attribute. See `docs/design/theming.md` for what comes next (a React wrapper,
+contrast checks, presets).
+
 ### Changing the text
 
 Every piece of interface text (buttons, the "Hidden:" and "Minimized:" bars,
