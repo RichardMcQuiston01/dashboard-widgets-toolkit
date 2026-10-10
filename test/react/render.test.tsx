@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup as renderStatic } from 'react-dom/server';
 
 import type { WidgetDefinition } from '../../src/core/definition.js';
-import { MoveToPageMenu } from '../../src/react/move-menu.js';
+import {
+  EditMenuInitialOpenContext,
+  WidgetEditMenu,
+} from '../../src/react/edit-menu.js';
 import {
   createLayoutPersistence,
   memoryAdapter,
@@ -26,6 +29,15 @@ import {
   buildChartModel,
   widgetTitle,
 } from '../../src/react/index.js';
+
+// Server rendering can't click, so card edit menus start open to show their items.
+function renderToStaticMarkup(element: React.ReactElement): string {
+  return renderStatic(
+    <EditMenuInitialOpenContext.Provider value>
+      {element}
+    </EditMenuInitialOpenContext.Provider>
+  );
+}
 
 function html(element: React.ReactElement): string {
   return renderToStaticMarkup(
@@ -981,21 +993,28 @@ void describe('WidgetGrid and Dashboard', () => {
       assert.match(markup, /aria-label="Move Sales page left"[^>]*disabled=""/);
       assert.match(markup, /aria-label="Move Sales page right"/);
       assert.match(markup, /aria-label="Delete Sales"/);
-      // A compact icon button; the pages appear in a popover when it opens.
+      // One arrange icon per card; its menu lists the moves and the pages.
       assert.match(
         markup,
-        /<button[^>]*aria-label="Move Alpha to another page"[^>]*aria-haspopup="menu"[^>]*aria-expanded="false"/
+        /<button[^>]*aria-label="Arrange Alpha"[^>]*aria-haspopup="menu"/
       );
       assert.doesNotMatch(markup, /<select/);
-      assert.doesNotMatch(markup, /role="menu"/);
+      assert.match(markup, /class="dwt-edit-heading"[^>]*>Move to page…</);
+      assert.match(
+        markup,
+        /<button[^>]*role="menuitem"[^>]*>Stock \(3 rows free\)<\/button>/
+      );
+      assert.match(markup, />New page…<\/button>/);
     });
 
-    void it('maxPages stops Add page', () => {
+    void it('counts free rows from the page maxRows, and maxPages hides New page', () => {
       const markup = render({
         onLayoutChange: () => undefined,
         maxRows: 2,
         maxPages: 2,
       });
+      assert.match(markup, /Stock \(1 row free\)/);
+      assert.doesNotMatch(markup, /New page…/);
       assert.match(markup, /disabled=""[^>]*>Add page</);
     });
 
@@ -1011,12 +1030,22 @@ void describe('WidgetGrid and Dashboard', () => {
           },
         ],
       });
-      assert.match(markup, /Move Alpha to another page/);
-      assert.doesNotMatch(markup, /Move Pinned to another page/);
+      // Alpha's menu has the page choices; the pinned widget's has none.
+      const alpha = markup.slice(
+        markup.indexOf('aria-label="Arrange Alpha"'),
+        markup.indexOf('aria-label="Minimize Alpha"')
+      );
+      assert.match(alpha, /Move to page/);
+      const pinned = markup.slice(
+        markup.indexOf('aria-label="Arrange Pinned"'),
+        markup.indexOf('aria-label="Minimize Pinned"')
+      );
+      assert.doesNotMatch(pinned, /Move to page/);
+      assert.doesNotMatch(pinned, /Move earlier/);
       const single = renderToStaticMarkup(
         <Dashboard widgets={pageWidgets} onLayoutChange={() => undefined} />
       );
-      assert.doesNotMatch(single, /to another page/);
+      assert.doesNotMatch(single, /Move to page/);
       assert.match(single, />Add page</);
     });
 
@@ -1275,43 +1304,62 @@ void describe('useStoredLayout', () => {
   });
 });
 
-void describe('MoveToPageMenu', () => {
-  const options = [
-    { value: 'p2', label: 'Stock (3 rows free)' },
-    { value: '__new-page__', label: 'New page…' },
+void describe('WidgetEditMenu', () => {
+  const items = [
+    {
+      kind: 'action' as const,
+      key: 'earlier',
+      label: 'Move earlier',
+      ariaLabel: 'Move Alpha earlier',
+      disabled: true,
+      onSelect: () => undefined,
+    },
+    {
+      kind: 'heading' as const,
+      key: 'page-heading',
+      label: 'Move to page',
+    },
+    {
+      kind: 'action' as const,
+      key: 'page:p2',
+      label: 'Stock (3 rows free)',
+      onSelect: () => undefined,
+    },
+    {
+      kind: 'action' as const,
+      key: 'hide',
+      label: 'Hide',
+      ariaLabel: 'Hide Alpha',
+      onSelect: () => undefined,
+    },
   ];
 
-  void it('is just an icon button until opened', () => {
-    const markup = html(
-      <MoveToPageMenu
-        label="Move Alpha to another page"
-        heading="Move to page"
-        options={options}
-        onPick={() => undefined}
-      />
+  void it('is just one icon button until opened', () => {
+    const markup = renderToStaticMarkup(
+      <WidgetEditMenu label="Arrange Alpha" items={items} initialOpen={false} />
     );
-    assert.match(markup, /aria-label="Move Alpha to another page"/);
+    assert.match(markup, /aria-label="Arrange Alpha"/);
+    assert.match(markup, /aria-haspopup="menu"/);
     assert.match(markup, /aria-expanded="false"/);
     assert.doesNotMatch(markup, /Stock/);
-    assert.doesNotMatch(markup, /Move to page/);
+    assert.doesNotMatch(markup, /role="menu"/);
   });
 
-  void it('lists the pages in a floating menu when open', () => {
-    const markup = html(
-      <MoveToPageMenu
-        label="Move Alpha to another page"
-        heading="Move to page"
-        options={options}
-        onPick={() => undefined}
-        initialOpen
-      />
+  void it('lists the actions, a page heading and the pages when open', () => {
+    const markup = renderToStaticMarkup(
+      <WidgetEditMenu label="Arrange Alpha" items={items} initialOpen />
     );
     assert.match(markup, /aria-expanded="true"/);
-    assert.match(markup, /class="dwt-move-popover" role="menu"/);
+    assert.match(markup, /class="dwt-edit-popover" role="menu"/);
+    assert.match(
+      markup,
+      /<button[^>]*role="menuitem"[^>]*aria-label="Move Alpha earlier"[^>]*disabled=""[^>]*>Move earlier<\/button>/
+    );
+    assert.match(markup, /class="dwt-edit-heading"[^>]*>Move to page</);
     assert.match(
       markup,
       /<button[^>]*role="menuitem"[^>]*>Stock \(3 rows free\)<\/button>/
     );
-    assert.match(markup, />New page…<\/button>/);
+    assert.match(markup, /aria-label="Hide Alpha"[^>]*>Hide<\/button>/);
   });
 });

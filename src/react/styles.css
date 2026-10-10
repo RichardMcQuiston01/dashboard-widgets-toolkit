@@ -289,13 +289,13 @@
   font-weight: 600;
 }
 
-:where(.dwt-move-menu) {
+:where(.dwt-edit-menu) {
   position: relative;
   display: inline-flex;
 }
 
-/* A small floating panel over the card, under the Move button. */
-:where(.dwt-move-popover) {
+/* A small floating panel over the card, under the arrange button. */
+:where(.dwt-edit-popover) {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
@@ -312,14 +312,14 @@
   box-shadow: 0 6px 18px rgb(0 0 0 / 0.18);
 }
 
-:where(.dwt-move-heading) {
+:where(.dwt-edit-heading) {
   margin: 0;
   padding: 4px 8px;
   color: var(--dwt-text-secondary);
   font-size: 0.75rem;
 }
 
-:where(.dwt-move-option) {
+:where(.dwt-edit-option) {
   padding: 6px 8px;
   font: inherit;
   font-size: 0.8125rem;
@@ -331,8 +331,13 @@
   cursor: pointer;
 }
 
-:where(.dwt-move-option:hover, .dwt-move-option:focus-visible) {
+:where(.dwt-edit-option:hover, .dwt-edit-option:focus-visible) {
   background: var(--dwt-surface-muted, rgb(127 127 127 / 0.15));
+}
+
+:where(.dwt-edit-option:disabled) {
+  opacity: 0.45;
+  cursor: default;
 }
 
 :where(.dwt-page-panel) {

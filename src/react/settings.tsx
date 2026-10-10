@@ -86,7 +86,13 @@ export interface DashboardLabels {
   readonly confirmDeletePage: (title: string) => string;
   readonly movePageLeft: (title: string) => string;
   readonly movePageRight: (title: string) => string;
-  /** The select on each card that moves it to another page. */
+  /** The icon on each card, while editing, that opens its menu of moves. */
+  readonly arrangeWidget: (title: string) => string;
+  /** Short text of the menu's items (the full names are `moveEarlier` and so on). */
+  readonly menuMoveEarlier: string;
+  readonly menuMoveLater: string;
+  readonly menuHide: string;
+  /** The card menu's heading over the pages a widget can move to. */
   readonly moveToPage: (title: string) => string;
   readonly moveToPagePlaceholder: string;
   readonly moveToPageOption: (title: string, rowsFree: number) => string;
@@ -157,6 +163,10 @@ export const DEFAULT_LABELS: DashboardLabels = {
     `Delete the page "${title}" and move its widgets to another page?`,
   movePageLeft: (title) => `Move ${title} page left`,
   movePageRight: (title) => `Move ${title} page right`,
+  arrangeWidget: (title) => `Arrange ${title}`,
+  menuMoveEarlier: 'Move earlier',
+  menuMoveLater: 'Move later',
+  menuHide: 'Hide',
   moveToPage: (title) => `Move ${title} to another page`,
   moveToPagePlaceholder: 'Move to page…',
   moveToPageOption: (title, rowsFree) =>
