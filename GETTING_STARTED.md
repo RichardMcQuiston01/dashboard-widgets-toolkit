@@ -437,10 +437,13 @@ those users). `overrideLocks` never changes the locks themselves.
 
 ### Edit mode: Customize and Done
 
-By default `Dashboard` shows move, hide and minimize controls on every card
-whenever you pass `onLayoutChange`. Set `editMode="toggle"` to show them only
-after the viewer presses **Customize**, so a stray click can't rearrange the
-page:
+By default `Dashboard` shows an **Arrange** icon (four arrows) and a minimize
+button on every card whenever you pass `onLayoutChange`. Arrange opens a small
+floating menu with Move earlier, Move later, the pages the widget can move to
+(with a paged layout) and Hide; items a lock covers are left out, and Move
+earlier or later is disabled at the ends. Set `editMode="toggle"` to show the
+controls only after the viewer presses **Customize**, so a stray click can't
+rearrange the page:
 
 ```tsx
 <Dashboard
@@ -639,9 +642,9 @@ page in view. With one page (or none) there is no page bar.
   keep their data when the viewer comes back.
 - **Editing.** With `onLayoutChange`, editing shows **Add page**, Rename, Move
   left/right and Delete (a trash icon; it asks first) for the page in view. Add
-  page asks for a name first, and Escape or ✕ drops the new page again. Each
-  card gets a **Move to page** icon that opens a small floating menu of the
-  other pages with their free rows and a "New page…" choice. Moves, restores and deletes that would overflow a page are
+  page asks for a name first, and Escape or ✕ drops the new page again. The
+  card's Arrange menu lists the other pages with their free rows and a
+  "New page…" choice. Moves, restores and deletes that would overflow a page are
   refused with a message ("Page "Stock" has no room for "Alpha": it would need
   row 3, and the page allows 2."). `maxPages` caps how many pages can be added.
 - Labels are overridable (`pageBar`, `pageTabName`, `addPage`, `moveToPage`,
