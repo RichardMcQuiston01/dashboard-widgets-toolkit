@@ -61,7 +61,7 @@ import {
   type DetailSort,
 } from '../core/detail.js';
 import { ResolvedWidgetCard } from './card.js';
-import { MoveToPageMenu } from './move-menu.js';
+import { WidgetEditMenu, type EditMenuItem } from './edit-menu.js';
 import {
   WidgetDetail,
   WidgetDetailDialog,
@@ -1118,6 +1118,80 @@ function DashboardInner({
                 !lock.move && moveWidgetBy(pageDefs, view, key, -1) !== view;
               const canMoveLater: boolean =
                 !lock.move && moveWidgetBy(pageDefs, view, key, 1) !== view;
+              const pageTargets: EditMenuItem[] =
+                paged && !lock.move
+                  ? [
+                      {
+                        kind: 'heading',
+                        key: 'page-heading',
+                        label: labels.moveToPagePlaceholder,
+                      },
+                      ...pages
+                        .filter((page) => page.key !== activeKey)
+                        .map((page): EditMenuItem => ({
+                          kind: 'action',
+                          key: `page:${page.key}`,
+                          label: labels.moveToPageOption(
+                            page.title,
+                            pageRoom(definitions, layout, page.key, roomOptions)
+                              ?.rowsFree ?? 0
+                          ),
+                          ariaLabel: labels.moveToPageOption(
+                            page.title,
+                            pageRoom(definitions, layout, page.key, roomOptions)
+                              ?.rowsFree ?? 0
+                          ),
+                          onSelect: () => moveWidgetAction(key, page.key),
+                        })),
+                      ...(maxPages === undefined || pages.length < maxPages
+                        ? [
+                            {
+                              kind: 'action' as const,
+                              key: 'page:new',
+                              label: labels.newPageOption,
+                              onSelect: () =>
+                                moveWidgetAction(key, NEW_PAGE_VALUE),
+                            },
+                          ]
+                        : []),
+                    ]
+                  : [];
+              const editItems: EditMenuItem[] = [
+                ...(lock.move
+                  ? []
+                  : [
+                      {
+                        kind: 'action' as const,
+                        key: 'earlier',
+                        label: labels.menuMoveEarlier,
+                        ariaLabel: labels.moveEarlier(title),
+                        disabled: index === 0 || !canMoveEarlier,
+                        onSelect: () =>
+                          changePage(moveWidgetBy(pageDefs, view, key, -1)),
+                      },
+                      {
+                        kind: 'action' as const,
+                        key: 'later',
+                        label: labels.menuMoveLater,
+                        ariaLabel: labels.moveLater(title),
+                        disabled: index === shown.length - 1 || !canMoveLater,
+                        onSelect: () =>
+                          changePage(moveWidgetBy(pageDefs, view, key, 1)),
+                      },
+                    ]),
+                ...pageTargets,
+                ...(lock.hide
+                  ? []
+                  : [
+                      {
+                        kind: 'action' as const,
+                        key: 'hide',
+                        label: labels.menuHide,
+                        ariaLabel: labels.hide(title),
+                        onSelect: () => changePage(hideWidget(view, key)),
+                      },
+                    ]),
+              ];
               const actions: ReactNode = controlsShown ? (
                 <>
                   {isLocked && (
@@ -1151,88 +1225,11 @@ function DashboardInner({
                       </svg>
                     </span>
                   )}
-                  {!lock.move && (
-                    <>
-                      <button
-                        type="button"
-                        className={slot(
-                          'button',
-                          'dwt-button',
-                          'dwt-icon-button'
-                        )}
-                        aria-label={labels.moveEarlier(title)}
-                        title={labels.moveEarlier(title)}
-                        disabled={index === 0 || !canMoveEarlier}
-                        onClick={() =>
-                          changePage(moveWidgetBy(pageDefs, view, key, -1))
-                        }
-                      >
-                        <span aria-hidden="true">↑</span>
-                      </button>
-                      <button
-                        type="button"
-                        className={slot(
-                          'button',
-                          'dwt-button',
-                          'dwt-icon-button'
-                        )}
-                        aria-label={labels.moveLater(title)}
-                        title={labels.moveLater(title)}
-                        disabled={index === shown.length - 1 || !canMoveLater}
-                        onClick={() =>
-                          changePage(moveWidgetBy(pageDefs, view, key, 1))
-                        }
-                      >
-                        <span aria-hidden="true">↓</span>
-                      </button>
-                      {paged && (
-                        <MoveToPageMenu
-                          label={labels.moveToPage(title)}
-                          heading={labels.moveToPagePlaceholder}
-                          onPick={(pageKey) => moveWidgetAction(key, pageKey)}
-                          options={[
-                            ...pages
-                              .filter((page) => page.key !== activeKey)
-                              .map((page) => ({
-                                value: page.key,
-                                label: labels.moveToPageOption(
-                                  page.title,
-                                  pageRoom(
-                                    definitions,
-                                    layout,
-                                    page.key,
-                                    roomOptions
-                                  )?.rowsFree ?? 0
-                                ),
-                              })),
-                            ...(maxPages === undefined ||
-                            pages.length < maxPages
-                              ? [
-                                  {
-                                    value: NEW_PAGE_VALUE,
-                                    label: labels.newPageOption,
-                                  },
-                                ]
-                              : []),
-                          ]}
-                        />
-                      )}
-                    </>
-                  )}
-                  {!lock.hide && (
-                    <button
-                      type="button"
-                      className={slot(
-                        'button',
-                        'dwt-button',
-                        'dwt-icon-button'
-                      )}
-                      aria-label={labels.hide(title)}
-                      title={labels.hide(title)}
-                      onClick={() => changePage(hideWidget(view, key))}
-                    >
-                      <span aria-hidden="true">×</span>
-                    </button>
+                  {editItems.length > 0 && (
+                    <WidgetEditMenu
+                      label={labels.arrangeWidget(title)}
+                      items={editItems}
+                    />
                   )}
                 </>
               ) : undefined;
