@@ -163,6 +163,25 @@ export function widthRange(item: Pick<SettingsItem, 'minWidth' | 'maxWidth'>): {
   return { min, max: Math.max(min, max) };
 }
 
+const WIDTH_SHARES: Readonly<Record<number, string>> = {
+  2: '1/6',
+  3: '1/4',
+  4: '1/3',
+  5: '5/12',
+  6: '1/2',
+  7: '7/12',
+  8: '2/3',
+  9: '3/4',
+  10: '5/6',
+  11: '11/12',
+  12: 'Full',
+};
+
+/** A width as a share of the row: 2 is `1/6`, 6 is `1/2`, 12 is `Full`. */
+export function widthShareLabel(width: number): string {
+  return WIDTH_SHARES[width] ?? `${width}/12`;
+}
+
 /** Whether the lock on this widget forbids viewer settings. */
 export function isOptionsLocked(item: Pick<SettingsItem, 'locked'>): boolean {
   return resolveWidgetLock(item).options;
@@ -443,7 +462,12 @@ export function normalizeSettings<D extends SettingsItem, L extends object>(
       const picked: unknown = one.options?.[option.key];
       if (picked === undefined) continue;
       const value: OptionValue | undefined = coerceOptionValue(option, picked);
-      if (value !== undefined) chosen[option.key] = value;
+      // A date range keeps its preset (`last30`), which resolves to today's
+      // interval when read; storing the interval would go stale.
+      if (value !== undefined) {
+        chosen[option.key] =
+          option.type === 'dateRange' ? (picked as OptionValue) : value;
+      }
     }
     let title: string | undefined = one.title;
     if (title !== undefined) {

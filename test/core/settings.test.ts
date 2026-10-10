@@ -292,6 +292,34 @@ void describe('normalizeSettings', () => {
     );
   });
 
+  void it('keeps a date range preset instead of the interval it resolves to', () => {
+    const defs = [
+      defineWidget({
+        key: 'views',
+        title: 'Views',
+        kind: 'GRAPH',
+        options: [
+          {
+            type: 'dateRange',
+            key: 'period',
+            label: 'Period',
+            default: 'last30',
+          },
+        ],
+      }),
+    ];
+    const layout = layoutWith({ views: { options: { period: 'last7' } } });
+    assert.equal(normalizeSettings(defs, layout), layout);
+    const values = widgetOptionValues(
+      defs[0] as WidgetDefinition,
+      layout.settings?.['views']
+    );
+    assert.match(
+      String(values['period']),
+      /^\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}$/
+    );
+  });
+
   void it('makes titles unique with (#n)', () => {
     const layout = layoutWith({
       revenue: { title: 'orders' },

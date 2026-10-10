@@ -1,7 +1,9 @@
 # Design: widget options, alternate views and clones
 
-- **Status:** Draft for review. Decisions on the gear, Apply, width, Reset and
-  defaults are recorded in section 15; the rest are open.
+- **Status:** Phases 1 and 2 built (declared options; `layout.settings` and the
+  Options dialog). Alternate views and clones are still a draft. Decisions on
+  the gear, Apply, width, Reset and defaults are recorded in section 15; the
+  rest are open.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
 - **Builds on:** `lock-and-edit-mode.md` (not yet built)
@@ -777,6 +779,28 @@ is always present; `sort` and `columns` keys are `c0`, `c1`, ... for `TABLE` and
 `color` is hex only; a widget has at most 20 options and one `sort` and one
 `columns` option; `text` is capped at 500 characters. The API for choosing
 values is `useWidgets({ optionValues })`, `setOptions` and `loader.setOptions`.
+
+Phase 2 is built. Differences from the sketch above:
+
+- The per-widget type is `WidgetViewerSettings` (the React `WidgetSettings` is
+  the provider's props). Everything lives in `core/settings.ts`.
+- **No separate gear button.** Options is an item in the card's Arrange menu
+  ("Options…"), so the card header keeps its single edit icon. It shows
+  wherever the Arrange menu does (both edit modes), not only in `toggle` mode.
+- `normalizeLayout` runs `normalizeSettings` and counts the viewer's widths when
+  it fits widgets onto pages. A date range option keeps its preset (`last30`) in
+  the layout; providers get the interval it resolves to.
+- Titles must be unique across the dashboard (not only per page), which is
+  stricter and simpler; a duplicate coming from storage gets "(#n)".
+- `optionValuesFromLayout(definitions, layout)` is the one line a consumer adds
+  so `useWidgets` follows the layout (it lists every widget with options, so
+  Reset sends the defaults back). `Dashboard` applies title, width and Flexible
+  itself.
+- `locked.options` is part of `locked: true`. **Reset layout** keeps settings;
+  **Revert changes** restores them from the pre-edit snapshot; the dialog's own
+  Reset and Revert act on one widget.
+- Not built yet: the `backup` and `onBackup` props (the snapshot is in memory),
+  and a `data-dwt-default-title` attribute.
 
 Phase 1 is the most valuable on its own and needs no new UI: authors get default
 sorts, "top N" and column sets, with the viewer's choice arriving later in phase 2
