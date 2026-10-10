@@ -34,6 +34,7 @@ src/
     layout.ts           DashboardLayout: parse/serialise, order, hide, minimize
     pages.ts            pages of widgets: helpers, capacity, normalizeLayout
     options.ts          declared options: resolve values, cache suffix, client sort/columns
+    settings.ts         viewer settings in the layout: title, width, option values
     storage.ts          StorageAdapter contract, wrappers, createLayoutPersistence
     theme.ts            createTheme: validated, scoped CSS for the --dwt-* tokens
     format.ts           Intl formatting, percent change, kpiDelta
@@ -48,6 +49,8 @@ src/
     renderers.tsx       one renderer per kind, WidgetContent switch
     charts.tsx          GraphWidget: SVG bar/line, legend, tooltip, table twin
     dashboard.tsx       WidgetGrid, Dashboard (layout controls)
+    options-dialog.tsx  WidgetOptionsDialog: title, width, declared options
+    confirm.tsx         InlineConfirm (✓ / ✕)
     use-stored-layout.ts useStoredLayout: persistence + Dashboard
     palette.ts          default series/chrome colors as var(--dwt-*, fallback)
     primitives.tsx      WidgetLink (rel="noreferrer", safe schemes), Thumbnail
@@ -78,9 +81,9 @@ documented in the code and README, which win if they disagree.
   `enforceLocks`, `overrideLocks`) and the Customize/Done edit mode
   (`editMode="toggle"`, Reset, Revert) are built; drag and drop is not.
 - `docs/design/widget-options-views-clones.md`: declared options with
-  defaults are built (`options.ts`, `setOptions`, `optionValues`). Still
-  planned: gear/Options dialog (title, width, options), alternate views and
-  clones, stored in the layout.
+  defaults are built (`options.ts`, `setOptions`, `optionValues`), and so is
+  the Options dialog (title, width, options) with `layout.settings`
+  (`settings.ts`). Still planned: alternate views and clones.
 - `docs/design/widget-pages.md`: pages of widgets (per-page layout, capacity of
   about 4 rows, moving widgets between pages, page bar hidden for one page,
   lazy loading by page). Built: the core (`pages.ts`, `placeRows`,

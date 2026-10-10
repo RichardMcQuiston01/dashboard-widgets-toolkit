@@ -32,6 +32,10 @@ export {
   type WidgetDetailDialogProps,
   type WidgetDetailProps,
 } from './detail.js';
+export {
+  WidgetOptionsDialog,
+  type WidgetOptionsDialogProps,
+} from './options-dialog.js';
 export { DEFAULT_SERIES_COLORS, seriesColor } from './palette.js';
 export { Thumbnail, WidgetLink } from './primitives.js';
 export {

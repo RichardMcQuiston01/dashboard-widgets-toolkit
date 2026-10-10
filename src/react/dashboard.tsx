@@ -51,6 +51,13 @@ import {
   type PageOptions,
 } from '../core/pages.js';
 import { sortFromOptions } from '../core/options.js';
+import {
+  applySettings,
+  isOptionsLocked,
+  isTitleInUse,
+  setWidgetSettings,
+  type WidgetViewerSettings,
+} from '../core/settings.js';
 import type { DashboardWidget } from '../core/resolve.js';
 import {
   defaultDetailQuery,
@@ -61,7 +68,9 @@ import {
   type DetailSort,
 } from '../core/detail.js';
 import { ResolvedWidgetCard } from './card.js';
+import { InlineConfirm } from './confirm.js';
 import { WidgetEditMenu, type EditMenuItem } from './edit-menu.js';
+import { WidgetOptionsDialog } from './options-dialog.js';
 import {
   WidgetDetail,
   WidgetDetailDialog,
@@ -370,57 +379,6 @@ function DetailHost({
  * "Reset the layout?" with "✓" and "X" buttons, inline in the toolbar. Focus
  * starts on the safe choice, and Escape answers no.
  */
-function InlineConfirm({
-  message,
-  onAnswer,
-}: {
-  readonly message: string;
-  readonly onAnswer: (yes: boolean) => void;
-}): ReactNode {
-  const slot = useSlotClassName();
-  const { labels } = useWidgetSettings();
-  const noRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    noRef.current?.focus();
-  }, []);
-  return (
-    <span
-      role="group"
-      aria-label={message}
-      className="dwt-confirm"
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          event.stopPropagation();
-          onAnswer(false);
-        }
-      }}
-    >
-      <span role="alert" className="dwt-confirm-message">
-        {message}
-      </span>
-      <button
-        type="button"
-        className={slot('button', 'dwt-button', 'dwt-icon-button')}
-        aria-label={labels.confirmYes}
-        title={labels.confirmYes}
-        onClick={() => onAnswer(true)}
-      >
-        <span aria-hidden="true">✓</span>
-      </button>
-      <button
-        ref={noRef}
-        type="button"
-        className={slot('button', 'dwt-button', 'dwt-icon-button')}
-        aria-label={labels.confirmNo}
-        title={labels.confirmNo}
-        onClick={() => onAnswer(false)}
-      >
-        <span aria-hidden="true">✕</span>
-      </button>
-    </span>
-  );
-}
-
 /** The tab list of a paged dashboard: tabs on wide screens, dots on narrow. */
 function PageTabs({
   pages,
@@ -641,14 +599,27 @@ function DashboardInner({
 }: DashboardProps): ReactNode {
   const slot = useSlotClassName();
   const { labels } = useWidgetSettings();
-  const definitions: WidgetDefinition[] = widgets.map((w) =>
+  // The viewer's titles, widths and Flexible choices are applied on top of
+  // each definition, except for widgets locked against options.
+  const effectiveWidgets: DashboardWidget[] = widgets.map((w) => {
+    const settings: WidgetViewerSettings | undefined =
+      savedLayout.settings?.[w.definition.key];
+    return settings === undefined ||
+      (!overrideLocks && isOptionsLocked(w.definition))
+      ? w
+      : { ...w, definition: applySettings(w.definition, settings) };
+  });
+  const definitions: WidgetDefinition[] = effectiveWidgets.map((w) =>
     overrideLocks ? withoutLock(w.definition) : w.definition
   );
   // A saved layout can predate a lock (or be edited by hand), so what a lock
   // forbids is removed before anything is shown.
   const layout: DashboardLayout = enforceLocks(definitions, savedLayout);
   const byKey = new Map<string, DashboardWidget>(
-    widgets.map((w) => [w.definition.key, w])
+    effectiveWidgets.map((w) => [w.definition.key, w])
+  );
+  const authorDefinitions = new Map<string, WidgetDefinition>(
+    widgets.map((w) => [w.definition.key, w.definition])
   );
   // Pages: with none, the layout is one implicit page and `view` is the layout
   // itself, so everything below works on one page's widgets and lists.
@@ -714,6 +685,7 @@ function DashboardInner({
     ? visible.filter((definition) => !isMinimized(view, definition.key))
     : visible;
   const [detailKey, setDetailKey] = useState<string | undefined>(undefined);
+  const [optionsKey, setOptionsKey] = useState<string | undefined>(undefined);
   const gridRef = useRef<HTMLDivElement>(null);
   const twelve: boolean = usesWidthColumns(shown);
   const spans: ReadonlyMap<string, number> = useFillSpans(
@@ -868,7 +840,19 @@ function DashboardInner({
     const which: 'reset' | 'revert' | undefined = pending;
     setConfirming(undefined);
     if (yes && which === 'reset') {
-      change(enforceLocks(definitions, defaultLayout ?? EMPTY_LAYOUT));
+      // Reset layout restores the arrangement only: the viewer's titles,
+      // widths and option values stay (each widget's dialog resets its own).
+      const arranged: DashboardLayout = enforceLocks(
+        definitions,
+        defaultLayout ?? EMPTY_LAYOUT
+      );
+      const { settings: _defaultSettings, ...arrangement } = arranged;
+      void _defaultSettings;
+      change(
+        layout.settings === undefined
+          ? arrangement
+          : { ...arrangement, settings: layout.settings }
+      );
     } else if (yes && which === 'revert' && snapshot !== undefined) {
       change(snapshot);
     }
@@ -1179,6 +1163,17 @@ function DashboardInner({
                           changePage(moveWidgetBy(pageDefs, view, key, 1)),
                       },
                     ]),
+                ...(lock.options
+                  ? []
+                  : [
+                      {
+                        kind: 'action' as const,
+                        key: 'options',
+                        label: labels.menuOptions,
+                        ariaLabel: labels.optionsFor(title),
+                        onSelect: () => setOptionsKey(key),
+                      },
+                    ]),
                 ...pageTargets,
                 ...(lock.hide
                   ? []
@@ -1272,6 +1267,34 @@ function DashboardInner({
           </div>
         )}
       </PagePanel>
+      {optionsKey !== undefined &&
+        authorDefinitions.get(optionsKey) !== undefined && (
+          <WidgetOptionsDialog
+            key={optionsKey}
+            definition={authorDefinitions.get(optionsKey) as WidgetDefinition}
+            settings={layout.settings?.[optionsKey]}
+            {...(snapshot === undefined
+              ? {}
+              : { baseline: { settings: snapshot.settings?.[optionsKey] } })}
+            isTitleInUse={(title) =>
+              isTitleInUse(
+                widgets.map((w) => w.definition),
+                layout,
+                optionsKey,
+                title
+              )
+            }
+            onApply={(patch) => {
+              change(setWidgetSettings(layout, optionsKey, patch));
+              setAnnouncement(
+                labels.optionsSaved(
+                  authorDefinitions.get(optionsKey)?.title ?? optionsKey
+                )
+              );
+            }}
+            onClose={() => setOptionsKey(undefined)}
+          />
+        )}
       {detailKey !== undefined && byKey.get(detailKey) !== undefined && (
         <DetailHost
           key={detailKey}

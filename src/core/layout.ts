@@ -8,6 +8,11 @@
  */
 
 import { resolveWidgetLock, type WidgetLock } from './definition.js';
+import {
+  parseSettings,
+  serializeSettings,
+  type LayoutSettings,
+} from './settings.js';
 
 /** What layout functions need from a widget definition. */
 export interface LayoutItem {
@@ -32,6 +37,11 @@ export interface DashboardLayout {
    * empty. See `pages.ts`.
    */
   readonly pages?: readonly LayoutPage[];
+  /**
+   * What the viewer chose for each widget (title, width, option values), by
+   * widget key. See `settings.ts`. Absent when they chose nothing.
+   */
+  readonly settings?: LayoutSettings;
 }
 
 /** One page of a paged layout: the same lists as a layout, plus a name. */
@@ -94,6 +104,10 @@ export function parseLayout(raw: unknown): DashboardLayout {
   const hidden: string[] = uniqueStrings(record['hidden']);
   const minimized: string[] = uniqueStrings(record['minimized']);
   const pages: LayoutPage[] = parsePages(record['pages']);
+  const settings: LayoutSettings | undefined = parseSettings(
+    record['settings']
+  );
+  const withSettings = settings === undefined ? {} : { settings };
   if (pages.length > 0) {
     // With pages, the pages own placement and the top-level lists stay empty.
     return {
@@ -101,12 +115,15 @@ export function parseLayout(raw: unknown): DashboardLayout {
       hidden: EMPTY_LAYOUT.hidden,
       minimized: EMPTY_LAYOUT.minimized,
       pages,
+      ...withSettings,
     };
   }
   if (order.length === 0 && hidden.length === 0 && minimized.length === 0) {
-    return EMPTY_LAYOUT;
+    return settings === undefined
+      ? EMPTY_LAYOUT
+      : { ...EMPTY_LAYOUT, settings };
   }
-  return { order, hidden, minimized };
+  return { order, hidden, minimized, ...withSettings };
 }
 
 function parsePages(value: unknown): LayoutPage[] {
@@ -169,6 +186,9 @@ export function serializeLayout(layout: DashboardLayout): string {
             ...(page.maxRows === undefined ? {} : { maxRows: page.maxRows }),
           })),
         }),
+    ...(serializeSettings(layout.settings) === undefined
+      ? {}
+      : { settings: serializeSettings(layout.settings) }),
   });
 }
 

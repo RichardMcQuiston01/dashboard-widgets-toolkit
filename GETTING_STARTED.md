@@ -409,6 +409,66 @@ const providers = {
 - A `sort` option also sets the table card's header sort and the detail view's
   starting sort.
 
+### Viewer settings: the Options dialog
+
+While editing (`editMode="toggle"`), each card's Arrange menu has an **Options…**
+item. It opens a dialog where the viewer can change the widget's **title**, its
+**width** (2 to 12 twelfths of the row, inside the definition's `minWidth` and
+`maxWidth`), whether it may **grow to fill** empty space in its row, and every
+option the widget declares. Apply, Discard, Reset to defaults and Revert to
+before editing each ask first, with an inline ✓ / ✕. Nothing is saved until
+Apply.
+
+The choices are stored in the layout as `layout.settings`, so whatever persists
+the layout (`useStoredLayout`, `serializeLayout`) saves them too. Layouts without
+settings are byte-identical to before.
+
+```tsx
+import { optionValuesFromLayout } from '@richardmcquiston01/dashboard-widgets-toolkit/core';
+
+const stored = useStoredLayout({/* ... */});
+// Feed the chosen option values to the provider; Reset sends the defaults back.
+const optionValues = useMemo(
+  () => optionValuesFromLayout(definitions, stored.layout),
+  [stored.layout]
+);
+const { widgets } = useWidgets(definitions, providers, context, {
+  optionValues,
+});
+
+<Dashboard
+  widgets={widgets}
+  layout={stored.layout}
+  onLayoutChange={stored.setLayout}
+  editMode="toggle"
+/>;
+```
+
+`Dashboard` applies the viewer's title, width and Flexible choice itself; only the
+option values need the wiring above.
+
+- **Limits.** `minWidth` and `maxWidth` on a definition keep a table from being
+  squeezed or a KPI tile from being stretched; the width list in the dialog stops
+  at them. Titles are plain text, at most 80 characters, and can't repeat another
+  widget's title (compared trimmed and case-insensitively).
+- **Locks.** `locked: { options: true }` (included in `locked: true`) hides
+  Options for that widget and makes the layout ignore any settings saved for it.
+  `overrideLocks` lifts it for an administrator.
+- **Reset layout** restores the arrangement only; titles, widths and option
+  values stay. **Revert changes** restores everything from before editing.
+- **Server side.** `normalizeLayout(definitions, layout)` also cleans settings:
+  it drops unknown widgets and locked widgets, clamps widths, trims titles, drops
+  options a definition didn't declare or whose values are invalid, and makes
+  titles unique by appending "(#2)". Run it where the layout is saved. Option
+  values still reach your provider as untrusted input: validate them there too.
+- **Without the UI.** `setWidgetSettings`, `clearWidgetSettings`,
+  `applySettings`, `effectiveDefinitions` and `isTitleInUse` are plain functions
+  if you want your own settings screen. `WidgetOptionsDialog` is exported to use
+  the dialog on its own.
+- **Labels and styling.** New `DashboardLabels` entries (`menuOptions`,
+  `optionsFor`, `apply`, `resetToDefaults`, ...) and a `dialog` class slot;
+  classes are `dwt-options-dialog`, `dwt-options`, `dwt-options-field`.
+
 ### Locked widgets
 
 Set `locked: true` on a definition when viewers must not rearrange it (a
