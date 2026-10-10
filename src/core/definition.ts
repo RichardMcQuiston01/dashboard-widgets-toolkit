@@ -44,6 +44,14 @@ export interface WidgetDefinition {
    */
   readonly width?: number;
   /**
+   * The narrowest and widest a viewer may make the widget (integers from 2 to
+   * 12, `minWidth <= width <= maxWidth`). A table that needs room sets
+   * `minWidth: 6`; a KPI tile that looks silly wide sets `maxWidth: 4`.
+   * Without them the full 2 to 12 range applies.
+   */
+  readonly minWidth?: number;
+  readonly maxWidth?: number;
+  /**
    * Gives the widget a detail view: a full list with sorting, filtering and
    * paging. `true` uses defaults. The data comes from a detail provider.
    */
@@ -58,8 +66,8 @@ export interface WidgetDefinition {
   /** Fill free space in the row (height, width or both). Default: none. */
   readonly fill?: WidgetFill;
   /**
-   * Keeps viewers from rearranging this widget. `true` locks everything:
-   * move, hide and minimize. Use an object to lock only some; fields left out
+   * Keeps viewers from changing this widget. `true` locks everything:
+   * move, hide, minimize and options. Use an object to lock only some; fields left out
    * are not locked.
    */
   readonly locked?: boolean | WidgetLock;
@@ -85,6 +93,8 @@ export interface WidgetLock {
   readonly hide?: boolean;
   /** Can't be collapsed to its header. */
   readonly minimize?: boolean;
+  /** Can't be given a title, width or option values of the viewer's own. */
+  readonly options?: boolean;
 }
 
 /** `WidgetLock` with every default filled in. */
@@ -94,11 +104,13 @@ const NOT_LOCKED: ResolvedWidgetLock = Object.freeze({
   move: false,
   hide: false,
   minimize: false,
+  options: false,
 });
 const FULLY_LOCKED: ResolvedWidgetLock = Object.freeze({
   move: true,
   hide: true,
   minimize: true,
+  options: true,
 });
 
 /**
@@ -116,6 +128,7 @@ export function resolveWidgetLock(
     move: setting.move === true,
     hide: setting.hide === true,
     minimize: setting.minimize === true,
+    options: setting.options === true,
   };
 }
 

@@ -420,6 +420,42 @@ function checkTableControlsOption(
 }
 
 /** Checks a definition's `locked`: a boolean or `{ move, hide, minimize }`. */
+/** minWidth and maxWidth: integers from 2 to 12 around `width`. */
+function checkWidthLimits(value: Record_, problems: Problems): void {
+  for (const field of ['minWidth', 'maxWidth'] as const) {
+    const limit: unknown = value[field];
+    if (limit !== undefined && !isWidgetWidth(limit)) {
+      problems.push(
+        `${field} must be an integer from ${MIN_WIDGET_WIDTH} to ${MAX_WIDGET_WIDTH} (twelfths of the row), got ${typeof limit === 'number' ? String(limit) : describeType(limit)}.`
+      );
+      return;
+    }
+  }
+  const { minWidth, maxWidth, width } = value;
+  if (
+    isWidgetWidth(minWidth) &&
+    isWidgetWidth(maxWidth) &&
+    minWidth > maxWidth
+  ) {
+    problems.push(
+      `minWidth (${minWidth}) must not be more than maxWidth (${maxWidth}).`
+    );
+    return;
+  }
+  if (isWidgetWidth(width)) {
+    if (isWidgetWidth(minWidth) && width < minWidth) {
+      problems.push(
+        `width (${width}) must not be less than minWidth (${minWidth}).`
+      );
+    }
+    if (isWidgetWidth(maxWidth) && width > maxWidth) {
+      problems.push(
+        `width (${width}) must not be more than maxWidth (${maxWidth}).`
+      );
+    }
+  }
+}
+
 function checkLockedOption(locked: unknown, problems: Problems): void {
   if (locked === undefined || typeof locked === 'boolean') return;
   if (!isRecord(locked)) {
@@ -431,6 +467,7 @@ function checkLockedOption(locked: unknown, problems: Problems): void {
   optionalBoolean(locked, 'move', 'locked', problems);
   optionalBoolean(locked, 'hide', 'locked', problems);
   optionalBoolean(locked, 'minimize', 'locked', problems);
+  optionalBoolean(locked, 'options', 'locked', problems);
 }
 
 /** Checks a list of column choices (`{ key, label }`) for a sort or columns option. */
@@ -887,6 +924,7 @@ export function validateWidgetDefinition(
       `width must be an integer from ${MIN_WIDGET_WIDTH} to ${MAX_WIDGET_WIDTH} (twelfths of the row), got ${typeof value['width'] === 'number' ? String(value['width']) : describeType(value['width'])}.`
     );
   }
+  checkWidthLimits(value, problems);
   checkDetailOption(value['detail'], problems);
   checkTableControlsOption(value['tableControls'], value['kind'], problems);
   checkLockedOption(value['locked'], problems);
