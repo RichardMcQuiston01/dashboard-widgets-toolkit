@@ -18,7 +18,7 @@ It gives you:
 - A layout that each viewer can change. They can reorder (by buttons, or by dragging with the `draggable` prop), hide, and minimize widgets.
 - React renderers, including accessible charts drawn as Scalable Vector Graphics (SVG), each with a "View as table" twin.
 - Controls for viewers, all saved in the layout: an edit mode, pages of widgets, and an Options dialog for each widget's title, width, view and options. A viewer can also duplicate a widget into a clone with its own settings.
-- Locks that keep chosen widgets in place, a detail view with search, sort and paging, and CSS-variable theming.
+- Locks that keep chosen widgets in place, a detail view with search, sort and paging, and CSS-variable theming with a `WidgetTheme` wrapper, contrast and color-vision checks, and presets.
 - Storage helpers (an adapter contract and a `useStoredLayout` hook) so you can keep layouts in localStorage, a database or a server.
 
 You bring your own data. The package never fetches or stores anything. You register a provider for each widget, such as a database query, a web request, or a computed value. You also save each viewer's layout wherever you like. Payloads are plain JavaScript Object Notation (JSON), so a server can resolve widgets and a browser can check and draw them.

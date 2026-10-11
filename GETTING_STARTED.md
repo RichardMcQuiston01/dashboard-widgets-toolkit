@@ -1161,8 +1161,86 @@ the accent. Colors accept `#hex`, `rgb()`, `hsl()`, `oklch()` and similar,
 `var(--name)` and keywords; lengths need a unit. Anything that could end the
 declaration (`;`, braces, `url(`, comments) is rejected with an error. Pass
 `scope` to use your own ancestor selector instead of the `data-dwt-theme`
-attribute. See `docs/design/theming.md` for what comes next (a React wrapper,
-contrast checks, presets).
+attribute.
+
+#### `WidgetTheme`, or the `theme` prop
+
+In React you do not need to write the `<style>` or the attribute yourself:
+
+```tsx
+import { Dashboard, WidgetTheme } from '@richardmcquiston01/dashboard-widgets-toolkit/react';
+
+// One dashboard: the prop renders the style and sits inside the scope.
+<Dashboard widgets={widgets} theme={result.value} />
+
+// A whole subtree (several dashboards, your own cards): wrap it.
+<WidgetTheme theme={result.value}>
+  <App />
+</WidgetTheme>
+```
+
+`WidgetTheme` renders the theme's `<style>` and a `<div data-dwt-theme="brand">`
+around its children. With a custom `scope` (your own class or id) it renders only
+the `<style>`: the matching ancestor is yours. There are no effects, so the
+server renders the same markup, and `nonce` goes on the `<style>` for a strict
+Content Security Policy. Several themes can share a page, each on its own subtree.
+The detail dialog is inside the dashboard, so it is themed too.
+
+#### Checking contrast and color vision
+
+`createTheme` makes sure a value is valid; `checkTheme` tells you whether the result
+is readable. It returns warnings (never an error, the theme is your choice) for each
+mode the theme changes, resolving the tokens you left out to the built-in values:
+
+```ts
+import { checkTheme } from '@richardmcquiston01/dashboard-widgets-toolkit/core';
+
+for (const warning of checkTheme(result.value)) {
+  console.warn(warning.message);
+  // checkTheme "brand" light: link (#e65100) on surface (#fff3e0) has contrast
+  // 3.46:1; text contrast needs 4.5:1.
+}
+```
+
+| Check                                                     | Minimum                                                                             |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `text`, `textSecondary`, `textMuted`, `link` on `surface` | 4.5:1 (WCAG AA)                                                                     |
+| `focus`, `good`, `bad` on `surface`                       | 3:1                                                                                 |
+| chart colors (`series`) on `surface`                      | 2:1                                                                                 |
+| neighbouring series                                       | 0.10 apart in OKLab, and 0.05 with simulated protanopia, deuteranopia or tritanopia |
+
+The 2:1 floor for chart marks is lower than WCAG's 3:1 for graphics because the
+built-in light yellow is 2.1:1 and charts also have a legend, tooltips and a "View as
+table" twin; below 2:1 a mark disappears. The distances are calibrated so the
+built-in palettes pass. Each warning has `severity` (`warning`, or `info` when a
+value such as `var(--x)`, `color-mix()` or a named color cannot be read, so its
+checks were skipped), `mode`, `check`, `tokens`, `message`, and the measured `value`
+against the `required` minimum. A translucent `surface` is composited over `page`.
+Run it in a test or a build step so a rebrand cannot ship an unreadable chart.
+The color functions (`parseColor`, `contrastRatio`, `colorDistance`,
+`simulateVision`) are exported too.
+
+#### Presets
+
+`themePresets` are plain `ThemeOptions` objects to pass to `createTheme` (spread
+them to change the `name` or `scope`):
+
+```ts
+import {
+  createTheme,
+  themePresets,
+} from '@richardmcquiston01/dashboard-widgets-toolkit/core';
+
+const theme = createTheme({ ...themePresets.highContrast, scope: '.app' });
+```
+
+- `highContrast`: black on white and white on black, strong borders, a bright focus
+  ring, and chart colors that stay apart under color-vision deficiencies.
+- `compact`: smaller radius, gap, padding and minimum column. No colors.
+- `mono`: grayscale series for print, ordered so neighbours differ strongly (tell
+  them apart by the legend and labels).
+
+Each color preset is checked by `checkTheme` in the package's tests.
 
 ### Changing the text
 
