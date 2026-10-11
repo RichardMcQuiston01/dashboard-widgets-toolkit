@@ -42,6 +42,13 @@ export interface UseWidgetsOptions extends ResolveOptions {
   readonly optionValues?: Readonly<
     Record<string, Readonly<Record<string, unknown>> | undefined>
   >;
+  /**
+   * The view each widget shows, by widget key (see `viewValuesFromLayout`).
+   * Only views the provider supplies matter: choosing one loads it (the
+   * provider is called with `options.view`), and the card shows loading until
+   * it arrives. It may be a fresh object each render.
+   */
+  readonly viewValues?: Readonly<Record<string, string | undefined>>;
 }
 
 export interface UseWidgetsResult {
@@ -54,6 +61,8 @@ export interface UseWidgetsResult {
     key: string,
     chosen: Readonly<Record<string, unknown>>
   ) => void;
+  /** Choose a widget's view; same effect as `viewValues`. */
+  readonly setView: (key: string, view: string | undefined) => void;
   /**
    * For `loadWhen: 'visible'`: attach to any element that contains the cards,
    * for example a wrapper `<div ref={gridRef}>` around `Dashboard`.
@@ -87,6 +96,7 @@ export function useWidgets<C extends WidgetContext>(
     cache,
     cacheKey,
     optionValues,
+    viewValues,
   } = options;
 
   const placeholders: readonly DashboardWidget[] = useMemo(
@@ -100,6 +110,8 @@ export function useWidgets<C extends WidgetContext>(
   const gridRef = useRef<HTMLDivElement>(null);
   const optionValuesRef = useRef(optionValues);
   optionValuesRef.current = optionValues;
+  const viewValuesRef = useRef(viewValues);
+  viewValuesRef.current = viewValues;
 
   // One loader per set of inputs. It is created in an effect (never during
   // render) so server rendering starts nothing, and so React StrictMode's
@@ -117,6 +129,9 @@ export function useWidgets<C extends WidgetContext>(
       ...(optionValuesRef.current === undefined
         ? {}
         : { optionValues: optionValuesRef.current }),
+      ...(viewValuesRef.current === undefined
+        ? {}
+        : { viewValues: viewValuesRef.current }),
     });
     loaderRef.current = created;
     setWidgets(created.getSnapshot());
@@ -220,6 +235,19 @@ export function useWidgets<C extends WidgetContext>(
     }
   }, [loader, optionSignature]);
 
+  // Likewise for the view each widget shows.
+  const viewSignature: string = JSON.stringify(viewValues ?? {});
+  useEffect(() => {
+    if (loader === null) return;
+    for (const [key, view] of Object.entries(viewValuesRef.current ?? {})) {
+      loader.setView(key, view);
+    }
+  }, [loader, viewSignature]);
+
+  const setView = useCallback((key: string, view: string | undefined): void => {
+    loaderRef.current?.setView(key, view);
+  }, []);
+
   const setOptions = useCallback(
     (key: string, chosen: Readonly<Record<string, unknown>>): void => {
       loaderRef.current?.setOptions(key, chosen);
@@ -231,5 +259,5 @@ export function useWidgets<C extends WidgetContext>(
     loaderRef.current?.refresh(key);
   }, []);
 
-  return { widgets, refresh, setOptions, gridRef };
+  return { widgets, refresh, setOptions, setView, gridRef };
 }

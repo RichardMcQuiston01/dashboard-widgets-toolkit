@@ -306,10 +306,6 @@ void describe('validateWidgetDefinition views', () => {
         /produces BAR_LIST, but the view's kind is GRAPH/,
       ],
       [
-        { views: [{ key: 'x', label: 'X', kind: 'TABLE' }] },
-        /views\[0\]\.convert is required/,
-      ],
-      [
         {
           views: [
             {

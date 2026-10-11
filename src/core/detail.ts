@@ -98,7 +98,7 @@ export interface DetailQuery {
 }
 
 /** What a detail provider receives beyond the usual arguments. */
-export interface DetailProviderOptions extends ProviderOptions {
+export interface DetailProviderOptions extends Omit<ProviderOptions, 'view'> {
   readonly query: DetailQuery;
 }
 

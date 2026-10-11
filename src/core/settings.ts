@@ -11,7 +11,7 @@ import {
   type WidgetFill,
 } from './definition.js';
 import { MAX_WIDGET_WIDTH, MIN_WIDGET_WIDTH, isWidgetWidth } from './grid.js';
-import { BASE_VIEW_KEY, findView } from './views.js';
+import { BASE_VIEW_KEY, findView, isProviderView } from './views.js';
 import {
   coerceOptionValue,
   defaultOptionValue,
@@ -318,6 +318,30 @@ export function optionValuesFromLayout(
     out[definition.key] = locked
       ? {}
       : (layout.settings?.[definition.key]?.options ?? {});
+  }
+  return out;
+}
+
+/**
+ * What to pass `useWidgets({ viewValues })` so views the provider supplies
+ * follow the layout: for every widget that declares one, the viewer's chosen
+ * view key, or an empty string for no choice (its `defaultView`). Listing
+ * every such widget means a cleared choice reaches the loader too. Widgets
+ * with only converted views are left out: they need no provider call.
+ */
+export function viewValuesFromLayout(
+  definitions: readonly Pick<SettingsItem, 'key' | 'views' | 'locked'>[],
+  layout: { readonly settings?: LayoutSettings },
+  options: { readonly overrideLocks?: boolean } = {}
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const definition of definitions) {
+    if (!(definition.views ?? []).some(isProviderView)) continue;
+    const locked: boolean =
+      options.overrideLocks !== true && isOptionsLocked(definition);
+    out[definition.key] = locked
+      ? ''
+      : (layout.settings?.[definition.key]?.view ?? '');
   }
   return out;
 }

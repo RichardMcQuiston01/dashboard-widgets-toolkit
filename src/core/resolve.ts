@@ -22,6 +22,7 @@ import {
   type WidgetData,
   type WidgetPayload,
 } from './payload.js';
+import { BASE_VIEW_KEY, hasViews, loadViewKey, loadViewKind } from './views.js';
 import { describeUnknownError } from './result.js';
 import { validateWidgetData } from './validate.js';
 
@@ -46,6 +47,14 @@ export interface ProviderOptions {
    * and check them again on the server.
    */
   readonly options: OptionValues;
+  /**
+   * The view being loaded: `base` (the widget's own kind) unless the viewer
+   * chose a view the provider supplies (a `views` entry without `convert`), in
+   * which case it is that view's key and the payload must be of that view's
+   * kind. Converted views never reach the provider: they are built from the
+   * `base` payload.
+   */
+  readonly view: string;
 }
 
 /**
@@ -74,6 +83,11 @@ export interface OkWidget {
   readonly stale?: boolean;
   /** The widget's resolved option values; present when it declares options. */
   readonly options?: OptionValues;
+  /**
+   * The view this data was loaded for (`base` or a provider-supplied view's
+   * key); present when the widget declares `views`.
+   */
+  readonly view?: string;
 }
 
 export interface EmptyWidget {
@@ -138,6 +152,13 @@ export interface ResolveOptions extends OptionContext {
     Record<string, Readonly<Record<string, unknown>> | undefined>
   >;
   /**
+   * The view each widget shows, by widget key. Only views the provider
+   * supplies matter here (the provider is asked for that view); converted
+   * views are applied later from the base payload. An empty string means no
+   * choice (the widget's `defaultView`).
+   */
+  readonly viewValues?: Readonly<Record<string, string | undefined>>;
+  /**
    * Validate each provider's payload with `validateWidgetData` (and check
    * its kind matches the definition). Default true; turn off only for
    * trusted, typed providers.
@@ -172,7 +193,10 @@ export function resolvePayload(
   } else {
     const result = validateWidgetData(payload, {
       widgetKey: definition.key,
-      expectedKind: definition.kind,
+      expectedKind: loadViewKind(
+        definition,
+        options.viewValues?.[definition.key]
+      ),
     });
     if (!result.ok) {
       return { definition, status: 'error', error: result.error };
@@ -183,7 +207,16 @@ export function resolvePayload(
   if (emptyText !== null) {
     return { definition, status: 'empty', emptyText };
   }
-  return { definition, status: 'ok', data: checked as WidgetData };
+  return {
+    definition,
+    status: 'ok',
+    data: checked as WidgetData,
+    ...(hasViews(definition)
+      ? {
+          view: loadViewKey(definition, options.viewValues?.[definition.key]),
+        }
+      : {}),
+  };
 }
 
 /** A widget that failed, with the reason. */
@@ -218,9 +251,19 @@ export function cacheKeyFor(
     options.cacheKey === undefined
       ? (definition.sourceKey ?? definition.key)
       : options.cacheKey(definition);
-  return values === undefined
-    ? base
-    : `${base}${optionsCacheSuffix(definition, values, options)}`;
+  // A view the provider supplies is cached apart from the base payload.
+  const view: string = loadViewKey(
+    definition,
+    options.viewValues?.[definition.key]
+  );
+  const viewPart: string =
+    view === BASE_VIEW_KEY ? '' : `view=${encodeURIComponent(view)}`;
+  const optionPart: string =
+    values === undefined ? '' : optionsCacheSuffix(definition, values, options);
+  if (viewPart === '') return `${base}${optionPart}`;
+  return optionPart === ''
+    ? `${base}?${viewPart}`
+    : `${base}?${viewPart}&${optionPart.slice(1)}`;
 }
 
 /** The resolved option values for a widget under these resolve options. */
@@ -245,6 +288,15 @@ export function finalizeWidget<W extends DashboardWidget>(
   values: OptionValues
 ): W {
   if (Object.keys(values).length === 0) return widget;
+  if (
+    widget.status === 'ok' &&
+    widget.view !== undefined &&
+    widget.view !== BASE_VIEW_KEY
+  ) {
+    // Sort and columns name the base payload's columns, so a view the provider
+    // supplied (with its own shape) is left as it came.
+    return { ...widget, options: values };
+  }
   if (widget.status === 'ok') {
     const data: WidgetData = applyClientOptions(
       widget.definition,
@@ -339,6 +391,7 @@ export async function resolveWidgetUnapplied<C extends WidgetContext>(
         return provider(context, definition, {
           signal: controller.signal,
           options: values,
+          view: loadViewKey(definition, options.viewValues?.[definition.key]),
         });
       }),
       interrupted,

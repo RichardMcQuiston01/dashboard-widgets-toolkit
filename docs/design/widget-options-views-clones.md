@@ -810,7 +810,7 @@ Phase 3 is built (converted views only). Differences from the sketch above:
 - Conversions are applied in `Dashboard`, on top of the loaded payload, so the
   loader is untouched and switching never reloads. The widget's definition gets
   the view's `kind`, so renderers work unchanged.
-- `convert` is required for now (provider-supplied views are not built);
+- `convert` was required at first; provider-supplied views (below) came next;
   `validateWidgetDefinition` checks that the conversion's source matches the
   widget's kind and its output matches the view's `kind`.
 - `tableToBarList` uses the cell text as the bar's display text;
@@ -819,6 +819,26 @@ Phase 3 is built (converted views only). Differences from the sketch above:
 - The view is `layout.settings[key].view`; `locked.options` covers it.
 - Not built: the dialog does not yet say what a view drops (`viewNote` is
   there for it).
+
+Provider-supplied views are built (the follow-up to phase 3). Differences from
+the sketch above:
+
+- A view without `convert` is provider-supplied. The provider's third argument
+  gains `view`: `'base'` for the widget's own kind, otherwise the view's key.
+  `convert`-less views may have any `kind`; the payload is validated against it.
+- The loader asks the provider only for the view being shown (`loadViewKey`:
+  the chosen provider view, else `base`), so converted views and the base share
+  one load. `ResolveOptions.viewValues`, `createWidgetLoader({ viewValues })`,
+  `loader.setView`, `useWidgets({ viewValues })` and `viewValuesFromLayout` carry
+  the viewer's choice (an empty string is "no choice").
+- Each provider view is cached under `key?view=<view>` (plus any option suffix);
+  `base` keeps the plain key, so existing caches stay valid.
+- Loaded widgets carry `view` (which view the data is for). `applyView` shows
+  `loading` rather than data of the wrong shape while a switch is in flight.
+- `sort` and `columns` client options are skipped for provider views; they name
+  the base payload's columns.
+- Not built: a detail view per provider view (the detail provider still loads the
+  widget's whole list), and passing the view to `loadDetail`.
 
 Phase 4 is built. Differences from the sketch above:
 
