@@ -1,7 +1,7 @@
 # Design: locked widgets and an edit mode
 
-- **Status:** Built: phase 1 (locks, 0.8.0) and phase 2 (edit mode, 0.9.0). Drag
-  and drop (phase 3) is not.
+- **Status:** Built: phase 1 (locks, 0.8.0), phase 2 (edit mode, 0.9.0) and
+  phase 3 (drag and drop, the `draggable` prop).
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
 - **Author:** Richard McQuiston (drafted with Claude Code)

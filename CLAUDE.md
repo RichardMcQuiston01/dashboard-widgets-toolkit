@@ -36,6 +36,7 @@ src/
     detail.ts           detail view data: queryRows, query (de)serialisation, validation
     layout.ts           DashboardLayout: parse/serialise, order, hide, minimize
     pages.ts            pages of widgets: helpers, capacity, normalizeLayout
+    reorder.ts          drag and drop decisions: dropTargetKey, reorderOnto, autoScrollStep
     options.ts          declared options: resolve values, cache suffix, client sort/columns
     settings.ts         viewer settings in the layout: title, width, view, option values
     views.ts            alternate views: conversions, applyView, effectiveViewKey
@@ -58,6 +59,7 @@ src/
     edit-menu.tsx       WidgetEditMenu: the Arrange menu on each card
     detail.tsx          WidgetDetailDialog and useDetailData
     use-widgets.ts      useWidgets: loader hook (optionValues, viewValues, polling)
+    use-reorder.ts      usePointerReorder: pointer/touch drag of cards by their handle
     options-dialog.tsx  WidgetOptionsDialog: title, width, view, declared options
     confirm.tsx         InlineConfirm (✓ / ✕)
     use-stored-layout.ts useStoredLayout: persistence + Dashboard
@@ -85,10 +87,10 @@ documented in the code and README, which win if they disagree.
   deep links in the dialog, page-size choice and column visibility.
 - `docs/design/widget-extensions.md`: async loading shipped (`useWidgets`,
   `createWidgetLoader`). Still planned: adapters and payload builders,
-  drag-and-drop reordering, push streams.
+  push streams. Drag-and-drop reordering shipped (`reorder.ts`, `use-reorder.ts`).
 - `docs/design/lock-and-edit-mode.md`: locked widgets (`locked`, pinned slots,
   `enforceLocks`, `overrideLocks`) and the Customize/Done edit mode
-  (`editMode="toggle"`, Reset, Revert) are built; drag and drop is not.
+  (`editMode="toggle"`, Reset, Revert) and drag and drop (`draggable`) are built.
 - `docs/design/widget-options-views-clones.md`: declared options with
   defaults are built (`options.ts`, `setOptions`, `optionValues`), and so is
   the Options dialog (title, width, options) with `layout.settings`

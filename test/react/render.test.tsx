@@ -856,6 +856,34 @@ void describe('WidgetGrid and Dashboard', () => {
       assert.match(markup, /aria-label="Hide Revenue"/);
     });
 
+    void it('draggable adds a handle to each unlocked card, only while controls show', () => {
+      const off = render();
+      assert.doesNotMatch(off, /dwt-drag-handle/);
+      assert.doesNotMatch(off, /Reorder /);
+      const on = render({ draggable: true });
+      assert.match(on, /aria-label="Reorder Low stock"/);
+      assert.match(on, /class="[^"]*dwt-drag-handle[^"]*"/);
+      // The locked (pinned) card has no handle.
+      assert.doesNotMatch(on, /aria-label="Reorder Revenue"/);
+      // The move buttons stay as the alternative.
+      assert.match(on, /aria-label="Hide Low stock"/);
+      assert.match(on, /role="status"/);
+      // Toggle mode: no handles until editing starts.
+      const closed = render({ draggable: true, editMode: 'toggle' });
+      assert.doesNotMatch(closed, /dwt-drag-handle/);
+      const editing = render({
+        draggable: true,
+        editMode: 'toggle',
+        defaultEditing: true,
+      });
+      assert.match(editing, /aria-label="Reorder Low stock"/);
+      // Read-only dashboards never show handles.
+      assert.doesNotMatch(
+        renderToStaticMarkup(<Dashboard widgets={lockedWidgets} draggable />),
+        /dwt-drag-handle/
+      );
+    });
+
     void it('has no toolbar without onLayoutChange', () => {
       const markup = renderToStaticMarkup(
         <Dashboard widgets={lockedWidgets} editMode="toggle" />

@@ -15,6 +15,7 @@ export * from './layout.js';
 export * from './loader.js';
 export * from './options.js';
 export * from './pages.js';
+export * from './reorder.js';
 export * from './payload.js';
 export * from './resolve.js';
 export * from './result.js';

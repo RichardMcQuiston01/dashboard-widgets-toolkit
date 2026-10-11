@@ -66,10 +66,8 @@
 
 ## Next
 
-- **Drag-and-drop reordering** in `Dashboard`, on top of `moveWidget`, with
-  the move buttons kept as the keyboard-accessible path. See
-  [docs/design/widget-extensions.md](./docs/design/widget-extensions.md).
-- **Pages, the rest.** Swipe between pages, drag a widget onto a page tab, and
+- **Pages, the rest.** Swipe between pages, drag a widget onto a page tab (the
+  `draggable` reordering works within a page), and
   payload release (`retain`/`release`) for far-away pages. See
   [docs/design/widget-pages.md](./docs/design/widget-pages.md).
 - **Field types** for table cells: `email`, `url`, `image`, `color` and `custom`
