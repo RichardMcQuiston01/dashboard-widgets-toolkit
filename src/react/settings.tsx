@@ -95,6 +95,18 @@ export interface DashboardLabels {
   readonly menuHide: string;
   /** The card menu's item that opens the Options dialog. */
   readonly menuOptions: string;
+  /** Arrange menu item that makes a clone of the widget. */
+  readonly menuDuplicate: string;
+  readonly duplicate: (title: string) => string;
+  /** Accessible name of Duplicate when the page has no room; `reason` says why. */
+  readonly duplicateBlocked: (title: string, reason: string) => string;
+  readonly duplicated: (title: string) => string;
+  /** Options dialog button that deletes a clone. */
+  readonly optionsDelete: string;
+  readonly confirmDelete: string;
+  readonly deleted: (title: string) => string;
+  /** The title suggested for a clone shown with another view. */
+  readonly suggestedViewTitle: (title: string, viewLabel: string) => string;
   /** The Options dialog: heading, fields and buttons. */
   readonly optionsFor: (title: string) => string;
   readonly optionsTitleField: string;
@@ -201,6 +213,15 @@ export const DEFAULT_LABELS: DashboardLabels = {
   menuMoveLater: 'Move later',
   menuHide: 'Hide',
   menuOptions: 'Options…',
+  menuDuplicate: 'Duplicate',
+  duplicate: (title) => `Duplicate ${title}`,
+  duplicateBlocked: (title, reason) =>
+    `Duplicate ${title} (unavailable: ${reason})`,
+  duplicated: (title) => `Duplicated ${title}`,
+  optionsDelete: 'Delete this widget',
+  confirmDelete: 'Delete this widget? Its settings are lost.',
+  deleted: (title) => `Deleted ${title}`,
+  suggestedViewTitle: (title, viewLabel) => `${title} ${viewLabel}`,
   optionsFor: (title) => `Options for ${title}`,
   optionsTitleField: 'Title',
   titleInUse: 'Another widget already uses this title.',

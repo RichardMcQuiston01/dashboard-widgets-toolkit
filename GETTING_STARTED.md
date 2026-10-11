@@ -522,6 +522,72 @@ there is no second load.
 - **Not yet.** Views supplied by a provider (a different payload per view) are
   planned; today every view needs `convert`.
 
+### Clones
+
+A viewer can **Duplicate** a widget from its Arrange menu to keep it twice with
+different settings: another view, width, title or option values. The clone is
+stored as `{ key, from }` in `layout.clones` (key `orders#1`, `orders#2`, ...),
+its settings under its own key in `layout.settings`, and it loads through the
+original's provider. Its Options dialog opens straight away; picking another
+view suggests a title such as "Recent Orders Chart", otherwise the title is
+"Recent Orders (#1)". Clones have a **Delete this widget** button in the
+dialog (with the usual ✓ / ✕ confirmation); originals can only be hidden.
+
+Clones are widgets as far as loading is concerned, so give `useWidgets` the
+definitions with the clones added:
+
+```tsx
+import {
+  normalizeLayout,
+  optionValuesFromLayout,
+  withClones,
+} from '@richardmcquiston01/dashboard-widgets-toolkit/core';
+
+const all = useMemo(
+  () => withClones(definitions, stored.layout),
+  [stored.layout.clones]
+);
+const optionValues = useMemo(
+  () => optionValuesFromLayout(all, stored.layout),
+  [all, stored.layout]
+);
+const { widgets } = useWidgets(all, providers, context, { optionValues });
+
+<Dashboard
+  widgets={widgets}
+  layout={stored.layout}
+  onLayoutChange={stored.setLayout}
+  editMode="toggle"
+/>;
+```
+
+- **Providers.** A clone's definition has `sourceKey` (the original's key), so
+  the loader calls `providers[sourceKey]`. A provider that switches on
+  `definition.key` should use `definition.sourceKey ?? definition.key`. The
+  cache key also uses the original's key plus the option values, so a clone
+  with the same option values reuses the original's cached payload.
+- **Adding or deleting a clone** changes the definitions, so `useWidgets` starts
+  its loader again and every card reloads (from `cache` when you pass one). Pass
+  a `cache` to make this quick.
+- **Rules.** A clone of a clone is a clone of the original. Clones never inherit
+  locks, so the viewer can always move, hide and delete them. A clone exists
+  only while its original does; `normalizeLayout` drops the rest, along with
+  their settings. A clone key that matches a real widget key is ignored.
+- **Locks.** `locked: { clone: true }` (included in `locked: true`) hides Duplicate
+  for that widget and makes `normalizeLayout` drop clones of it. `overrideLocks`
+  lifts it for an administrator.
+- **Room.** In a paged layout Duplicate is disabled, with the reason in its
+  accessible name, when the page can't hold the clone's width (about 4 rows by
+  default). A layout without pages has no limit.
+- **Reset layout** keeps clones (and their settings); **Revert changes** restores
+  the pre-edit layout, clones included.
+- **Without the UI.** `duplicateWidget(definitions, layout, key)` returns the new
+  layout and the clone's key (or an error saying why not), `deleteClone(layout,
+key)`, `canDuplicate`, `withClones`, `cleanClones`, `nextCloneKey` and
+  `suggestedViewTitle` are plain functions. Labels: `menuDuplicate`, `duplicate`,
+  `duplicateBlocked`, `duplicated`, `optionsDelete`, `confirmDelete`, `deleted`
+  and `suggestedViewTitle`.
+
 ### Locked widgets
 
 Set `locked: true` on a definition when viewers must not rearrange it (a
