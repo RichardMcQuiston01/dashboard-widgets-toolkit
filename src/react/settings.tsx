@@ -104,6 +104,10 @@ export interface DashboardLabels {
   /** e.g. "6 of 12 (1/2)". */
   readonly widthOption: (width: number, share: string) => string;
   readonly optionsFlexible: string;
+  /** Label of the View field in the Options dialog. */
+  readonly optionsViewField: string;
+  /** A view's name when it is the one shown until the viewer picks, e.g. "Table (default)". */
+  readonly viewDefault: (viewLabel: string) => string;
   readonly optionsDeclared: string;
   readonly apply: string;
   readonly cancel: string;
@@ -204,6 +208,8 @@ export const DEFAULT_LABELS: DashboardLabels = {
   widthDefault: 'Default',
   widthOption: (width, share) => `${width} of 12 (${share})`,
   optionsFlexible: 'Grow to fill empty space in the row',
+  optionsViewField: 'View',
+  viewDefault: (viewLabel) => `${viewLabel} (default)`,
   optionsDeclared: 'Data',
   apply: 'Apply',
   cancel: 'Cancel',

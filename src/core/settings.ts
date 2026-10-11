@@ -11,6 +11,7 @@ import {
   type WidgetFill,
 } from './definition.js';
 import { MAX_WIDGET_WIDTH, MIN_WIDGET_WIDTH, isWidgetWidth } from './grid.js';
+import { BASE_VIEW_KEY, findView } from './views.js';
 import {
   coerceOptionValue,
   defaultOptionValue,
@@ -30,6 +31,8 @@ export interface WidgetViewerSettings {
   readonly flexible?: boolean;
   /** Values for declared options, by option key. */
   readonly options?: Readonly<Record<string, OptionValue>>;
+  /** The view to show: `base` or a key from the definition's `views`. */
+  readonly view?: string;
 }
 
 /** Viewer settings by widget key. */
@@ -58,6 +61,8 @@ export type SettingsItem = Pick<WidgetDefinition, 'key'> &
       | 'fill'
       | 'locked'
       | 'options'
+      | 'views'
+      | 'defaultView'
     >
   >;
 
@@ -88,6 +93,7 @@ function parseOne(raw: unknown): WidgetViewerSettings | undefined {
   const width: unknown = raw['width'];
   const flexible: unknown = raw['flexible'];
   const options: unknown = raw['options'];
+  const view: unknown = raw['view'];
   const cleanTitle: string =
     typeof title === 'string'
       ? title.trim().slice(0, MAX_WIDGET_TITLE_LENGTH)
@@ -104,6 +110,9 @@ function parseOne(raw: unknown): WidgetViewerSettings | undefined {
     ...(isWidgetWidth(width) ? { width } : {}),
     ...(typeof flexible === 'boolean' ? { flexible } : {}),
     ...(Object.keys(chosen).length === 0 ? {} : { options: chosen }),
+    ...(typeof view === 'string' && view !== '' && view.length <= 80
+      ? { view }
+      : {}),
   };
   return Object.keys(settings).length === 0 ? undefined : settings;
 }
@@ -143,6 +152,7 @@ export function serializeSettings(
       ...(one.options === undefined || Object.keys(one.options).length === 0
         ? {}
         : { options: { ...one.options } }),
+      ...(one.view === undefined ? {} : { view: one.view }),
     };
     if (Object.keys(piece).length > 0) out[key] = piece;
   }
@@ -319,6 +329,8 @@ export interface WidgetSettingsPatch {
   readonly flexible?: boolean | undefined;
   /** Replaces all of the widget's option values (`undefined` clears them). */
   readonly options?: Readonly<Record<string, OptionValue>> | undefined;
+  /** The view key (`base` or a declared view); `undefined` clears it. */
+  readonly view?: string | undefined;
 }
 
 function sameSettings(
@@ -330,6 +342,7 @@ function sameSettings(
     a?.title === b?.title &&
     a?.width === b?.width &&
     a?.flexible === b?.flexible &&
+    a?.view === b?.view &&
     sameOptionValues(a?.options ?? {}, b?.options ?? {})
   );
 }
@@ -348,7 +361,13 @@ export function setWidgetSettings<L extends object>(
 ): LayoutWithSettings<L> {
   const before: WidgetViewerSettings | undefined = layout.settings?.[key];
   const draft: Record<string, unknown> = { ...before };
-  for (const field of ['title', 'width', 'flexible', 'options'] as const) {
+  for (const field of [
+    'title',
+    'width',
+    'flexible',
+    'options',
+    'view',
+  ] as const) {
     if (!(field in patch)) continue;
     const value: unknown = patch[field];
     if (value === undefined) {
@@ -383,6 +402,7 @@ export function clearWidgetSettings<L extends object>(
     width: undefined,
     flexible: undefined,
     options: undefined,
+    view: undefined,
   });
 }
 
@@ -486,6 +506,11 @@ export function normalizeSettings<D extends SettingsItem, L extends object>(
         : { width: Math.min(range.max, Math.max(range.min, one.width)) }),
       ...(one.flexible === undefined ? {} : { flexible: one.flexible }),
       ...(Object.keys(chosen).length === 0 ? {} : { options: chosen }),
+      ...(one.view !== undefined &&
+      (one.view === BASE_VIEW_KEY ||
+        findView(definition, one.view) !== undefined)
+        ? { view: one.view }
+        : {}),
     };
     if (Object.keys(next).length > 0) {
       cleaned[definition.key] = sameSettings(one, next) ? one : next;
