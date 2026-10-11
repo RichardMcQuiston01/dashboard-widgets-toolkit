@@ -1,7 +1,8 @@
 # Design: widget detail view
 
-- **Status:** Core (0.4.0) and client-mode React (0.4.0, 0.5.0) are built. Server
-  mode (`mode: 'server'`, `totalRows`), URL deep links, page-size choice and column
+- **Status:** Core (0.4.0), client-mode React (0.4.0, 0.5.0) and server mode
+  (`mode: 'server'`, `totalRows`, debounced inputs, busy state, last-page
+  clamp) are built. URL deep links in the dialog, page-size choice and column
   visibility are still planned.
 - **Date:** 2026-10-06
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.3.x

@@ -5,8 +5,10 @@ import {
   defaultDetailQuery,
   deriveDetailData,
   parseDetailQuery,
+  clampServerQuery,
   queryRows,
   resolveDetailOptions,
+  serverPage,
   resolveTableControls,
   tableDetailData,
   serializeDetailQuery,
@@ -424,5 +426,69 @@ void describe('table controls', () => {
         /tableControls only applies to TABLE widgets, but kind is "KPI"/
       );
     }
+  });
+});
+
+void describe('server mode', () => {
+  const page: DetailData = {
+    columns: [{ key: 'name', label: 'Name' }],
+    rows: [[{ text: 'a' }], [{ text: 'b' }]],
+    totalRows: 25,
+  };
+  const query: DetailQuery = { page: 2, pageSize: 10 };
+
+  void it('serverPage trusts the rows and counts pages from totalRows', () => {
+    const result = serverPage(page, query);
+    assert.ok(result.ok);
+    assert.equal(result.value.rows.length, 2);
+    assert.equal(result.value.totalRows, 25);
+    assert.equal(result.value.pageCount, 3);
+    assert.equal(result.value.page, 2);
+  });
+
+  void it('serverPage fails without totalRows', () => {
+    const { totalRows: _total, ...withoutTotal } = page;
+    const result = serverPage(withoutTotal, query);
+    assert.ok(!result.ok);
+    assert.match(result.error, /needs totalRows/);
+  });
+
+  void it('clampServerQuery asks again for the last page when the data shrank', () => {
+    assert.equal(clampServerQuery(page, query), undefined);
+    const shrunk = clampServerQuery(
+      { ...page, rows: [], totalRows: 12 },
+      { page: 5, pageSize: 10 }
+    );
+    assert.deepEqual(shrunk, { page: 2, pageSize: 10 });
+    const empty = clampServerQuery(
+      { ...page, rows: [], totalRows: 0 },
+      { page: 3, pageSize: 10 }
+    );
+    assert.deepEqual(empty, { page: 1, pageSize: 10 });
+  });
+
+  void it('validateDetailData checks the answer is one page in server mode', () => {
+    assert.ok(
+      validateDetailData(page, 'D', { mode: 'server', pageSize: 10 }).ok
+    );
+    const missing = validateDetailData(
+      { columns: page.columns, rows: page.rows },
+      'D',
+      { mode: 'server' }
+    );
+    assert.ok(!missing.ok);
+    assert.match(missing.error, /server mode needs totalRows/);
+    const tooMany = validateDetailData(page, 'D', {
+      mode: 'server',
+      pageSize: 1,
+    });
+    assert.ok(!tooMany.ok);
+    assert.match(tooMany.error, /2 rows came back for a page size of 1/);
+    const beyond = validateDetailData({ ...page, totalRows: 1 }, 'D', {
+      mode: 'server',
+    });
+    assert.ok(!beyond.ok);
+    assert.match(beyond.error, /totalRows is 1 but 2 rows/);
+    assert.ok(validateDetailData({ columns: page.columns, rows: [] }, 'D').ok);
   });
 });

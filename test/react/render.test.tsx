@@ -527,6 +527,35 @@ void describe('detail view', () => {
     assert.match(markup, /aria-label="Sort by Sold"/);
   });
 
+  void it('server mode shows the page it was given, with totalRows driving the count and pager', () => {
+    const markup = html(
+      <WidgetDetail
+        title="Products"
+        mode="server"
+        busy
+        data={{ ...data, totalRows: 312 }}
+        query={{ page: 3, pageSize: 2, sort: query.sort }}
+        onQueryChange={() => undefined}
+      />
+    );
+    // Both rows shown (not re-sorted, filtered or sliced), count from totalRows.
+    assert.match(markup, /Jig/);
+    assert.match(markup, /Coaster/);
+    assert.match(markup, /Showing 5–6 of 312 results/);
+    assert.match(markup, /Page 3 of 156/);
+    assert.match(markup, /aria-busy="true"/);
+    const missing = html(
+      <WidgetDetail
+        title="Products"
+        mode="server"
+        data={data}
+        query={query}
+        onQueryChange={() => undefined}
+      />
+    );
+    assert.match(missing, /needs totalRows/);
+  });
+
   void it('shows loading, error with retry, and no-results states', () => {
     const noop = (): void => undefined;
     const loading = html(
