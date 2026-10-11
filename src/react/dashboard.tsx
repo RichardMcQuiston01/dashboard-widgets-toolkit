@@ -59,6 +59,11 @@ import {
   type WidgetViewerSettings,
 } from '../core/settings.js';
 import type { DashboardWidget } from '../core/resolve.js';
+import {
+  canDuplicate,
+  deleteClone,
+  duplicateWidget,
+} from '../core/duplicate.js';
 import { applyView } from '../core/views.js';
 import {
   defaultDetailQuery,
@@ -711,6 +716,38 @@ function DashboardInner({
     change(withPageLayout(layout, activeKey, next));
   }
 
+  /** The Arrange menu's Duplicate item, disabled when the page has no room. */
+  function duplicateItems(
+    definition: WidgetDefinition,
+    key: string,
+    title: string
+  ): EditMenuItem[] {
+    const sources: WidgetDefinition[] = [...authorDefinitions.values()];
+    if (!canDuplicate(sources, key, { overrideLocks })) return [];
+    const trial = duplicateWidget(sources, layout, key, {
+      overrideLocks,
+      ...roomOptions,
+    });
+    void definition;
+    return [
+      {
+        kind: 'action',
+        key: 'duplicate',
+        label: labels.menuDuplicate,
+        ariaLabel: trial.ok
+          ? labels.duplicate(title)
+          : labels.duplicateBlocked(title, trial.error),
+        disabled: !trial.ok,
+        onSelect: () => {
+          if (!trial.ok) return;
+          change(trial.value.layout);
+          setOptionsKey(trial.value.key);
+          setAnnouncement(labels.duplicated(title));
+        },
+      },
+    ];
+  }
+
   function selectPage(pageKey: string): void {
     const index: number = pages.findIndex((page) => page.key === pageKey);
     if (index === -1) return;
@@ -853,13 +890,18 @@ function DashboardInner({
         definitions,
         defaultLayout ?? EMPTY_LAYOUT
       );
-      const { settings: _defaultSettings, ...arrangement } = arranged;
+      const {
+        settings: _defaultSettings,
+        clones: _defaultClones,
+        ...arrangement
+      } = arranged;
       void _defaultSettings;
-      change(
-        layout.settings === undefined
-          ? arrangement
-          : { ...arrangement, settings: layout.settings }
-      );
+      void _defaultClones;
+      change({
+        ...arrangement,
+        ...(layout.settings === undefined ? {} : { settings: layout.settings }),
+        ...(layout.clones === undefined ? {} : { clones: layout.clones }),
+      });
     } else if (yes && which === 'revert' && snapshot !== undefined) {
       change(snapshot);
     }
@@ -1181,6 +1223,7 @@ function DashboardInner({
                         onSelect: () => setOptionsKey(key),
                       },
                     ]),
+                ...duplicateItems(definition, key, title),
                 ...pageTargets,
                 ...(lock.hide
                   ? []
@@ -1283,6 +1326,28 @@ function DashboardInner({
             {...(snapshot === undefined
               ? {}
               : { baseline: { settings: snapshot.settings?.[optionsKey] } })}
+            {...(authorDefinitions.get(optionsKey)?.sourceKey === undefined
+              ? {}
+              : {
+                  sourceTitle:
+                    effectiveWidgets.find(
+                      (w) =>
+                        w.definition.key ===
+                        authorDefinitions.get(optionsKey)?.sourceKey
+                    )?.definition.title ??
+                    authorDefinitions.get(optionsKey)?.sourceKey ??
+                    '',
+                  onDelete: () => {
+                    change(deleteClone(layout, optionsKey));
+                    setAnnouncement(
+                      labels.deleted(
+                        effectiveWidgets.find(
+                          (w) => w.definition.key === optionsKey
+                        )?.definition.title ?? optionsKey
+                      )
+                    );
+                  },
+                })}
             isTitleInUse={(title) =>
               isTitleInUse(
                 widgets.map((w) => w.definition),

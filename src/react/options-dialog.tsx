@@ -45,6 +45,13 @@ export interface WidgetOptionsDialogProps {
   readonly baseline?: { readonly settings: WidgetViewerSettings | undefined };
   /** Whether another widget already shows this title; the dialog refuses it. */
   readonly isTitleInUse?: (title: string) => boolean;
+  /**
+   * For a clone: its original's title, so choosing another view can suggest
+   * a title like "Recent Orders Line Chart".
+   */
+  readonly sourceTitle?: string;
+  /** For a clone: shows "Delete this widget"; called after the viewer confirms. */
+  readonly onDelete?: () => void;
   /** Called after the viewer confirms Apply, Reset or Revert. */
   readonly onApply: (patch: WidgetSettingsPatch) => void;
   readonly onClose: () => void;
@@ -58,7 +65,7 @@ interface Draft {
   readonly view: string | undefined;
 }
 
-type Confirming = 'apply' | 'discard' | 'reset' | 'revert';
+type Confirming = 'apply' | 'discard' | 'reset' | 'revert' | 'delete';
 
 function draftFrom(settings: WidgetViewerSettings | undefined): Draft {
   return {
@@ -153,6 +160,8 @@ export function WidgetOptionsDialog({
   settings,
   baseline,
   isTitleInUse,
+  sourceTitle,
+  onDelete,
   onApply,
   onClose,
 }: WidgetOptionsDialogProps): ReactElement {
@@ -165,6 +174,9 @@ export function WidgetOptionsDialog({
   const [confirming, setConfirming] = useState<Confirming | undefined>(
     undefined
   );
+  // The title this dialog filled in from a view's name, so a later change of
+  // view may replace it but never a title the viewer typed.
+  const autoTitle = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const dialog: HTMLDialogElement | null = dialogRef.current;
@@ -217,6 +229,9 @@ export function WidgetOptionsDialog({
     } else if (which === 'reset') {
       onApply(EMPTY_PATCH);
       onClose();
+    } else if (which === 'delete') {
+      onDelete?.();
+      onClose();
     } else if (baseline !== undefined) {
       onApply(patchFrom(definition, draftFrom(baseline.settings)));
       onClose();
@@ -235,6 +250,7 @@ export function WidgetOptionsDialog({
     discard: labels.confirmDiscard,
     reset: labels.confirmResetOptions,
     revert: labels.confirmRevertOptions,
+    delete: labels.confirmDelete,
   };
 
   const widths: number[] = [];
@@ -340,7 +356,40 @@ export function WidgetOptionsDialog({
               value={effectiveViewKey(definition, draft.view)}
               onChange={(event) => {
                 const value: string = event.target.value;
-                setDraft((current) => ({ ...current, view: value }));
+                setDraft((current) => {
+                  const next: Draft = { ...current, view: value };
+                  if (
+                    sourceTitle === undefined ||
+                    (current.title.trim() !== '' &&
+                      current.title !== autoTitle.current)
+                  ) {
+                    return next;
+                  }
+                  const label: string | undefined = views.find(
+                    (view) => view.key === value
+                  )?.label;
+                  const startView: string = effectiveViewKey(
+                    definition,
+                    settings?.view
+                  );
+                  if (label === undefined || value === startView) {
+                    autoTitle.current = undefined;
+                    return { ...next, title: '' };
+                  }
+                  let suggestion: string = labels.suggestedViewTitle(
+                    sourceTitle,
+                    label
+                  );
+                  for (
+                    let n = 2;
+                    isTitleInUse?.(suggestion) === true && n < 50;
+                    n += 1
+                  ) {
+                    suggestion = `${labels.suggestedViewTitle(sourceTitle, label)} (#${n})`;
+                  }
+                  autoTitle.current = suggestion;
+                  return { ...next, title: suggestion };
+                });
               }}
             >
               {views.map((view) => (
@@ -402,6 +451,15 @@ export function WidgetOptionsDialog({
                   onClick={() => setConfirming('revert')}
                 >
                   {labels.revertToBeforeEditing}
+                </button>
+              )}
+              {onDelete !== undefined && (
+                <button
+                  type="button"
+                  className={slot('button', 'dwt-button')}
+                  onClick={() => setConfirming('delete')}
+                >
+                  {labels.optionsDelete}
                 </button>
               )}
             </>

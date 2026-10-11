@@ -212,9 +212,11 @@ export function cacheKeyFor(
   options: ResolveOptions,
   values?: OptionValues
 ): string {
+  // A clone caches under its original's key, so it shares what the original
+  // loaded whenever their option values match.
   const base: string =
     options.cacheKey === undefined
-      ? definition.key
+      ? (definition.sourceKey ?? definition.key)
       : options.cacheKey(definition);
   return values === undefined
     ? base
@@ -405,8 +407,11 @@ export async function resolveWidgets<C extends WidgetContext>(
     visible.map((definition) =>
       resolveWidget(
         definition,
-        Object.prototype.hasOwnProperty.call(providers, definition.key)
-          ? providers[definition.key]
+        Object.prototype.hasOwnProperty.call(
+          providers,
+          definition.sourceKey ?? definition.key
+        )
+          ? providers[definition.sourceKey ?? definition.key]
           : undefined,
         context,
         options

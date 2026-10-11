@@ -210,6 +210,7 @@ void describe('resolveWidgetLock', () => {
       hide: true,
       minimize: true,
       options: true,
+      clone: true,
     });
   });
 
@@ -219,6 +220,7 @@ void describe('resolveWidgetLock', () => {
       hide: false,
       minimize: false,
       options: false,
+      clone: false,
     };
     assert.deepEqual(resolveWidgetLock({}), none);
     assert.deepEqual(resolveWidgetLock({ locked: false }), none);
@@ -232,6 +234,7 @@ void describe('resolveWidgetLock', () => {
         hide: true,
         minimize: false,
         options: false,
+        clone: false,
       }
     );
     assert.equal(

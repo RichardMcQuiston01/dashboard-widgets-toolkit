@@ -7,6 +7,7 @@
  * Generalised from Maker Toolkit's desktop `dashboard-layout.ts`.
  */
 
+import { parseClones, serializeClones, type WidgetClone } from './clones.js';
 import { resolveWidgetLock, type WidgetLock } from './definition.js';
 import {
   parseSettings,
@@ -42,6 +43,12 @@ export interface DashboardLayout {
    * widget key. See `settings.ts`. Absent when they chose nothing.
    */
   readonly settings?: LayoutSettings;
+  /**
+   * Widgets the viewer made from others, as `{ key, from }`. Their settings
+   * live in `settings` under their own key. See `clones.ts`. Absent when
+   * there are none.
+   */
+  readonly clones?: readonly WidgetClone[];
 }
 
 /** One page of a paged layout: the same lists as a layout, plus a name. */
@@ -107,7 +114,13 @@ export function parseLayout(raw: unknown): DashboardLayout {
   const settings: LayoutSettings | undefined = parseSettings(
     record['settings']
   );
-  const withSettings = settings === undefined ? {} : { settings };
+  const clones: readonly WidgetClone[] | undefined = parseClones(
+    record['clones']
+  );
+  const extras = {
+    ...(settings === undefined ? {} : { settings }),
+    ...(clones === undefined ? {} : { clones }),
+  };
   if (pages.length > 0) {
     // With pages, the pages own placement and the top-level lists stay empty.
     return {
@@ -115,15 +128,15 @@ export function parseLayout(raw: unknown): DashboardLayout {
       hidden: EMPTY_LAYOUT.hidden,
       minimized: EMPTY_LAYOUT.minimized,
       pages,
-      ...withSettings,
+      ...extras,
     };
   }
   if (order.length === 0 && hidden.length === 0 && minimized.length === 0) {
-    return settings === undefined
+    return Object.keys(extras).length === 0
       ? EMPTY_LAYOUT
-      : { ...EMPTY_LAYOUT, settings };
+      : { ...EMPTY_LAYOUT, ...extras };
   }
-  return { order, hidden, minimized, ...withSettings };
+  return { order, hidden, minimized, ...extras };
 }
 
 function parsePages(value: unknown): LayoutPage[] {
@@ -189,6 +202,9 @@ export function serializeLayout(layout: DashboardLayout): string {
     ...(serializeSettings(layout.settings) === undefined
       ? {}
       : { settings: serializeSettings(layout.settings) }),
+    ...(serializeClones(layout.clones) === undefined
+      ? {}
+      : { clones: serializeClones(layout.clones) }),
   });
 }
 

@@ -166,8 +166,12 @@ export function createWidgetLoader<C extends WidgetContext>(
     }
     if (!isCurrent()) return;
 
-    const provider = Object.prototype.hasOwnProperty.call(providers, key)
-      ? providers[key]
+    const providerKey: string = definition.sourceKey ?? key;
+    const provider = Object.prototype.hasOwnProperty.call(
+      providers,
+      providerKey
+    )
+      ? providers[providerKey]
       : undefined;
     const result = await resolveWidgetUnapplied(definition, provider, context, {
       ...runOptions,
