@@ -35,7 +35,7 @@
   `dateRange`, `color`, `sort`, `columns`), passed to the provider, with
   option-aware cache keys and client-side sort and columns (0.11.0).
 - One Arrange menu per card (0.12.0).
-- Theming: `createTheme` and a documented `--dwt-*` token reference (0.13.0).
+- Theming: `createTheme` and a documented `--dwt-*` token reference (0.13.0), then `WidgetTheme` and the `Dashboard` `theme` prop, `checkTheme` (contrast and color-vision checks) and `themePresets`.
 - Options dialog and viewer settings: title, width, Grow to fill and the
   declared options, stored in the layout as `layout.settings`, with
   `minWidth`/`maxWidth` limits and `locked.options` (0.14.0).
@@ -53,9 +53,6 @@
   server-mode detail caching by query, and a detail view for each
   provider-supplied view. Server mode and URL deep links are built. See
   [docs/design/detail-view.md](./docs/design/detail-view.md).
-- **Theming, the rest.** A `WidgetTheme` React wrapper, contrast and
-  color-vision checks (`checkTheme`) and presets. See
-  [docs/design/theming.md](./docs/design/theming.md).
 - **Storage, the rest.** The stored active page and backup history (`backup` and
   `onBackup`), and a `data-dwt-default-title` attribute for reverting renames. See
   [docs/design/storage-adapters.md](./docs/design/storage-adapters.md) and

@@ -14,6 +14,7 @@ import {
 } from '../../src/core/storage.js';
 import type { GraphWidgetData, WidgetData } from '../../src/core/payload.js';
 import type { DashboardWidget } from '../../src/core/resolve.js';
+import { createTheme, themePresets } from '../../src/core/index.js';
 import {
   Dashboard,
   GraphWidget,
@@ -23,6 +24,7 @@ import {
   WidgetGrid,
   WidgetLink,
   WidgetSettingsProvider,
+  WidgetTheme,
   useStoredLayout,
   useWidgets,
   barPath,
@@ -1479,5 +1481,74 @@ void describe('WidgetEditMenu', () => {
       /<button[^>]*role="menuitem"[^>]*>Stock \(3 rows free\)<\/button>/
     );
     assert.match(markup, /aria-label="Hide Alpha"[^>]*>Hide<\/button>/);
+  });
+});
+
+void describe('WidgetTheme', () => {
+  function themeOf(options: Parameters<typeof createTheme>[0]) {
+    const result = createTheme(options);
+    assert.ok(result.ok, result.ok ? '' : result.error);
+    return result.value;
+  }
+  const brand = themeOf({
+    name: 'brand',
+    light: { surface: '#ffffff', link: '#0b5cad' },
+  });
+
+  void it('renders the style unescaped and wraps children in the scope attribute', () => {
+    const markup = renderToStaticMarkup(
+      <WidgetTheme theme={brand}>
+        <p>inside</p>
+      </WidgetTheme>
+    );
+    assert.match(markup, /<style data-dwt-theme-style="brand">/);
+    // The selector's quotes survive: React would escape them in a text child.
+    assert.match(markup, /\[data-dwt-theme='brand'\] \.dwt-dashboard/);
+    assert.match(markup, /--dwt-link: #0b5cad;/);
+    assert.match(markup, /<div data-dwt-theme="brand"><p>inside<\/p><\/div>/);
+  });
+
+  void it('passes a nonce and a class name through', () => {
+    const markup = renderToStaticMarkup(
+      <WidgetTheme theme={brand} nonce="abc123" className="shell">
+        <i />
+      </WidgetTheme>
+    );
+    assert.match(markup, /<style data-dwt-theme-style="brand" nonce="abc123">/);
+    assert.match(markup, /<div data-dwt-theme="brand" class="shell">/);
+  });
+
+  void it('renders only the style for a custom scope', () => {
+    const custom = themeOf({
+      ...themePresets.compact,
+      name: 'tight',
+      scope: '.app',
+    });
+    const markup = renderToStaticMarkup(
+      <WidgetTheme theme={custom} className="ignored">
+        <b>kids</b>
+      </WidgetTheme>
+    );
+    assert.match(markup, /\.app \.dwt-dashboard/);
+    assert.doesNotMatch(markup, /data-dwt-theme=/);
+    assert.doesNotMatch(markup, /ignored/);
+    assert.match(markup, /<b>kids<\/b>/);
+  });
+
+  void it('Dashboard themes itself with the theme prop and not without it', () => {
+    const widget: DashboardWidget = {
+      status: 'loading',
+      definition: { key: 'a', title: 'A', kind: 'TEXT' },
+    };
+    const themed = renderToStaticMarkup(
+      <Dashboard widgets={[widget]} theme={brand} />
+    );
+    assert.match(
+      themed,
+      /<div data-dwt-theme="brand"><div class="dwt-dashboard/
+    );
+    assert.match(themed, /data-dwt-theme-style="brand"/);
+    const plain = renderToStaticMarkup(<Dashboard widgets={[widget]} />);
+    assert.doesNotMatch(plain, /data-dwt-theme/);
   });
 });

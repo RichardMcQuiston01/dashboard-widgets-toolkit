@@ -44,6 +44,8 @@ src/
     duplicate.ts        duplicateWidget, deleteClone, nextCloneKey
     storage.ts          StorageAdapter contract, wrappers, createLayoutPersistence
     theme.ts            createTheme: validated, scoped CSS for the --dwt-* tokens
+    theme-check.ts      checkTheme: contrast and color-vision warnings (+ color.ts, theme-defaults.ts)
+    theme-presets.ts    themePresets: highContrast, compact, mono
     format.ts           Intl formatting, percent change, kpiDelta
     scale.ts            niceStep, niceDomain, labelStride
     url.ts              isSafeHref / isSafeImageUrl
@@ -60,6 +62,7 @@ src/
     detail.tsx          WidgetDetailDialog and useDetailData
     use-widgets.ts      useWidgets: loader hook (optionValues, viewValues, polling)
     use-reorder.ts      usePointerReorder: pointer/touch drag of cards by their handle
+    theme.tsx           WidgetTheme: the theme's <style> and scope wrapper
     options-dialog.tsx  WidgetOptionsDialog: title, width, view, declared options
     confirm.tsx         InlineConfirm (✓ / ✕)
     use-stored-layout.ts useStoredLayout: persistence + Dashboard
@@ -108,9 +111,10 @@ documented in the code and README, which win if they disagree.
   `createLayoutPersistence` and `useStoredLayout` are built; concrete adapters
   stay in consumer code (recipes in GETTING_STARTED). Not built: stored active
   page, backup history, a companion package.
-- `docs/design/theming.md`: theming. `createTheme` and the token reference are
-  built. Still planned: a `WidgetTheme` React wrapper, contrast and color-vision
-  checks, presets.
+- `docs/design/theming.md`: theming. `createTheme`, the token reference,
+  `WidgetTheme` / `Dashboard` `theme`, `checkTheme` (`color.ts`,
+  `theme-check.ts`, `theme-defaults.ts`) and `themePresets` are built. Nothing
+  planned except the open questions in the doc.
 
 ## Commands (Bun only)
 

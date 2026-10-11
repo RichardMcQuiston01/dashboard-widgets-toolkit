@@ -64,6 +64,7 @@ import {
   deleteClone,
   duplicateWidget,
 } from '../core/duplicate.js';
+import type { WidgetThemeStyles } from '../core/theme.js';
 import { applyView } from '../core/views.js';
 import {
   clampServerQuery,
@@ -87,6 +88,7 @@ import { ResolvedWidgetCard } from './card.js';
 import { InlineConfirm } from './confirm.js';
 import { WidgetEditMenu, type EditMenuItem } from './edit-menu.js';
 import { WidgetOptionsDialog } from './options-dialog.js';
+import { WidgetTheme } from './theme.js';
 import { usePointerReorder } from './use-reorder.js';
 import {
   WidgetDetail,
@@ -276,6 +278,12 @@ export function WidgetGrid({
 }
 
 export interface DashboardProps extends WidgetSettings {
+  /**
+   * A theme from `createTheme`: the dashboard renders its `<style>` and sits
+   * inside its scope (see `WidgetTheme`), so this one prop themes it. Leave it
+   * out to theme a larger subtree with a `WidgetTheme` of your own.
+   */
+  readonly theme?: WidgetThemeStyles;
   /** Resolved (or loading) widgets, any order: the layout orders them. */
   readonly widgets: readonly DashboardWidget[];
   /** The viewer's saved layout. Default: none saved. */
@@ -1680,12 +1688,13 @@ export function Dashboard({
   linkTarget,
   classNames,
   labels,
+  theme,
   ...props
 }: DashboardProps): ReactNode {
   const parent = useWidgetSettings();
   const resolvedLocale = locale ?? parent.locale;
   const resolvedTarget: string | undefined = linkTarget ?? parent.linkTarget;
-  return (
+  const dashboard: ReactNode = (
     <WidgetSettingsProvider
       {...(resolvedLocale === undefined ? {} : { locale: resolvedLocale })}
       {...(resolvedTarget === undefined ? {} : { linkTarget: resolvedTarget })}
@@ -1694,5 +1703,10 @@ export function Dashboard({
     >
       <DashboardInner {...props} />
     </WidgetSettingsProvider>
+  );
+  return theme === undefined ? (
+    dashboard
+  ) : (
+    <WidgetTheme theme={theme}>{dashboard}</WidgetTheme>
   );
 }

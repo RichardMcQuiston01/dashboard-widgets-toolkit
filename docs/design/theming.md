@@ -1,7 +1,8 @@
 # Design: theming
 
-- **Status:** Steps 1 and 2 (token reference, `createTheme`) are built (0.13.0).
-  Steps 3 to 5 (the `WidgetTheme` wrapper, contrast checks, presets) are planned.
+- **Status:** All five steps are built: token reference and `createTheme`
+  (0.13.0), `WidgetTheme` and the `Dashboard` `theme` prop, `checkTheme` and
+  `themePresets`.
 - **Date:** 2026-10-10
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.12.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
@@ -125,27 +126,38 @@ Values land in a stylesheet string, so they are checked, not escaped:
 Error messages name the mode, the key, the value and the rule it broke, for example
 `createTheme "brand": dark.surface "rgb(0,0" has unbalanced parentheses`.
 
-## 5. React wrapper (step 3, planned)
+## 5. React wrapper (step 3, built)
 
-`<WidgetTheme theme={…}>` renders the `<style>` element once and a
+`<WidgetTheme theme={…}>` renders the `<style>` element and a
 `<div data-dwt-theme>` around its children, so a theme scopes to a subtree without
-the app touching the attribute. `Dashboard` would take an optional `theme` prop that
-does the same. SSR output is the same markup, no effects.
+the app touching the attribute. `Dashboard` takes an optional `theme` prop that
+does the same. SSR output is the same markup, no effects. As built: with a custom
+`scope` only the `<style>` is rendered (the matching ancestor is the consumer's), the
+CSS is written with `dangerouslySetInnerHTML` because React would escape the quotes in
+the selector (it was validated by `createTheme`), and `nonce` is passed to the
+`<style>` for a strict CSP.
 
-## 6. Contrast and color-vision checks (step 4, planned)
+## 6. Contrast and color-vision checks (step 4, built)
 
-`checkTheme(styles)` returns warnings (never failures): text on surface below WCAG
-AA (4.5:1; 3:1 for large text and chart marks), link on surface, focus ring against
-surface, and adjacent series colors closer than the dataviz threshold in either
-mode. This follows the CLAUDE.md rule to re-validate the palette whenever it
-changes. It needs the built-in values for tokens a theme leaves unset, so the
-defaults move into a core table that `styles.css` is tested against.
+`checkTheme(styles)` returns warnings (never failures). As built, per mode the theme
+changes: text, secondary, muted and link on the surface at 4.5:1; focus, good and
+bad at 3:1; chart colors at 2:1 (the built-in light yellow is 2.1:1, and charts have
+a legend, tooltips and a table twin); and neighbouring series at least 0.10 apart in
+OKLab, and 0.05 with simulated protanopia, deuteranopia and tritanopia (Machado
+matrices). The thresholds were calibrated by measuring the built-in palettes, which
+pass. Values it cannot read (`var()`, `color-mix()`, most named colors) give an
+`info` entry and skip the checks that use them. It needs the built-in values for
+tokens a theme leaves unset, so they live in a core table (`THEME_DEFAULTS`) that a
+test compares with `styles.css`.
 
-## 7. Presets (step 5, planned)
+## 7. Presets (step 5, built)
 
 Plain `ThemeOptions` objects (`highContrast`, `compact`, `mono`) that double as
-documentation of what a theme looks like. Added after the checks, so each preset can
-be validated by them in a test.
+documentation of what a theme looks like. Each color preset is validated by
+`checkTheme` in a test. They live in the core entry (the objects are small), which
+answers the open question below. `mono` orders eight grays so neighbours differ
+strongly; grays that close cannot be told apart by lightness alone, so it relies on
+the legend.
 
 ## 8. Decisions
 
@@ -165,5 +177,4 @@ be validated by them in a test.
 
 - Should `styles.css` move its defaults to `:where(:root)` in a future major
   version, so a plain `:root` override and inline ancestor styles work?
-- Should presets ship in the main entry or a `./themes` subpath, to keep core-only
-  bundles small?
+- (Answered) Presets ship in the core entry: three small objects.
