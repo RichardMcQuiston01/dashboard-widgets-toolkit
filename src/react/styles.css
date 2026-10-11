@@ -1081,3 +1081,43 @@
   background: var(--dwt-link);
   border-color: transparent;
 }
+
+/* Drag and drop reordering (Dashboard `draggable`). The indicator color is
+   --dwt-drop-indicator, which falls back to the focus color. */
+:where(.dwt-drag-handle) {
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+:where(.dwt-drag-handle:active) {
+  cursor: grabbing;
+}
+
+:where(.dwt-card--dragging) {
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  cursor: grabbing;
+  pointer-events: none;
+}
+
+:where(.dwt-card--grabbed) {
+  outline: 2px solid var(--dwt-drop-indicator, var(--dwt-focus));
+  outline-offset: 2px;
+}
+
+:where(.dwt-card--drop-before) {
+  box-shadow: -4px 0 0 0 var(--dwt-drop-indicator, var(--dwt-focus));
+}
+
+:where(.dwt-card--drop-after) {
+  box-shadow: 4px 0 0 0 var(--dwt-drop-indicator, var(--dwt-focus));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.dwt-card--dragging) {
+    box-shadow: 0 0 0 2px var(--dwt-drop-indicator, var(--dwt-focus));
+  }
+}

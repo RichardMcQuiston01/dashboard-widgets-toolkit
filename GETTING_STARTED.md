@@ -714,6 +714,43 @@ hide the built-in toolbar with `toolbar={false}`. The text is overridable
 class slot. With `overrideLocks`, locked cards show "locked for viewers"
 instead.
 
+### Drag and drop
+
+Add `draggable` to `Dashboard` and each card shows a grip button (labelled
+"Reorder Revenue") next to the Arrange menu, wherever the layout controls
+show (always, or only while Customize is on):
+
+```tsx
+<Dashboard widgets={widgets} layout={layout} onLayoutChange={save} draggable />
+```
+
+- **Pointer, touch and pen.** Press the grip and move: the card follows the
+  pointer, the card it would land on gets an indicator (the page behind scrolls
+  near the top and bottom edge), and releasing there moves it into that
+  slot. Escape or a cancelled touch aborts. Only the grip drags, so text
+  selection and links inside cards keep working.
+- **Keyboard.** On the grip, Space or Enter picks the card up, the arrow keys
+  move it (one position per press, stepping over pinned widgets), Space or
+  Enter drops it and Escape cancels. Moving focus away also cancels. Each step
+  is announced in a live region (`labels.pickedUp`, `movedTo`, `dropped`,
+  `dragCancelled`).
+- **One save per move.** `onLayoutChange` is called once, on drop (a keyboard
+  drag does not save each arrow press). The commit is the same `moveWidget` as
+  the move buttons, so pinned widgets have no grip and cannot be dropped
+  onto, and hidden widgets are skipped.
+- **The move buttons stay** in the Arrange menu: they are the single-pointer
+  alternative that WCAG 2.5.7 asks for.
+- **Styling.** `.dwt-drag-handle`, `.dwt-card--dragging`, `.dwt-card--grabbed`,
+  `.dwt-card--drop-before` / `-after`. The indicator color is
+  `--dwt-drop-indicator` (default: `--dwt-focus`).
+- **Your own handles.** The decisions are pure core functions: `dropTargetKey`
+  (hit-testing on card rectangles), `dropPlacement`, `reorderOnto`,
+  `listPosition` and `autoScrollStep`; `usePointerReorder` is the React hook.
+  To use a drag library instead, call `moveWidget` or `reorderOnto` in its
+  drop handler.
+
+Dragging between pages and onto a page tab are not built; use "Move to page".
+
 ### Storing the layout
 
 The package never reads or writes storage itself. You write a small **adapter**

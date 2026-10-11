@@ -105,6 +105,15 @@ export interface DashboardLabels {
   readonly optionsDelete: string;
   readonly confirmDelete: string;
   readonly deleted: (title: string) => string;
+  /** Drag handle button (needs `draggable` on Dashboard): "Reorder Revenue". */
+  readonly dragHandle: (title: string) => string;
+  /** Announced when a keyboard or pointer drag picks a card up. */
+  readonly pickedUp: (title: string, position: number, total: number) => string;
+  /** Announced after each keyboard step. */
+  readonly movedTo: (title: string, position: number, total: number) => string;
+  /** Announced after a drop. */
+  readonly dropped: (title: string, position: number, total: number) => string;
+  readonly dragCancelled: (title: string) => string;
   /** The title suggested for a clone shown with another view. */
   readonly suggestedViewTitle: (title: string, viewLabel: string) => string;
   /** The Options dialog: heading, fields and buttons. */
@@ -221,6 +230,14 @@ export const DEFAULT_LABELS: DashboardLabels = {
   optionsDelete: 'Delete this widget',
   confirmDelete: 'Delete this widget? Its settings are lost.',
   deleted: (title) => `Deleted ${title}`,
+  dragHandle: (title) => `Reorder ${title}`,
+  pickedUp: (title, position, total) =>
+    `Picked up ${title}, position ${position} of ${total}. Arrow keys move it, Space drops it, Escape cancels.`,
+  movedTo: (title, position, total) =>
+    `${title} moved to position ${position} of ${total}`,
+  dropped: (title, position, total) =>
+    `Dropped ${title} at position ${position} of ${total}`,
+  dragCancelled: (title) => `Reordering ${title} cancelled`,
   suggestedViewTitle: (title, viewLabel) => `${title} ${viewLabel}`,
   optionsFor: (title) => `Options for ${title}`,
   optionsTitleField: 'Title',
