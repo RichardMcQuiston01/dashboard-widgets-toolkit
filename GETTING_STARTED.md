@@ -469,6 +469,59 @@ option values need the wiring above.
   `optionsFor`, `apply`, `resetToDefaults`, ...) and a `dialog` class slot;
   classes are `dwt-options-dialog`, `dwt-options`, `dwt-options-field`.
 
+### Alternate views
+
+A widget can offer other ways to show its data. Declare `views`; each is built
+from the widget's own payload by a named conversion (plain data, so definitions
+stay JSON). The widget's own `kind` is always available as the view `base`.
+
+```ts
+defineWidget({
+  key: 'top-products',
+  title: 'Top products',
+  kind: 'TABLE',
+  baseViewLabel: 'Table', // default: the kind's name
+  defaultView: 'bars', // 'base' (default) or a view key
+  views: [
+    {
+      key: 'bars',
+      label: 'Bars',
+      kind: 'BAR_LIST',
+      convert: { type: 'tableToBarList', label: 0, value: 1 },
+    },
+    {
+      key: 'chart',
+      label: 'Chart',
+      kind: 'GRAPH',
+      convert: {
+        type: 'tableToGraph',
+        label: 0,
+        values: [1, 2],
+        chartType: 'bar',
+      },
+    },
+  ],
+});
+```
+
+Conversions: `tableToBarList`, `tableToGraph` (1 to 8 series columns),
+`barListToTable`, `graphToTable` and `barListToGraph`. A table's numbers come
+from `TableCell.value`, not the text ("$1,234.00"); a cell without one makes the
+widget show an error that names the widget, view, row and column. Column
+indexes refer to the table as the provider returns it after any `columns`
+option is applied. Conversions are lossy (a bar list has no other columns) and
+a table with a `footer` converts only the rows it holds. Switching is instant:
+there is no second load.
+
+- **The viewer's choice.** When a definition declares `views`, the Options dialog
+  shows a **View** field and the choice is stored as `layout.settings[key].view`.
+  `locked.options` also locks the view; the widget then shows its `defaultView`.
+- **Without the UI.** `applyView(widget, viewKey)`, `convertView`,
+  `viewChoices`, `effectiveViewKey` and `viewNote` are plain functions.
+  `validateWidgetDefinition` checks keys, kinds, column indexes and `defaultView`.
+- **Not yet.** Views supplied by a provider (a different payload per view) are
+  planned; today every view needs `convert`.
+
 ### Locked widgets
 
 Set `locked: true` on a definition when viewers must not rearrange it (a

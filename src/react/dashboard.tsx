@@ -59,6 +59,7 @@ import {
   type WidgetViewerSettings,
 } from '../core/settings.js';
 import type { DashboardWidget } from '../core/resolve.js';
+import { applyView } from '../core/views.js';
 import {
   defaultDetailQuery,
   deriveDetailData,
@@ -598,16 +599,22 @@ function DashboardInner({
   className,
 }: DashboardProps): ReactNode {
   const slot = useSlotClassName();
-  const { labels } = useWidgetSettings();
-  // The viewer's titles, widths and Flexible choices are applied on top of
-  // each definition, except for widgets locked against options.
+  const { labels, locale } = useWidgetSettings();
+  // The viewer's titles, widths, Flexible and view choices are applied on top
+  // of each definition, except for widgets locked against options (which
+  // still start on their `defaultView`).
   const effectiveWidgets: DashboardWidget[] = widgets.map((w) => {
     const settings: WidgetViewerSettings | undefined =
-      savedLayout.settings?.[w.definition.key];
-    return settings === undefined ||
-      (!overrideLocks && isOptionsLocked(w.definition))
-      ? w
-      : { ...w, definition: applySettings(w.definition, settings) };
+      !overrideLocks && isOptionsLocked(w.definition)
+        ? undefined
+        : savedLayout.settings?.[w.definition.key];
+    const styled: DashboardWidget =
+      settings === undefined
+        ? w
+        : { ...w, definition: applySettings(w.definition, settings) };
+    return applyView(styled, settings?.view, {
+      ...(locale === undefined ? {} : { locale }),
+    });
   });
   const definitions: WidgetDefinition[] = effectiveWidgets.map((w) =>
     overrideLocks ? withoutLock(w.definition) : w.definition

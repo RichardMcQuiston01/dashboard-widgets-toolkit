@@ -802,6 +802,24 @@ Phase 2 is built. Differences from the sketch above:
 - Not built yet: the `backup` and `onBackup` props (the snapshot is in memory),
   and a `data-dwt-default-title` attribute.
 
+Phase 3 is built (converted views only). Differences from the sketch above:
+
+- `core/views.ts` holds the types, `convertView` (one function with the
+  conversion as data) and `applyView(widget, viewKey)`. The base view has the
+  reserved key `base`; `baseViewLabel` names it in the View field.
+- Conversions are applied in `Dashboard`, on top of the loaded payload, so the
+  loader is untouched and switching never reloads. The widget's definition gets
+  the view's `kind`, so renderers work unchanged.
+- `convert` is required for now (provider-supplied views are not built);
+  `validateWidgetDefinition` checks that the conversion's source matches the
+  widget's kind and its output matches the view's `kind`.
+- `tableToBarList` uses the cell text as the bar's display text;
+  `tableToGraph` takes `valueFormat`/`currency`; `barListToTable` takes
+  heading names; `barListToGraph` takes `seriesName`.
+- The view is `layout.settings[key].view`; `locked.options` covers it.
+- Not built: the dialog does not yet say what a view drops (`viewNote` is
+  there for it).
+
 Phase 1 is the most valuable on its own and needs no new UI: authors get default
 sorts, "top N" and column sets, with the viewer's choice arriving later in phase 2
 through the same declarations. It is also what a Widget Builder bakes in, so it

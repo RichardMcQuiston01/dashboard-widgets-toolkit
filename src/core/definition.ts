@@ -1,6 +1,7 @@
 import type { WidgetDetailOptions, WidgetTableControls } from './detail.js';
 import type { WidgetOption } from './options.js';
 import type { WidgetKind } from './payload.js';
+import type { WidgetView } from './views.js';
 
 /** A size hint for grid layouts; renderers may map it to column spans. */
 export const WIDGET_SIZES = ['small', 'medium', 'large', 'full'] as const;
@@ -83,6 +84,16 @@ export interface WidgetDefinition {
    * `ProviderOptions.options`. See `options.ts`.
    */
   readonly options?: readonly WidgetOption[];
+  /**
+   * Other ways to show this widget, built from its payload by a named
+   * conversion (a table as bars or a chart). The widget's own `kind` is
+   * always available as the view `base`. See `views.ts`.
+   */
+  readonly views?: readonly WidgetView[];
+  /** The view shown until a viewer picks another: `base` or a `views` key. Default `base`. */
+  readonly defaultView?: string;
+  /** What the base view is called in the View field. Default: its kind's name. */
+  readonly baseViewLabel?: string;
 }
 
 /** What a viewer may not do to a locked widget. */

@@ -41,7 +41,8 @@
   defaults (default sort, columns, top N) passed to the provider are built and
   released, and so is the Options dialog (unreleased): title, width, Grow to
   fill and the declared options, stored in the layout as `layout.settings`.
-  Next: alternate views (a table as a bar list or chart) and clones. Defaults
+  Alternate views (a table as a bar list or chart, built and unreleased) are in
+  the dialog's View field. Next: clones. Defaults
   are definition data so a Widget Builder can bake them in later. Designed in
   [docs/design/widget-options-views-clones.md](./docs/design/widget-options-views-clones.md);
   builds on the lock and edit mode design.
