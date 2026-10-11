@@ -28,6 +28,7 @@ import {
   type WidgetSettingsPatch,
   type WidgetViewerSettings,
 } from '../core/settings.js';
+import { effectiveViewKey, viewChoices } from '../core/views.js';
 import { InlineConfirm } from './confirm.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
@@ -54,6 +55,7 @@ interface Draft {
   readonly width: number | undefined;
   readonly flexible: boolean | undefined;
   readonly options: Readonly<Record<string, OptionValue>>;
+  readonly view: string | undefined;
 }
 
 type Confirming = 'apply' | 'discard' | 'reset' | 'revert';
@@ -64,6 +66,7 @@ function draftFrom(settings: WidgetViewerSettings | undefined): Draft {
     width: settings?.width,
     flexible: settings?.flexible,
     options: settings?.options ?? {},
+    view: settings?.view,
   };
 }
 
@@ -112,6 +115,12 @@ function patchFrom(
         ? undefined
         : draft.flexible,
     options: Object.keys(options).length === 0 ? undefined : options,
+    // Choosing the author's own default view again clears the setting.
+    view:
+      draft.view === undefined ||
+      draft.view === effectiveViewKey(definition, undefined)
+        ? undefined
+        : draft.view,
   };
 }
 
@@ -122,7 +131,13 @@ function patchKey(patch: WidgetSettingsPatch): string {
       key
     ] as OptionValue;
   }
-  return JSON.stringify([patch.title, patch.width, patch.flexible, options]);
+  return JSON.stringify([
+    patch.title,
+    patch.width,
+    patch.flexible,
+    options,
+    patch.view,
+  ]);
 }
 
 const EMPTY_PATCH: WidgetSettingsPatch = {
@@ -130,6 +145,7 @@ const EMPTY_PATCH: WidgetSettingsPatch = {
   width: undefined,
   flexible: undefined,
   options: undefined,
+  view: undefined,
 };
 
 export function WidgetOptionsDialog({
@@ -175,6 +191,7 @@ export function WidgetOptionsDialog({
     baselineKey !== undefined && baselineKey !== savedKey;
   const canReset: boolean = savedKey !== patchKey(EMPTY_PATCH);
   const range = widthRange(definition);
+  const views = viewChoices(definition);
   const effectiveFlexible: boolean =
     draft.flexible ?? isFlexible(definition, undefined);
 
@@ -314,6 +331,28 @@ export function WidgetOptionsDialog({
           />
           {labels.optionsFlexible}
         </label>
+
+        {views.length > 0 && (
+          <div className="dwt-options-field">
+            <label htmlFor={`${baseId}-view`}>{labels.optionsViewField}</label>
+            <select
+              id={`${baseId}-view`}
+              value={effectiveViewKey(definition, draft.view)}
+              onChange={(event) => {
+                const value: string = event.target.value;
+                setDraft((current) => ({ ...current, view: value }));
+              }}
+            >
+              {views.map((view) => (
+                <option key={view.key} value={view.key}>
+                  {view.key === effectiveViewKey(definition, undefined)
+                    ? labels.viewDefault(view.label)
+                    : view.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {(definition.options?.length ?? 0) > 0 && (
           <fieldset className="dwt-options-group">

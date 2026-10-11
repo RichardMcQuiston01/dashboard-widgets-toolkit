@@ -22,3 +22,4 @@ export * from './storage.js';
 export * from './theme.js';
 export * from './url.js';
 export * from './validate.js';
+export * from './views.js';

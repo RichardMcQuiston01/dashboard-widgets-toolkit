@@ -31,6 +31,12 @@ import {
 } from './options.js';
 import { MAX_WIDGET_WIDTH, MIN_WIDGET_WIDTH, isWidgetWidth } from './grid.js';
 import { err, ok, type Result } from './result.js';
+import {
+  BASE_VIEW_KEY,
+  MAX_WIDGET_VIEWS,
+  VIEW_CONVERSIONS,
+  type ViewConversion,
+} from './views.js';
 import { isSafeHref, isSafeImageUrl } from './url.js';
 
 /** At most this many problems are listed in one error message. */
@@ -829,6 +835,175 @@ function checkOptions(
   });
 }
 
+const MAX_VIEW_COLUMN = 1000;
+
+function checkColumnIndex(
+  value: unknown,
+  path: string,
+  problems: Problems
+): void {
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > MAX_VIEW_COLUMN
+  ) {
+    problems.push(
+      `${path} must be a column index (a whole number from 0), got ${typeof value === 'number' ? String(value) : describeType(value)}.`
+    );
+  }
+}
+
+function checkConversion(
+  conversion: unknown,
+  path: string,
+  baseKind: unknown,
+  viewKind: unknown,
+  problems: Problems
+): void {
+  if (!isRecord(conversion)) {
+    problems.push(
+      `${path} must be an object with a type, got ${describeType(conversion)}.`
+    );
+    return;
+  }
+  const type: unknown = conversion['type'];
+  const known: { from: string; to: string } | undefined =
+    typeof type === 'string' && Object.hasOwn(VIEW_CONVERSIONS, type)
+      ? VIEW_CONVERSIONS[type as ViewConversion['type']]
+      : undefined;
+  if (known === undefined) {
+    problems.push(
+      `${path}.type must be one of ${Object.keys(VIEW_CONVERSIONS)
+        .map((name) => `"${name}"`)
+        .join(', ')}, got ${describeType(type)}.`
+    );
+    return;
+  }
+  if (baseKind !== known.from) {
+    problems.push(
+      `${path}.type "${String(type)}" reads a ${known.from} widget, but this one is ${String(baseKind)}.`
+    );
+  }
+  if (viewKind !== known.to) {
+    problems.push(
+      `${path}.type "${String(type)}" produces ${known.to}, but the view's kind is ${String(viewKind)}.`
+    );
+  }
+  switch (type) {
+    case 'tableToBarList':
+      checkColumnIndex(conversion['label'], `${path}.label`, problems);
+      checkColumnIndex(conversion['value'], `${path}.value`, problems);
+      break;
+    case 'tableToGraph': {
+      checkColumnIndex(conversion['label'], `${path}.label`, problems);
+      const values: unknown = conversion['values'];
+      if (!Array.isArray(values) || values.length === 0) {
+        problems.push(`${path}.values must list 1 or more column indexes.`);
+      } else if (values.length > MAX_GRAPH_SERIES) {
+        problems.push(
+          `${path}.values lists ${values.length} series; a chart carries at most ${MAX_GRAPH_SERIES}.`
+        );
+      } else {
+        values.forEach((index: unknown, at: number) =>
+          checkColumnIndex(index, `${path}.values[${at}]`, problems)
+        );
+      }
+      if (
+        conversion['chartType'] !== 'bar' &&
+        conversion['chartType'] !== 'line'
+      ) {
+        problems.push(`${path}.chartType must be "bar" or "line".`);
+      }
+      break;
+    }
+    case 'barListToGraph':
+      if (
+        conversion['chartType'] !== 'bar' &&
+        conversion['chartType'] !== 'line'
+      ) {
+        problems.push(`${path}.chartType must be "bar" or "line".`);
+      }
+      break;
+    default:
+      break;
+  }
+  if (
+    conversion['valueFormat'] !== undefined &&
+    !VALUE_FORMATS.includes(conversion['valueFormat'] as never)
+  ) {
+    problems.push(
+      `${path}.valueFormat must be one of ${VALUE_FORMATS.map((f) => `"${f}"`).join(', ')}.`
+    );
+  }
+}
+
+/** Checks a definition's `views`, `defaultView` and `baseViewLabel`. */
+function checkViews(value: Record<string, unknown>, problems: Problems): void {
+  const views: unknown = value['views'];
+  const defaultView: unknown = value['defaultView'];
+  optionalString(value, 'baseViewLabel', '', problems);
+  if (value['baseViewLabel'] === '') {
+    problems.push('baseViewLabel must not be empty.');
+  }
+  const declared = new Set<string>([BASE_VIEW_KEY]);
+  if (views !== undefined) {
+    if (!Array.isArray(views)) {
+      problems.push(`views must be an array, got ${describeType(views)}.`);
+    } else if (views.length > MAX_WIDGET_VIEWS) {
+      problems.push(
+        `views lists ${views.length} views; the most a widget may declare is ${MAX_WIDGET_VIEWS}.`
+      );
+    } else {
+      views.forEach((view: unknown, index: number) => {
+        const path = `views[${index}]`;
+        if (!isRecord(view)) {
+          problems.push(
+            `${path} must be an object, got ${describeType(view)}.`
+          );
+          return;
+        }
+        const key: unknown = view['key'];
+        if (typeof key !== 'string' || key.trim() === '') {
+          problems.push(`${path}.key must be a non-empty string.`);
+        } else if (declared.has(key)) {
+          problems.push(
+            key === BASE_VIEW_KEY
+              ? `${path}.key "${BASE_VIEW_KEY}" is reserved for the widget's own kind.`
+              : `${path}.key "${key}" is used twice.`
+          );
+        } else {
+          declared.add(key);
+        }
+        if (typeof view['label'] !== 'string' || view['label'].trim() === '') {
+          problems.push(`${path}.label must be a non-empty string.`);
+        }
+        requireOneOf(view, 'kind', WIDGET_KINDS, path, problems);
+        if (view['convert'] === undefined) {
+          problems.push(
+            `${path}.convert is required: views supplied by a provider are not supported yet.`
+          );
+        } else {
+          checkConversion(
+            view['convert'],
+            `${path}.convert`,
+            value['kind'],
+            view['kind'],
+            problems
+          );
+        }
+      });
+    }
+  }
+  if (defaultView !== undefined) {
+    if (typeof defaultView !== 'string' || !declared.has(defaultView)) {
+      problems.push(
+        `defaultView must be "${BASE_VIEW_KEY}" or the key of a declared view, got ${typeof defaultView === 'string' ? JSON.stringify(defaultView) : describeType(defaultView)}.`
+      );
+    }
+  }
+}
+
 function formatProblems(prefix: string, problems: Problems): string {
   const shown: Problems = problems.slice(0, MAX_REPORTED_PROBLEMS);
   const more: number = problems.length - shown.length;
@@ -929,6 +1104,7 @@ export function validateWidgetDefinition(
   checkTableControlsOption(value['tableControls'], value['kind'], problems);
   checkLockedOption(value['locked'], problems);
   checkOptions(value['options'], value['kind'], problems);
+  checkViews(value, problems);
   if (value['page'] !== undefined) {
     if (typeof value['page'] !== 'string' || value['page'].trim() === '') {
       problems.push(
