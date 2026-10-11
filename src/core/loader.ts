@@ -17,6 +17,7 @@ import {
   sameOptionValues,
   type OptionValues,
 } from './options.js';
+import { loadViewKey } from './views.js';
 import {
   cacheKeyFor,
   finalizeWidget,
@@ -72,6 +73,14 @@ export interface WidgetLoader {
    * values don't change.
    */
   setOptions(key: string, chosen: Readonly<Record<string, unknown>>): void;
+  /**
+   * Sets the view a widget shows (`undefined` or an empty string: its
+   * `defaultView`). Only a view the provider supplies loads anything: the
+   * provider is called with that view, the card shows loading until it
+   * arrives, and an earlier answer for the same view comes back from the
+   * cache. Switching among the base and converted views reloads nothing.
+   */
+  setView(key: string, view: string | undefined): void;
   /** Aborts everything in flight and ignores any later result. */
   dispose(): void;
 }
@@ -86,10 +95,20 @@ export function createWidgetLoader<C extends WidgetContext>(
       values === undefined ? [] : [[key, values] as const]
     )
   );
+  // The view chosen per widget; `setView` changes it.
+  const chosenViews = new Map<string, string>(
+    Object.entries(baseOptions.viewValues ?? {}).flatMap(([key, view]) =>
+      view === undefined ? [] : [[key, view] as const]
+    )
+  );
   const resolveOptions: ResolveOptions = baseOptions;
   /** The resolve options as they are right now, with the current choices. */
   function currentOptions(): ResolveOptions {
-    return { ...resolveOptions, optionValues: Object.fromEntries(chosen) };
+    return {
+      ...resolveOptions,
+      optionValues: Object.fromEntries(chosen),
+      viewValues: Object.fromEntries(chosenViews),
+    };
   }
   // The payload as the provider returned it, before client-side options.
   const unapplied = new Map<string, ResolvedWidget>();
@@ -254,6 +273,25 @@ export function createWidgetLoader<C extends WidgetContext>(
     start(definition, true);
   }
 
+  function setView(key: string, view: string | undefined): void {
+    if (disposed) return;
+    const definition: WidgetDefinition | undefined = definitionFor(key);
+    if (definition === undefined) return;
+    const before: string = loadViewKey(definition, chosenViews.get(key));
+    if (view === undefined || view === '') chosenViews.delete(key);
+    else chosenViews.set(key, view);
+    const after: string = loadViewKey(definition, chosenViews.get(key));
+    if (before === after || !started.has(key)) return;
+    const current: DashboardWidget | undefined = snapshot.find(
+      (widget) => widget.definition.key === key
+    );
+    // What is shown belongs to the other view: wait for the right one.
+    if (current !== undefined && current.status !== 'loading') {
+      replace(key, { definition, status: 'loading' });
+    }
+    start(definition, true);
+  }
+
   function dispose(): void {
     disposed = true;
     abortAll(new Error('The widget loader was disposed.'));
@@ -274,6 +312,7 @@ export function createWidgetLoader<C extends WidgetContext>(
     loadAll,
     refresh,
     setOptions,
+    setView,
     dispose,
   };
 }

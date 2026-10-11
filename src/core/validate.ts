@@ -980,11 +980,8 @@ function checkViews(value: Record<string, unknown>, problems: Problems): void {
           problems.push(`${path}.label must be a non-empty string.`);
         }
         requireOneOf(view, 'kind', WIDGET_KINDS, path, problems);
-        if (view['convert'] === undefined) {
-          problems.push(
-            `${path}.convert is required: views supplied by a provider are not supported yet.`
-          );
-        } else {
+        // Without `convert` the provider supplies the view's payload.
+        if (view['convert'] !== undefined) {
           checkConversion(
             view['convert'],
             `${path}.convert`,

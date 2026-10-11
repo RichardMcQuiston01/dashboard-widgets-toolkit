@@ -84,8 +84,14 @@ export interface WidgetView {
   readonly label: string;
   /** What this view renders; must match what the conversion produces. */
   readonly kind: WidgetKind;
-  /** Builds this view from the widget's payload. */
-  readonly convert: ViewConversion;
+  /**
+   * Builds this view from the widget's payload. Leave it out and the provider
+   * supplies the view instead: it is called with `options.view` set to this
+   * view's key and returns a payload of `kind`. That costs one load per view
+   * (cached apart), and is the way to show data a conversion can't build, such
+   * as a trend behind a KPI.
+   */
+  readonly convert?: ViewConversion;
 }
 
 /** What these functions need from a definition. */
@@ -139,6 +145,11 @@ export function viewChoices(
   ];
 }
 
+/** Whether the provider supplies this view's payload (it has no `convert`). */
+export function isProviderView(view: Pick<WidgetView, 'convert'>): boolean {
+  return view.convert === undefined;
+}
+
 function isKnownView(item: ViewsItem, key: string | undefined): boolean {
   return (
     key !== undefined &&
@@ -166,6 +177,28 @@ export function viewKind(
   chosen: string | undefined
 ): WidgetKind {
   return findView(item, effectiveViewKey(item, chosen))?.kind ?? item.kind;
+}
+
+/**
+ * The view the provider is asked for under the viewer's choice: the chosen
+ * view when the provider supplies it, else `base` (converted views are built
+ * from the base payload, so switching among them never reloads).
+ */
+export function loadViewKey(
+  item: ViewsItem,
+  chosen: string | undefined
+): string {
+  const key: string = effectiveViewKey(item, chosen);
+  const view: WidgetView | undefined = findView(item, key);
+  return view !== undefined && isProviderView(view) ? key : BASE_VIEW_KEY;
+}
+
+/** The kind of payload the provider returns for `loadViewKey`. */
+export function loadViewKind(
+  item: ViewsItem,
+  chosen: string | undefined
+): WidgetKind {
+  return findView(item, loadViewKey(item, chosen))?.kind ?? item.kind;
 }
 
 function cellValue(cell: TableCell | undefined): number | undefined {
@@ -368,11 +401,16 @@ export function convertView(
   data: WidgetData,
   options: ConvertViewOptions = {}
 ): Result<WidgetData> {
-  const conversion: ViewConversion = view.convert;
+  const conversion: ViewConversion | undefined = view.convert;
   const context: ConversionContext = {
     where: `Widget ${JSON.stringify(widgetKey)} view ${JSON.stringify(view.key)}`,
     ...(options.locale === undefined ? {} : { locale: options.locale }),
   };
+  if (conversion === undefined) {
+    return err(
+      `${context.where}: the provider supplies this view, so there is nothing to convert.`
+    );
+  }
   const expected: WidgetKind | undefined =
     VIEW_CONVERSIONS[conversion.type]?.from;
   if (expected === undefined) {
@@ -407,8 +445,8 @@ export function viewNote(
   view: WidgetView,
   data: WidgetData | undefined
 ): string {
-  if (data?.kind !== 'TABLE') return '';
-  const conversion: ViewConversion = view.convert;
+  const conversion: ViewConversion | undefined = view.convert;
+  if (data?.kind !== 'TABLE' || conversion === undefined) return '';
   let indexes: readonly number[];
   if (conversion.type === 'tableToBarList') {
     indexes = [conversion.label, conversion.value];
@@ -424,10 +462,13 @@ export function viewNote(
 }
 
 /**
- * The widget as the chosen view shows it: the payload converted and the
- * definition's `kind` set to the view's kind, so renderers work unchanged.
- * A widget that isn't `ok`, or whose view is the base, comes back as is; a
- * failed conversion becomes an `error` widget naming the fix.
+ * The widget as the chosen view shows it. A converted view gets the payload
+ * converted; a view the provider supplies already holds its own payload. The
+ * definition's `kind` becomes the view's kind, so renderers work unchanged. A
+ * failed conversion becomes an `error` widget naming the fix, and data that
+ * was loaded for a different view (a switch is still loading) shows as
+ * `loading` rather than in the wrong shape. A widget that isn't `ok`, or whose
+ * view is the base, comes back as is.
  */
 export function applyView<W extends DashboardWidget>(
   widget: W,
@@ -436,14 +477,32 @@ export function applyView<W extends DashboardWidget>(
 ): DashboardWidget {
   const key: string = effectiveViewKey(widget.definition, chosen);
   const view: WidgetView | undefined = findView(widget.definition, key);
-  if (view === undefined) return widget;
+  const wanted: string = loadViewKey(widget.definition, chosen);
+  const loaded: string | undefined =
+    widget.status === 'ok' ? (widget.view ?? BASE_VIEW_KEY) : undefined;
+  const mismatched: boolean = loaded !== undefined && loaded !== wanted;
+  if (view === undefined) {
+    return mismatched
+      ? {
+          definition: widget.definition,
+          status: 'loading',
+          ...(widget.options === undefined ? {} : { options: widget.options }),
+        }
+      : widget;
+  }
   const definition: WidgetDefinition = {
     ...widget.definition,
     kind: view.kind,
   };
-  if (widget.status === 'loading') return { ...widget, definition };
-  if (widget.status === 'empty') return { ...widget, definition };
-  if (widget.status === 'error') return { ...widget, definition };
+  if (widget.status !== 'ok') return { ...widget, definition };
+  if (mismatched) {
+    return {
+      definition,
+      status: 'loading',
+      ...(widget.options === undefined ? {} : { options: widget.options }),
+    };
+  }
+  if (isProviderView(view)) return { ...widget, definition };
   const converted = convertView(
     widget.definition.key,
     view,
