@@ -70,7 +70,9 @@ import {
   defaultDetailQuery,
   deriveDetailData,
   resolveDetailOptions,
+  sanitizeDetailQuery,
   type DetailData,
+  type DetailLink,
   type DetailMode,
   type DetailQuery,
   type DetailSort,
@@ -343,32 +345,66 @@ export interface DashboardProps extends WidgetSettings {
    * of the built-in dialog: navigate to your own page.
    */
   readonly onOpenDetail?: (key: string) => void;
+  /**
+   * Controlled: which detail view is open and what it shows (the widget key
+   * and the search, filters, sort and page). `null` means none is open. Give
+   * it to keep the open detail view in the URL: read it with
+   * `parseDetailLink`, write it with `serializeDetailLink` or `withDetailLink`
+   * from `onDetailChange`. Leave it out and `Dashboard` keeps this state
+   * itself. A key that is not one of the widgets, or has no detail view,
+   * opens nothing.
+   */
+  readonly detail?: DetailLink | null;
+  /** Initial detail view when uncontrolled. Default: none open. */
+  readonly defaultDetail?: DetailLink | null;
+  /**
+   * Called when the viewer opens, changes or closes a detail view, with the
+   * new state (`null` when closed) and why: `open` and `close` suit
+   * `history.pushState`, `query` (typing, sorting, paging) suits
+   * `history.replaceState`.
+   */
+  readonly onDetailChange?: (
+    detail: DetailLink | null,
+    reason: DetailChangeReason
+  ) => void;
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
+}
+
+/** Why `onDetailChange` was called. */
+export type DetailChangeReason = 'open' | 'query' | 'close';
+
+/** What a detail view shows when it opens: the page size and the table's sort. */
+function initialDetailQuery(widget: DashboardWidget): DetailQuery {
+  const pageSize: number =
+    resolveDetailOptions(widget.definition)?.pageSize ?? 25;
+  const optionSort: DetailSort | undefined = sortFromOptions(
+    widget.definition,
+    widget.options
+  );
+  return {
+    ...defaultDetailQuery(pageSize),
+    ...(optionSort === undefined ? {} : { sort: optionSort }),
+  };
 }
 
 /** The built-in dialog for one widget's detail view. */
 function DetailHost({
   widget,
+  query,
+  onQueryChange,
   loadDetail,
   onClose,
 }: {
   readonly widget: DashboardWidget;
+  readonly query: DetailQuery;
+  readonly onQueryChange: (query: DetailQuery) => void;
   readonly loadDetail: DetailLoader | undefined;
   readonly onClose: () => void;
 }): ReactNode {
   const { locale } = useWidgetSettings();
   const { definition } = widget;
   const options = resolveDetailOptions(definition);
-  const pageSize: number = options?.pageSize ?? 25;
-  const optionSort: DetailSort | undefined = sortFromOptions(
-    definition,
-    widget.options
-  );
-  const [query, setQuery] = useState<DetailQuery>({
-    ...defaultDetailQuery(pageSize),
-    ...(optionSort === undefined ? {} : { sort: optionSort }),
-  });
   // Memoized: a fresh object each render would restart the load every time.
   const derived: DetailData | undefined = useMemo(
     () =>
@@ -400,15 +436,22 @@ function DetailHost({
       state.data,
       query
     );
-    if (corrected !== undefined) setQuery(corrected);
-  }, [mode, state.data, state.refreshing, query]);
+    if (corrected !== undefined) onQueryChange(corrected);
+  }, [mode, state.data, state.refreshing, query, onQueryChange]);
+  // A query that came from a URL can name columns the data does not have:
+  // drop those parts instead of showing an error.
+  useEffect(() => {
+    if (state.data === undefined) return;
+    const cleaned: DetailQuery = sanitizeDetailQuery(query, state.data.columns);
+    if (cleaned !== query) onQueryChange(cleaned);
+  }, [state.data, query, onQueryChange]);
   const title: string = options?.title ?? definition.title;
   return (
     <WidgetDetailDialog title={title} open onClose={onClose}>
       <WidgetDetail
         title={title}
         query={query}
-        onQueryChange={setQuery}
+        onQueryChange={onQueryChange}
         status={state.status}
         {...(state.data === undefined ? {} : { data: state.data })}
         {...(state.error === undefined ? {} : { error: state.error })}
@@ -640,6 +683,9 @@ function DashboardInner({
   onRetry,
   loadDetail,
   onOpenDetail,
+  detail: detailProp,
+  defaultDetail = null,
+  onDetailChange,
   headingLevel,
   className,
 }: DashboardProps): ReactNode {
@@ -749,7 +795,18 @@ function DashboardInner({
   const shown: WidgetDefinition[] = editable
     ? visible.filter((definition) => !isMinimized(view, definition.key))
     : visible;
-  const [detailKey, setDetailKey] = useState<string | undefined>(undefined);
+  const [detailState, setDetailState] = useState<DetailLink | null>(
+    defaultDetail
+  );
+  const openDetail: DetailLink | null =
+    detailProp !== undefined ? detailProp : detailState;
+  function changeDetail(
+    next: DetailLink | null,
+    reason: DetailChangeReason
+  ): void {
+    if (detailProp === undefined) setDetailState(next);
+    onDetailChange?.(next, reason);
+  }
   const [optionsKey, setOptionsKey] = useState<string | undefined>(undefined);
   const gridRef = useRef<HTMLDivElement>(null);
   const dragEnabled: boolean = draggable && controlsShown;
@@ -1515,7 +1572,10 @@ function DashboardInner({
                     ? {
                         onView: () =>
                           onOpenDetail === undefined
-                            ? setDetailKey(key)
+                            ? changeDetail(
+                                { key, query: initialDetailQuery(widget) },
+                                'open'
+                              )
                             : onOpenDetail(key),
                       }
                     : {})}
@@ -1590,14 +1650,22 @@ function DashboardInner({
             onClose={() => setOptionsKey(undefined)}
           />
         )}
-      {detailKey !== undefined && byKey.get(detailKey) !== undefined && (
-        <DetailHost
-          key={detailKey}
-          widget={byKey.get(detailKey) as DashboardWidget}
-          loadDetail={loadDetail}
-          onClose={() => setDetailKey(undefined)}
-        />
-      )}
+      {openDetail !== null &&
+        byKey.get(openDetail.key) !== undefined &&
+        resolveDetailOptions(
+          (byKey.get(openDetail.key) as DashboardWidget).definition
+        ) !== undefined && (
+          <DetailHost
+            key={openDetail.key}
+            widget={byKey.get(openDetail.key) as DashboardWidget}
+            query={openDetail.query}
+            onQueryChange={(query) =>
+              changeDetail({ key: openDetail.key, query }, 'query')
+            }
+            loadDetail={loadDetail}
+            onClose={() => changeDetail(null, 'close')}
+          />
+        )}
     </div>
   );
 }
