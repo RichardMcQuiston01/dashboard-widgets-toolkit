@@ -427,6 +427,165 @@ export function parseDetailQuery(
   });
 }
 
+/* Deep links ------------------------------------------------------------- */
+
+/** The URL parameter that names the widget whose detail view is open. */
+export const DETAIL_LINK_PARAM = 'widget';
+
+/** Which detail view is open, and what it shows: what a deep link carries. */
+export interface DetailLink {
+  /** The widget's key (a clone's key works too). */
+  readonly key: string;
+  readonly query: DetailQuery;
+}
+
+/**
+ * The open detail view as a URL query string without the leading `?`:
+ * `widget=<key>` followed by the query parameters of `serializeDetailQuery`
+ * (`q`, `sort`, `f.<column>`, `page`). An empty string for no link. The page
+ * size is not included: the widget definition owns it.
+ */
+export function serializeDetailLink(
+  link: DetailLink | null | undefined
+): string {
+  if (link === null || link === undefined) return '';
+  const query: string = serializeDetailQuery(link.query);
+  const widget = `${encodeURIComponent(DETAIL_LINK_PARAM)}=${encodeURIComponent(link.key)}`;
+  return query === '' ? widget : `${widget}&${query}`;
+}
+
+function isDetailParam(rawKey: string): boolean {
+  let key: string;
+  try {
+    key = decodeURIComponent(rawKey.replace(/\+/g, ' '));
+  } catch {
+    return false;
+  }
+  return (
+    key === DETAIL_LINK_PARAM ||
+    key === 'q' ||
+    key === 'sort' ||
+    key === 'page' ||
+    key.startsWith(FILTER_PREFIX)
+  );
+}
+
+/**
+ * Puts `link` into an existing query string, replacing any detail parameters
+ * it already has and keeping everything else (your own `tab=...`), so a page
+ * can share its URL with the detail view. With no link, the detail parameters
+ * are removed. Returns a query string without the leading `?`.
+ */
+export function withDetailLink(
+  queryString: string,
+  link: DetailLink | null | undefined
+): string {
+  const text: string = queryString.startsWith('?')
+    ? queryString.slice(1)
+    : queryString;
+  const kept: string[] = text.split('&').filter((pair) => {
+    if (pair === '') return false;
+    const equals: number = pair.indexOf('=');
+    return !isDetailParam(equals < 0 ? pair : pair.slice(0, equals));
+  });
+  const detail: string = serializeDetailLink(link);
+  return [...kept, ...(detail === '' ? [] : [detail])].join('&');
+}
+
+/**
+ * Reads the open detail view from a query string (with or without the leading
+ * `?`). Ok with `undefined` when there is no `widget` parameter. Fails, with a
+ * message naming the widget or parameter, when the widget is not one of
+ * `definitions`, has no detail view, or a query parameter is malformed. The
+ * page size comes from the widget's `detail` setting. Column keys are not
+ * checked (the data is not loaded yet): use `sanitizeDetailQuery` once it is.
+ */
+export function parseDetailLink(
+  queryString: string,
+  definitions: readonly Pick<WidgetDefinition, 'key' | 'title' | 'detail'>[]
+): Result<DetailLink | undefined> {
+  const text: string = queryString.startsWith('?')
+    ? queryString.slice(1)
+    : queryString;
+  let key: string | undefined;
+  for (const pair of text.split('&')) {
+    const equals: number = pair.indexOf('=');
+    const rawKey: string = equals < 0 ? pair : pair.slice(0, equals);
+    let name: string;
+    try {
+      name = decodeURIComponent(rawKey.replace(/\+/g, ' '));
+    } catch {
+      continue;
+    }
+    if (name !== DETAIL_LINK_PARAM) continue;
+    try {
+      key = decodeURIComponent(
+        (equals < 0 ? '' : pair.slice(equals + 1)).replace(/\+/g, ' ')
+      );
+    } catch {
+      return err(
+        `Detail link: "${pair}" is not valid percent-encoding in the URL.`
+      );
+    }
+    break;
+  }
+  if (key === undefined) return ok(undefined);
+  if (key === '') {
+    return err(`Detail link: the "${DETAIL_LINK_PARAM}" parameter is empty.`);
+  }
+  const definition:
+    Pick<WidgetDefinition, 'key' | 'title' | 'detail'> | undefined =
+    definitions.find((candidate) => candidate.key === key);
+  if (definition === undefined) {
+    return err(
+      `Detail link: widget "${key}" does not exist. Widgets: ${definitions.map((d) => `"${d.key}"`).join(', ')}.`
+    );
+  }
+  const options: ResolvedDetailOptions | undefined =
+    resolveDetailOptions(definition);
+  if (options === undefined) {
+    return err(
+      `Detail link: widget "${key}" has no detail view (set detail on its definition).`
+    );
+  }
+  const query: Result<DetailQuery> = parseDetailQuery(text, options.pageSize);
+  return query.ok ? ok({ key, query: query.value }) : query;
+}
+
+/**
+ * Drops what the loaded data cannot honor: filters on unknown columns and a
+ * sort on an unknown or unsortable column. Returns the same object when
+ * nothing needs dropping. For queries that came from a URL.
+ */
+export function sanitizeDetailQuery(
+  query: DetailQuery,
+  columns: readonly Pick<DetailColumn, 'key' | 'sortable'>[]
+): DetailQuery {
+  const known = new Map<string, Pick<DetailColumn, 'key' | 'sortable'>>(
+    columns.map((column) => [column.key, column])
+  );
+  const filterKeys: string[] = Object.keys(query.filters ?? {});
+  const goodFilters: string[] = filterKeys.filter((key) => known.has(key));
+  const sortColumn: Pick<DetailColumn, 'key' | 'sortable'> | undefined =
+    query.sort === undefined ? undefined : known.get(query.sort.column);
+  const sortOk: boolean =
+    query.sort === undefined ||
+    (sortColumn !== undefined && sortColumn.sortable !== false);
+  if (goodFilters.length === filterKeys.length && sortOk) return query;
+  const { filters: _filters, sort: _sort, ...rest } = query;
+  return {
+    ...rest,
+    ...(goodFilters.length === 0
+      ? {}
+      : {
+          filters: Object.fromEntries(
+            goodFilters.map((key) => [key, (query.filters ?? {})[key] ?? ''])
+          ),
+        }),
+    ...(sortOk && query.sort !== undefined ? { sort: query.sort } : {}),
+  };
+}
+
 /* Validation ------------------------------------------------------------- */
 
 function describeType(value: unknown): string {

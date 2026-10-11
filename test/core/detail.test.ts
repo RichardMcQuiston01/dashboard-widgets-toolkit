@@ -6,6 +6,10 @@ import {
   deriveDetailData,
   parseDetailQuery,
   clampServerQuery,
+  parseDetailLink,
+  sanitizeDetailQuery,
+  serializeDetailLink,
+  withDetailLink,
   queryRows,
   resolveDetailOptions,
   serverPage,
@@ -490,5 +494,132 @@ void describe('server mode', () => {
     assert.ok(!beyond.ok);
     assert.match(beyond.error, /totalRows is 1 but 2 rows/);
     assert.ok(validateDetailData({ columns: page.columns, rows: [] }, 'D').ok);
+  });
+});
+
+void describe('detail deep links', () => {
+  const defs = [
+    { key: 'orders', title: 'Orders', detail: { pageSize: 10 } as const },
+    { key: 'plain', title: 'Plain' },
+    { key: 'orders#1', title: 'Orders (#1)', detail: true as const },
+  ];
+
+  void it('serializes the open detail view with its query, and nothing for none', () => {
+    assert.equal(serializeDetailLink(undefined), '');
+    assert.equal(serializeDetailLink(null), '');
+    assert.equal(
+      serializeDetailLink({ key: 'orders', query: { page: 1, pageSize: 10 } }),
+      'widget=orders'
+    );
+    assert.equal(
+      serializeDetailLink({
+        key: 'orders#1',
+        query: {
+          page: 2,
+          pageSize: 10,
+          search: 'a b',
+          sort: { column: 'total', direction: 'desc' },
+        },
+      }),
+      'widget=orders%231&q=a%20b&sort=total%3Adesc&page=2'
+    );
+  });
+
+  void it('round-trips through parseDetailLink, taking the page size from the definition', () => {
+    const link = {
+      key: 'orders',
+      query: {
+        page: 3,
+        pageSize: 10,
+        search: 'jig',
+        filters: { name: 'x' },
+        sort: { column: 'total', direction: 'asc' },
+      },
+    } as const;
+    const parsed = parseDetailLink(`?${serializeDetailLink(link)}`, defs);
+    assert.ok(parsed.ok);
+    assert.deepEqual(parsed.value, link);
+    const clone = parseDetailLink('widget=orders%231', defs);
+    assert.ok(clone.ok);
+    assert.equal(clone.value?.query.pageSize, 25);
+  });
+
+  void it('is ok with undefined when there is no widget parameter', () => {
+    for (const text of ['', '?tab=sales', 'page=2']) {
+      const parsed = parseDetailLink(text, defs);
+      assert.ok(parsed.ok);
+      assert.equal(parsed.value, undefined);
+    }
+  });
+
+  void it('names the problem for an unknown widget, no detail view, or a bad parameter', () => {
+    const unknown = parseDetailLink('widget=zzz', defs);
+    assert.ok(!unknown.ok);
+    assert.match(unknown.error, /widget "zzz" does not exist.*"orders"/);
+    const plain = parseDetailLink('widget=plain', defs);
+    assert.ok(!plain.ok);
+    assert.match(plain.error, /widget "plain" has no detail view/);
+    const empty = parseDetailLink('widget=', defs);
+    assert.ok(!empty.ok);
+    assert.match(empty.error, /"widget" parameter is empty/);
+    const page = parseDetailLink('widget=orders&page=0', defs);
+    assert.ok(!page.ok);
+    assert.match(page.error, /page must be a whole number/);
+  });
+
+  void it('withDetailLink keeps other parameters and replaces the detail ones', () => {
+    const link = {
+      key: 'orders',
+      query: { page: 2, pageSize: 10, search: 'x' },
+    };
+    assert.equal(
+      withDetailLink('?tab=sales&page=9&widget=old&f.a=1&q=zzz', link),
+      'tab=sales&widget=orders&q=x&page=2'
+    );
+    assert.equal(
+      withDetailLink('tab=sales&widget=orders&q=x', null),
+      'tab=sales'
+    );
+    assert.equal(withDetailLink('', link), 'widget=orders&q=x&page=2');
+  });
+
+  void it('sanitizeDetailQuery drops filters and sorts the data cannot honor', () => {
+    const columns = [
+      { key: 'name' },
+      { key: 'note', sortable: false },
+      { key: 'total' },
+    ];
+    const fine: DetailQuery = {
+      page: 2,
+      pageSize: 10,
+      filters: { name: 'a' },
+      sort: { column: 'total', direction: 'asc' },
+    };
+    assert.equal(sanitizeDetailQuery(fine, columns), fine);
+    assert.deepEqual(
+      sanitizeDetailQuery(
+        {
+          page: 2,
+          pageSize: 10,
+          search: 's',
+          filters: { name: 'a', gone: 'b' },
+          sort: { column: 'note', direction: 'asc' },
+        },
+        columns
+      ),
+      { page: 2, pageSize: 10, search: 's', filters: { name: 'a' } }
+    );
+    assert.deepEqual(
+      sanitizeDetailQuery(
+        {
+          page: 1,
+          pageSize: 10,
+          filters: { gone: 'b' },
+          sort: { column: 'nope', direction: 'desc' },
+        },
+        columns
+      ),
+      { page: 1, pageSize: 10 }
+    );
   });
 });

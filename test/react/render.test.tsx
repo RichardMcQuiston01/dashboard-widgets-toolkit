@@ -650,6 +650,67 @@ void describe('detail view', () => {
     );
     assert.match(withLoader, /aria-label="View Truncated"/);
   });
+
+  void describe('deep links (controlled detail)', () => {
+    const tableData = {
+      kind: 'TABLE',
+      columns: [{ label: 'A' }],
+      rows: [[{ text: 'x' }]],
+    } as const;
+    const withDetail: DashboardWidget = {
+      status: 'ok',
+      definition: { key: 't', title: 'Complete', kind: 'TABLE', detail: true },
+      data: tableData,
+    };
+    const plain: DashboardWidget = {
+      status: 'ok',
+      definition: { key: 'p', title: 'Plain', kind: 'TABLE' },
+      data: tableData,
+    };
+    const link = { key: 't', query: { page: 1, pageSize: 25 } };
+
+    void it('opens the dialog for the widget a controlled detail names', () => {
+      const markup = html(<Dashboard widgets={[withDetail]} detail={link} />);
+      assert.match(markup, /class="dwt-detail-dialog"/);
+      assert.match(markup, /Complete/);
+    });
+
+    void it('opens by default from defaultDetail', () => {
+      const markup = html(
+        <Dashboard widgets={[withDetail]} defaultDetail={link} />
+      );
+      assert.match(markup, /class="dwt-detail-dialog"/);
+    });
+
+    void it('shows no dialog for null, an unknown key, or a widget without detail', () => {
+      assert.doesNotMatch(
+        html(<Dashboard widgets={[withDetail]} detail={null} />),
+        /dwt-detail-dialog/
+      );
+      assert.doesNotMatch(
+        html(
+          <Dashboard
+            widgets={[withDetail]}
+            detail={{ key: 'zzz', query: link.query }}
+          />
+        ),
+        /dwt-detail-dialog/
+      );
+      assert.doesNotMatch(
+        html(
+          <Dashboard
+            widgets={[withDetail, plain]}
+            detail={{ key: 'p', query: link.query }}
+          />
+        ),
+        /dwt-detail-dialog/
+      );
+      assert.doesNotMatch(
+        html(<Dashboard widgets={[withDetail]} />),
+        /dwt-detail-dialog/
+      );
+    });
+  });
 });
 
 void describe('WidgetGrid and Dashboard', () => {
