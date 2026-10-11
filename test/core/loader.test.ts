@@ -390,4 +390,82 @@ void describe('createWidgetLoader', () => {
     assert.equal(heard, 2);
     loader.dispose();
   });
+  void describe('setDefinitions', () => {
+    const slow = definitions[0] as WidgetDefinition;
+    const fast = definitions[1] as WidgetDefinition;
+    const extra: WidgetDefinition = defineWidget({
+      key: 'extra',
+      title: 'Extra',
+      kind: 'TEXT',
+      sortOrder: 5,
+    });
+
+    void it('keeps loaded widgets, adds new ones as loading, orders by sortOrder', async () => {
+      const calls: string[] = [];
+      const providers: WidgetProviders = {
+        slow: () => (calls.push('slow'), text('a')),
+        fast: () => (calls.push('fast'), text('b')),
+        extra: () => (calls.push('extra'), text('c')),
+      };
+      const loader = createWidgetLoader({
+        definitions: [slow, fast],
+        providers,
+        context: { roles: ['member'] },
+      });
+      loader.loadAll();
+      await sleep(10);
+      loader.setDefinitions([slow, fast, extra]);
+      assert.equal(
+        statusOf(loader.getSnapshot()),
+        'extra:loading slow:ok fast:ok'
+      );
+      loader.loadAll();
+      await sleep(10);
+      assert.equal(statusOf(loader.getSnapshot()), 'extra:ok slow:ok fast:ok');
+      assert.deepEqual(calls, ['slow', 'fast', 'extra']);
+      loader.dispose();
+    });
+
+    void it('drops a removed widget, aborting its load, and hands kept ones the new definition', async () => {
+      let aborted = false;
+      const providers: WidgetProviders = {
+        slow: (_context, _definition, options) =>
+          new Promise<WidgetPayload>((resolve) => {
+            options.signal.addEventListener('abort', () => {
+              aborted = true;
+            });
+            setTimeout(() => resolve(text('late')), 50);
+          }),
+        fast: () => text('b'),
+      };
+      const loader = createWidgetLoader({
+        definitions: [slow, fast],
+        providers,
+        context: { roles: ['member'] },
+      });
+      loader.loadAll();
+      await sleep(10);
+      const renamed: WidgetDefinition = { ...fast, title: 'Renamed' };
+      loader.setDefinitions([renamed]);
+      assert.equal(aborted, true);
+      assert.equal(statusOf(loader.getSnapshot()), 'fast:ok');
+      assert.equal(loader.getSnapshot()[0]?.definition.title, 'Renamed');
+      await sleep(70);
+      assert.equal(statusOf(loader.getSnapshot()), 'fast:ok');
+      loader.dispose();
+    });
+
+    void it('notifies subscribers once', () => {
+      const loader = createWidgetLoader({
+        definitions: [slow],
+        providers: {},
+        context: { roles: ['member'] },
+      });
+      let heard = 0;
+      loader.subscribe(() => heard++);
+      loader.setDefinitions([slow, fast]);
+      assert.equal(heard, 1);
+      loader.dispose();
+    });
+  });
 });
