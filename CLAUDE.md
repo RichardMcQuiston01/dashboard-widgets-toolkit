@@ -36,6 +36,8 @@ src/
     options.ts          declared options: resolve values, cache suffix, client sort/columns
     settings.ts         viewer settings in the layout: title, width, view, option values
     views.ts            alternate views: conversions, applyView, effectiveViewKey
+    clones.ts           layout.clones: parse, cleanClones, withClones (materialize)
+    duplicate.ts        duplicateWidget, deleteClone, nextCloneKey
     storage.ts          StorageAdapter contract, wrappers, createLayoutPersistence
     theme.ts            createTheme: validated, scoped CSS for the --dwt-* tokens
     format.ts           Intl formatting, percent change, kpiDelta
@@ -85,7 +87,8 @@ documented in the code and README, which win if they disagree.
   defaults are built (`options.ts`, `setOptions`, `optionValues`), and so is
   the Options dialog (title, width, options) with `layout.settings`
   (`settings.ts`). Converted alternate views (`views.ts`, `defaultView`, the
-  View field) are built. Still planned: provider-supplied views and clones.
+  View field) and clones (`clones.ts`, `duplicate.ts`, Duplicate in the Arrange
+  menu, Delete in the dialog) are built. Still planned: provider-supplied views.
 - `docs/design/widget-pages.md`: pages of widgets (per-page layout, capacity of
   about 4 rows, moving widgets between pages, page bar hidden for one page,
   lazy loading by page). Built: the core (`pages.ts`, `placeRows`,

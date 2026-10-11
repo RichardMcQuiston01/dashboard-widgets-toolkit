@@ -425,7 +425,7 @@ function checkTableControlsOption(
   }
 }
 
-/** Checks a definition's `locked`: a boolean or `{ move, hide, minimize }`. */
+/** Checks a definition's `locked`: a boolean or `{ move, hide, minimize, options, clone }`. */
 /** minWidth and maxWidth: integers from 2 to 12 around `width`. */
 function checkWidthLimits(value: Record_, problems: Problems): void {
   for (const field of ['minWidth', 'maxWidth'] as const) {
@@ -474,6 +474,7 @@ function checkLockedOption(locked: unknown, problems: Problems): void {
   optionalBoolean(locked, 'hide', 'locked', problems);
   optionalBoolean(locked, 'minimize', 'locked', problems);
   optionalBoolean(locked, 'options', 'locked', problems);
+  optionalBoolean(locked, 'clone', 'locked', problems);
 }
 
 /** Checks a list of column choices (`{ key, label }`) for a sort or columns option. */

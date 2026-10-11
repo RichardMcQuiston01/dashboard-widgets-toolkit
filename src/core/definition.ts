@@ -94,6 +94,11 @@ export interface WidgetDefinition {
   readonly defaultView?: string;
   /** What the base view is called in the View field. Default: its kind's name. */
   readonly baseViewLabel?: string;
+  /**
+   * Set on a clone (see `clones.ts`): the key of the widget it copies. Its
+   * data comes from that widget's provider. Authors never set it.
+   */
+  readonly sourceKey?: string;
 }
 
 /** What a viewer may not do to a locked widget. */
@@ -106,6 +111,8 @@ export interface WidgetLock {
   readonly minimize?: boolean;
   /** Can't be given a title, width or option values of the viewer's own. */
   readonly options?: boolean;
+  /** Can't be duplicated into a clone. */
+  readonly clone?: boolean;
 }
 
 /** `WidgetLock` with every default filled in. */
@@ -116,12 +123,14 @@ const NOT_LOCKED: ResolvedWidgetLock = Object.freeze({
   hide: false,
   minimize: false,
   options: false,
+  clone: false,
 });
 const FULLY_LOCKED: ResolvedWidgetLock = Object.freeze({
   move: true,
   hide: true,
   minimize: true,
   options: true,
+  clone: true,
 });
 
 /**
@@ -140,6 +149,7 @@ export function resolveWidgetLock(
     hide: setting.hide === true,
     minimize: setting.minimize === true,
     options: setting.options === true,
+    clone: setting.clone === true,
   };
 }
 

@@ -9,6 +9,7 @@
  * everything here also works on layouts saved before pages existed.
  */
 
+import { cleanClones, withClones } from './clones.js';
 import { resolveWidgetLock } from './definition.js';
 import { placeRows, fitCount, type GridItem } from './grid.js';
 import {
@@ -587,6 +588,27 @@ export function normalizeLayout<T extends PageItem>(
   definitions: readonly T[],
   layout: DashboardLayout,
   options: NormalizeOptions = {}
+): DashboardLayout {
+  // Clones are widgets too: add them to the definitions, and drop the ones
+  // that can't exist (original gone, key shadowing a widget, locked).
+  const clones = cleanClones(definitions, layout.clones, options);
+  let base: DashboardLayout = layout;
+  if (clones !== layout.clones) {
+    const { clones: _dropped, ...others } = layout;
+    void _dropped;
+    base = clones === undefined ? others : { ...others, clones };
+  }
+  return normalizeWidgets(
+    withClones(definitions, base, options),
+    base,
+    options
+  );
+}
+
+function normalizeWidgets<T extends PageItem>(
+  definitions: readonly T[],
+  layout: DashboardLayout,
+  options: NormalizeOptions
 ): DashboardLayout {
   const known: DashboardLayout = pruneLayout(definitions, layout);
   const enforced: DashboardLayout = enforceLocks(definitions, known, options);

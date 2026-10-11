@@ -820,6 +820,29 @@ Phase 3 is built (converted views only). Differences from the sketch above:
 - Not built: the dialog does not yet say what a view drops (`viewNote` is
   there for it).
 
+Phase 4 is built. Differences from the sketch above:
+
+- `core/clones.ts` has `WidgetClone`, `parseClones`, `cleanClones` and
+  `withClones` (adds each clone after its original with `sourceKey`, the title
+  "Original (#n)" and no locks; idempotent). `core/duplicate.ts` has
+  `duplicateWidget`, `deleteClone`, `canDuplicate`, `nextCloneKey` and
+  `suggestedViewTitle`.
+- Clones are materialized by the consumer (`withClones`) so `useWidgets` loads
+  them; `normalizeLayout` does it internally, accepts originals or an already
+  materialized list, and drops clones that can't exist. Changing the clones
+  restarts the loader.
+- The loader and `resolveWidgets` call `providers[definition.sourceKey ??
+key]`; `cacheKeyFor` uses the same key, so equal option values share a cache
+  entry. In-flight loads are not shared.
+- A duplicate copies the widget's width, Flexible, view and option values (not
+  its title) and is placed right after it on the same page. Duplicate is refused
+  with a message when a paged layout has no room; unpaged layouts have no limit.
+- `maxWidgets` was not built: page capacity is the only limit (decision 9).
+- Delete lives in the Options dialog (inline ✓ / ✕), not in the Arrange menu.
+- Choosing another view in a clone's dialog suggests "Original View Label" as
+  the title unless the viewer typed one.
+- `locked.clone` is part of `locked: true`. Reset layout keeps clones.
+
 Phase 1 is the most valuable on its own and needs no new UI: authors get default
 sorts, "top N" and column sets, with the viewer's choice arriving later in phase 2
 through the same declarations. It is also what a Widget Builder bakes in, so it
