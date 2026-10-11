@@ -66,10 +66,12 @@ import {
 } from '../core/duplicate.js';
 import { applyView } from '../core/views.js';
 import {
+  clampServerQuery,
   defaultDetailQuery,
   deriveDetailData,
   resolveDetailOptions,
   type DetailData,
+  type DetailMode,
   type DetailQuery,
   type DetailSort,
 } from '../core/detail.js';
@@ -82,6 +84,7 @@ import {
   WidgetDetailDialog,
   useDetailData,
   type DetailLoader,
+  type ServerDetailOptions,
 } from './detail.js';
 import {
   WidgetSettingsProvider,
@@ -358,13 +361,31 @@ function DetailHost({
         : undefined,
     [widget, locale]
   );
+  const mode: DetailMode = options?.mode ?? 'client';
+  const serverOptions: ServerDetailOptions | undefined = useMemo(
+    () => (mode === 'server' ? { query } : undefined),
+    [mode, query]
+  );
   const { state, reload } = useDetailData(
     definition,
     loadDetail,
     true,
     derived,
-    widget.options
+    widget.options,
+    serverOptions
   );
+  // Rows were removed while the viewer was on the last page: ask for the new
+  // last page instead of showing an empty one.
+  useEffect(() => {
+    if (mode !== 'server' || state.data === undefined || state.refreshing) {
+      return;
+    }
+    const corrected: DetailQuery | undefined = clampServerQuery(
+      state.data,
+      query
+    );
+    if (corrected !== undefined) setQuery(corrected);
+  }, [mode, state.data, state.refreshing, query]);
   const title: string = options?.title ?? definition.title;
   return (
     <WidgetDetailDialog title={title} open onClose={onClose}>
@@ -376,6 +397,8 @@ function DetailHost({
         {...(state.data === undefined ? {} : { data: state.data })}
         {...(state.error === undefined ? {} : { error: state.error })}
         onRetry={reload}
+        mode={mode}
+        busy={state.refreshing === true}
       />
     </WidgetDetailDialog>
   );

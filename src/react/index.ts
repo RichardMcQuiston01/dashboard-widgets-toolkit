@@ -27,8 +27,10 @@ export {
   WidgetDetail,
   WidgetDetailDialog,
   useDetailData,
+  SERVER_INPUT_DEBOUNCE_MS,
   type DetailLoadState,
   type DetailLoader,
+  type ServerDetailOptions,
   type WidgetDetailDialogProps,
   type WidgetDetailProps,
 } from './detail.js';

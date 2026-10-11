@@ -341,9 +341,63 @@ Where the data comes from:
   `parseDetailQuery` keep the query in a URL, and `validateDetailData` checks
   what your loader returns.
 
-Only client mode exists today: `loadDetail` returns every row and the toolkit
-sorts, filters and pages them in memory. The `mode: 'server'` option,
-server-side paging and URL deep links are planned, not built; see
+By default (client mode) `loadDetail` returns every row and the toolkit sorts,
+filters and pages them in memory, which suits a few thousand rows.
+
+**Server mode** is for data too big for that. Set
+`detail: { mode: 'server', pageSize: 25 }` and your loader gets the viewer's
+query and returns just that page plus `totalRows` (the rows matching the
+search and filters across all pages):
+
+```tsx
+// A Prisma loader for an `order` table. The query is already validated by
+// you; the toolkit only passes it on.
+const loadDetail: DetailLoader = async (definition, { query, signal }) => {
+  const where = query.search
+    ? { customer_name: { contains: query.search, mode: 'insensitive' } }
+    : {};
+  const [rows, totalRows] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      orderBy: query.sort
+        ? { [query.sort.column]: query.sort.direction }
+        : { created_at: 'desc' },
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+    }),
+    prisma.order.count({ where }),
+  ]);
+  return {
+    columns: [
+      { key: 'customer_name', label: 'Customer' },
+      { key: 'total', label: 'Total', numeric: true },
+    ],
+    rows: rows.map((row) => [
+      { text: row.customer_name },
+      { text: formatMoney(row.total), value: row.total },
+    ]),
+    totalRows,
+  };
+};
+```
+
+- Every search, sort, filter or page change calls the loader again with the new
+  `query` and aborts the request before it. The old page stays on screen
+  (marked `aria-busy`) until the new one arrives. Typing waits 300 ms after the
+  last key (`SERVER_INPUT_DEBOUNCE_MS`).
+- The loader must honor `query.page` and `query.pageSize`. The result is
+  checked (`validateDetailData(data, subject, { mode: 'server', pageSize })`):
+  `totalRows` is required, and more rows than a page is an error. Column keys
+  are yours to map to database fields; only allow keys you listed in `columns`.
+- If the viewer is on a page that no longer exists (rows were deleted), the
+  dialog asks again for the last page (`clampServerQuery`).
+- The card's own data is never a fallback in server mode: a loader that
+  returns `undefined` shows an error.
+- Building your own page? `useDetailData(definition, load, true, undefined,
+options, { query })` does the loading and `WidgetDetail mode="server"` shows
+  it. `serverPage` is the core function behind it.
+
+URL deep links, page-size choice and column visibility are planned; see
 [docs/design/detail-view.md](./docs/design/detail-view.md).
 
 ### Searchable, sortable tables in the card
