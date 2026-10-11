@@ -21,6 +21,7 @@ export {
   Dashboard,
   WidgetGrid,
   type DashboardProps,
+  type DetailChangeReason,
   type WidgetGridProps,
 } from './dashboard.js';
 export {

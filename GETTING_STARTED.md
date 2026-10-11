@@ -397,7 +397,55 @@ const loadDetail: DetailLoader = async (definition, { query, signal }) => {
 options, { query })` does the loading and `WidgetDetail mode="server"` shows
   it. `serverPage` is the core function behind it.
 
-URL deep links, page-size choice and column visibility are planned; see
+**Deep links.** The package never reads or writes `location`; you keep the
+open detail view in the URL with a controlled prop and a few pure helpers. The
+URL looks like `?widget=top-products&sort=sold:desc&page=2` (with `q=` for the
+search and `f.<column>=` for column filters; the page size is the widget's).
+
+```tsx
+const [detail, setDetail] = useState(() => readUrl());
+function readUrl(): DetailLink | null {
+  const parsed = parseDetailLink(location.search, definitions);
+  return parsed.ok ? (parsed.value ?? null) : null; // or log parsed.error
+}
+useEffect(() => {
+  const onPop = () => setDetail(readUrl());
+  addEventListener('popstate', onPop);
+  return () => removeEventListener('popstate', onPop);
+}, []);
+
+<Dashboard
+  widgets={widgets}
+  detail={detail}
+  onDetailChange={(next, reason) => {
+    setDetail(next);
+    const url = `?${withDetailLink(location.search, next)}`;
+    // Opening and closing are history entries (Back closes the dialog);
+    // typing, sorting and paging replace the current one.
+    if (reason === 'query') history.replaceState(null, '', url);
+    else history.pushState(null, '', url);
+  }}
+/>;
+```
+
+- `detail` is `{ key, query }` or `null` (closed); leave it out and `Dashboard`
+  keeps the state itself (`defaultDetail` sets the initial one).
+  `onDetailChange(next, reason)` has `reason` `'open'`, `'query'` or `'close'`.
+- `parseDetailLink(queryString, definitions)` is ok with `undefined` when there
+  is no `widget` parameter, and fails with a message naming the widget or
+  parameter for an unknown widget, one without `detail`, or a malformed value.
+  A link to a widget the viewer cannot see opens nothing.
+- `serializeDetailLink(link)` writes the parameters; `withDetailLink(query,
+link)` puts them into a query string that has your own parameters (`tab=...`),
+  replacing old detail ones, and removes them for `null`.
+- A filter or sort in the URL that names a column the loaded data does not
+  have is dropped (`sanitizeDetailQuery`), so a stale link opens the table
+  instead of an error. With Next.js use `useSearchParams` and `router.push` /
+  `router.replace` the same way.
+- In server mode a deep link loads the right page on open; client mode sorts,
+  filters and pages the loaded rows to match.
+
+Page-size choice and column visibility are planned; see
 [docs/design/detail-view.md](./docs/design/detail-view.md).
 
 ### Searchable, sortable tables in the card

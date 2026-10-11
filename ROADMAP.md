@@ -49,10 +49,9 @@
 
 ## Short term
 
-- **Detail view, the rest.** URL deep links (the query helpers exist; the
-  dialog does not read or write the URL yet), page-size choice and column
-  visibility, server-mode detail caching by query, and a detail view for each
-  provider-supplied view. Server mode itself is built. See
+- **Detail view, the rest.** Page-size choice and column visibility,
+  server-mode detail caching by query, and a detail view for each
+  provider-supplied view. Server mode and URL deep links are built. See
   [docs/design/detail-view.md](./docs/design/detail-view.md).
 - **Theming, the rest.** A `WidgetTheme` React wrapper, contrast and
   color-vision checks (`checkTheme`) and presets. See

@@ -83,8 +83,9 @@ starting that work; skip them otherwise. The shipped parts of each are
 documented in the code and README, which win if they disagree.
 
 - `docs/design/detail-view.md`: detail view. Core, client-mode and
-  server-mode (`mode: 'server'`, `totalRows`) React shipped. Still planned: URL
-  deep links in the dialog, page-size choice and column visibility.
+  server-mode (`mode: 'server'`, `totalRows`) React and URL deep links (`detail`
+  / `onDetailChange`, `parseDetailLink`) shipped. Still planned: page-size choice
+  and column visibility.
 - `docs/design/widget-extensions.md`: async loading shipped (`useWidgets`,
   `createWidgetLoader`). Still planned: adapters and payload builders,
   push streams. Drag-and-drop reordering shipped (`reorder.ts`, `use-reorder.ts`).
