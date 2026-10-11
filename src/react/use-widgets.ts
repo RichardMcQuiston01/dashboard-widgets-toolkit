@@ -76,9 +76,11 @@ export interface UseWidgetsResult {
  * and first paint are unaffected); every widget starts as `loading`, loads
  * independently, and replaces its placeholder when its own data arrives.
  *
- * Keep `definitions`, `providers`, `context` and `options.cache` referentially
- * stable (module constants or `useMemo`): a changed value restarts loading,
- * aborting whatever is in flight.
+ * Keep `providers`, `context` and `options.cache` referentially stable
+ * (module constants or `useMemo`): a changed value restarts loading, aborting
+ * whatever is in flight. `definitions` may change freely (for example when a
+ * clone is added or deleted): widgets already loaded keep their data and only
+ * new ones load.
  */
 export function useWidgets<C extends WidgetContext>(
   definitions: readonly WidgetDefinition[],
@@ -112,13 +114,17 @@ export function useWidgets<C extends WidgetContext>(
   optionValuesRef.current = optionValues;
   const viewValuesRef = useRef(viewValues);
   viewValuesRef.current = viewValues;
+  // The latest definitions, for a loader created later; changing them never
+  // recreates the loader (see the effect below).
+  const definitionsRef = useRef(definitions);
+  definitionsRef.current = definitions;
 
   // One loader per set of inputs. It is created in an effect (never during
   // render) so server rendering starts nothing, and so React StrictMode's
   // mount, unmount, mount cycle gets a fresh loader instead of a disposed one.
   useEffect(() => {
     const created: WidgetLoader = createWidgetLoader({
-      definitions,
+      definitions: definitionsRef.current,
       providers,
       context,
       ...(validate === undefined ? {} : { validate }),
@@ -149,7 +155,6 @@ export function useWidgets<C extends WidgetContext>(
       setLoader(null);
     };
   }, [
-    definitions,
     providers,
     context,
     validate,
@@ -159,6 +164,23 @@ export function useWidgets<C extends WidgetContext>(
     cacheKey,
     loadWhen,
   ]);
+
+  // Definitions changed (a clone added or deleted, a widget shown or hidden):
+  // update the running loader in place. Widgets already loaded keep their data
+  // and nothing in flight is aborted; only new widgets load.
+  useEffect(() => {
+    if (loader === null) return;
+    loader.setDefinitions(definitions);
+    for (const [key, chosen] of Object.entries(optionValuesRef.current ?? {})) {
+      if (chosen !== undefined) loader.setOptions(key, chosen);
+    }
+    for (const [key, view] of Object.entries(viewValuesRef.current ?? {})) {
+      loader.setView(key, view);
+    }
+    if (loadWhen === 'mount' || typeof IntersectionObserver === 'undefined') {
+      loader.loadAll();
+    }
+  }, [loader, definitions, loadWhen]);
 
   // loadWhen 'visible': start a widget the first time its card nears the
   // viewport. Cards that appear later (another page, a restored widget) are

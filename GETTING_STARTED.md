@@ -631,9 +631,9 @@ const { widgets } = useWidgets(all, providers, context, { optionValues });
   `definition.key` should use `definition.sourceKey ?? definition.key`. The
   cache key also uses the original's key plus the option values, so a clone
   with the same option values reuses the original's cached payload.
-- **Adding or deleting a clone** changes the definitions, so `useWidgets` starts
-  its loader again and every card reloads (from `cache` when you pass one). Pass
-  a `cache` to make this quick.
+- **Adding or deleting a clone** changes the definitions. `useWidgets` updates
+  its running loader in place: cards already loaded keep their data, and only
+  the new clone loads.
 - **Rules.** A clone of a clone is a clone of the original. Clones never inherit
   locks, so the viewer can always move, hide and delete them. A clone exists
   only while its original does; `normalizeLayout` drops the rest, along with

@@ -81,6 +81,15 @@ export interface WidgetLoader {
    * cache. Switching among the base and converted views reloads nothing.
    */
   setView(key: string, view: string | undefined): void;
+  /**
+   * Replaces the set of widgets without starting over. A widget whose key is
+   * still present keeps its data, its state and any load in flight (it only
+   * gets the new definition object); a new key appears as `loading` and loads
+   * when you call `load` or `loadAll`; a removed key is aborted and dropped.
+   * The snapshot follows the new order. Call `refresh(key)` if a kept
+   * widget's definition changed in a way its data depends on.
+   */
+  setDefinitions(definitions: readonly WidgetDefinition[]): void;
   /** Aborts everything in flight and ignores any later result. */
   dispose(): void;
 }
@@ -112,7 +121,7 @@ export function createWidgetLoader<C extends WidgetContext>(
   }
   // The payload as the provider returned it, before client-side options.
   const unapplied = new Map<string, ResolvedWidget>();
-  const visible: WidgetDefinition[] = widgetsFor(definitions, context.roles);
+  let visible: WidgetDefinition[] = widgetsFor(definitions, context.roles);
   let snapshot: readonly DashboardWidget[] = loadingWidgets(visible);
 
   const listeners = new Set<() => void>();
@@ -292,6 +301,35 @@ export function createWidgetLoader<C extends WidgetContext>(
     start(definition, true);
   }
 
+  function setDefinitions(next: readonly WidgetDefinition[]): void {
+    if (disposed) return;
+    visible = widgetsFor(next, context.roles);
+    const keys = new Set<string>(visible.map((definition) => definition.key));
+    for (const key of [...started, ...unapplied.keys()]) {
+      if (keys.has(key)) continue;
+      inFlight.get(key)?.abort(new Error('The widget was removed.'));
+      inFlight.delete(key);
+      started.delete(key);
+      unapplied.delete(key);
+      chosen.delete(key);
+      chosenViews.delete(key);
+    }
+    const byKey = new Map<string, DashboardWidget>(
+      snapshot.map((widget) => [widget.definition.key, widget])
+    );
+    publish(
+      visible.map((definition): DashboardWidget => {
+        const existing: DashboardWidget | undefined = byKey.get(definition.key);
+        const kept: ResolvedWidget | undefined = unapplied.get(definition.key);
+        if (kept !== undefined)
+          unapplied.set(definition.key, { ...kept, definition });
+        return existing === undefined
+          ? { definition, status: 'loading' }
+          : { ...existing, definition };
+      })
+    );
+  }
+
   function dispose(): void {
     disposed = true;
     abortAll(new Error('The widget loader was disposed.'));
@@ -313,6 +351,7 @@ export function createWidgetLoader<C extends WidgetContext>(
     refresh,
     setOptions,
     setView,
+    setDefinitions,
     dispose,
   };
 }

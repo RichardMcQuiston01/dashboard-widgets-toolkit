@@ -850,7 +850,7 @@ Phase 4 is built. Differences from the sketch above:
 - Clones are materialized by the consumer (`withClones`) so `useWidgets` loads
   them; `normalizeLayout` does it internally, accepts originals or an already
   materialized list, and drops clones that can't exist. Changing the clones
-  restarts the loader.
+  updates the running loader (`setDefinitions`): kept cards keep their data.
 - The loader and `resolveWidgets` call `providers[definition.sourceKey ??
 key]`; `cacheKeyFor` uses the same key, so equal option values share a cache
   entry. In-flight loads are not shared.
