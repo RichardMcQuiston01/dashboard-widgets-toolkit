@@ -17,6 +17,9 @@ It gives you:
 - Typed widget definitions and data payloads. A payload is the data one widget shows.
 - A layout that each viewer can change. They can reorder, hide, and minimize widgets.
 - React renderers, including accessible charts drawn as Scalable Vector Graphics (SVG), each with a "View as table" twin.
+- Controls for viewers, all saved in the layout: an edit mode, pages of widgets, and an Options dialog for each widget's title, width, view and options. A viewer can also duplicate a widget into a clone with its own settings.
+- Locks that keep chosen widgets in place, a detail view with search, sort and paging, and CSS-variable theming.
+- Storage helpers (an adapter contract and a `useStoredLayout` hook) so you can keep layouts in localStorage, a database or a server.
 
 You bring your own data. The package never fetches or stores anything. You register a provider for each widget, such as a database query, a web request, or a computed value. You also save each viewer's layout wherever you like. Payloads are plain JavaScript Object Notation (JSON), so a server can resolve widgets and a browser can check and draw them.
 
@@ -105,6 +108,10 @@ The [Getting Started guide](./GETTING_STARTED.md#examples) covers these, and mor
 - [Layout functions on their own](./GETTING_STARTED.md#layout-functions-on-their-own)
 - [Styling with Tailwind (or any classes)](./GETTING_STARTED.md#styling-with-tailwind-or-any-classes)
 - [Detail view](./GETTING_STARTED.md#detail-view)
+- [Declared options](./GETTING_STARTED.md#declared-options) and [the Options dialog](./GETTING_STARTED.md#viewer-settings-the-options-dialog)
+- [Alternate views](./GETTING_STARTED.md#alternate-views), including [views your provider supplies](./GETTING_STARTED.md#views-your-provider-supplies), and [clones](./GETTING_STARTED.md#clones)
+- [Locked widgets](./GETTING_STARTED.md#locked-widgets) and [edit mode](./GETTING_STARTED.md#edit-mode-customize-and-done)
+- [Pages of widgets](./GETTING_STARTED.md#pages-of-widgets-core)
 - [Storing the layout](./GETTING_STARTED.md#storing-the-layout)
 - [Theming](./GETTING_STARTED.md#theming)
 
@@ -136,7 +143,7 @@ A `TABLE` cell's optional `value` (a string or number) is what the card's table 
 - [Roadmap](./ROADMAP.md): what has shipped and what is planned
 - [Changelog](./CHANGELOG.md): what changed in each release
 - [Contributing notes](./CLAUDE.md): scripts, conventions, and how to release
-- Design notes for planned and newer features:
+- Design notes for each feature, with what is built and what is still planned:
   - [Detail view](./docs/design/detail-view.md)
   - [Widget extensions](./docs/design/widget-extensions.md)
   - [Lock and edit mode](./docs/design/lock-and-edit-mode.md)

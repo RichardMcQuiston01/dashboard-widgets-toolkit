@@ -1,7 +1,9 @@
 # Design: widget pages
 
-- **Status:** Draft for review. Decisions 1 to 6 of section 12 come from the
-  maintainer; the rest are proposals.
+- **Status:** Built: the core (0.10.0) and the React page bar, Move to page and
+  page management (0.10.0 to 0.11.2). Not built: swipe, drag onto a page tab and
+  `retain`/`release`. Decisions 1 to 6 of section 12 come from the maintainer; the
+  rest were taken as proposed.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
