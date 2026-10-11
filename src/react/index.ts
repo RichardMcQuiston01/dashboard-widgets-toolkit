@@ -27,8 +27,10 @@ export {
   WidgetDetail,
   WidgetDetailDialog,
   useDetailData,
+  SERVER_INPUT_DEBOUNCE_MS,
   type DetailLoadState,
   type DetailLoader,
+  type ServerDetailOptions,
   type WidgetDetailDialogProps,
   type WidgetDetailProps,
 } from './detail.js';
@@ -36,6 +38,13 @@ export {
   WidgetOptionsDialog,
   type WidgetOptionsDialogProps,
 } from './options-dialog.js';
+export {
+  DRAG_START_DISTANCE_PX,
+  usePointerReorder,
+  type PointerDragState,
+  type UsePointerReorderOptions,
+  type UsePointerReorderResult,
+} from './use-reorder.js';
 export { DEFAULT_SERIES_COLORS, seriesColor } from './palette.js';
 export { Thumbnail, WidgetLink } from './primitives.js';
 export {

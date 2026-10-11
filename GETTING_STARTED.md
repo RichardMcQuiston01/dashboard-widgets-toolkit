@@ -1,10 +1,16 @@
 # GETTING STARTED
 
+[Back to README](./README.md)
+
+| [Prerequisites](#prerequisites) | [Installation](#installation) | [Working on the package](#working-on-the-package) | [Usage](#usage) | [Examples](#examples) | [Maker Toolkit compatibility](#maker-toolkit-compatibility) |
+
 ## Prerequisites
 
 - Node.js 18+ or Bun 1.3+ (or any modern browser bundler).
 - React 18 or later, only if you use `/react`.
 - TypeScript is optional; type declarations are included.
+
+[Back to Top](#getting-started)
 
 ## Installation
 
@@ -22,10 +28,14 @@ const {
 } = require('@richardmcquiston01/dashboard-widgets-toolkit/core');
 ```
 
+[Back to Top](#getting-started)
+
 ## Working on the package
 
 Contributing to the toolkit itself (not using it)? The scripts and
 conventions are in [CLAUDE.md](./CLAUDE.md).
+
+[Back to Top](#getting-started)
 
 ## Usage
 
@@ -195,7 +205,11 @@ Links open in the same tab unless you set `linkTarget` (for example
 `"_blank"`); links that open a new tab get a small external-link icon and
 "(opens in a new tab)" for screen readers (label `opensInNewTab`).
 
+[Back to Top](#getting-started)
+
 ## Examples
+
+| [Layout functions on their own](#layout-functions-on-their-own) | [KPI deltas and formatting](#kpi-deltas-and-formatting) | [Styling with Tailwind (or any classes)](#styling-with-tailwind-or-any-classes) | [Widget width](#widget-width) | [Detail view](#detail-view) | [Searchable, sortable tables in the card](#searchable-sortable-tables-in-the-card) | [Declared options](#declared-options) | [Viewer settings: the Options dialog](#viewer-settings-the-options-dialog) | [Alternate views](#alternate-views) | [Clones](#clones) | [Locked widgets](#locked-widgets) | [Edit mode: Customize and Done](#edit-mode-customize-and-done) | [Storing the layout](#storing-the-layout) | [Pages of widgets (core)](#pages-of-widgets-core) | [Filling space](#filling-space) | [Loading data after the page renders](#loading-data-after-the-page-renders) | [Theming](#theming) | [Changing the text](#changing-the-text) | [Charts](#charts) |
 
 ### Layout functions on their own
 
@@ -327,9 +341,63 @@ Where the data comes from:
   `parseDetailQuery` keep the query in a URL, and `validateDetailData` checks
   what your loader returns.
 
-Only client mode exists today: `loadDetail` returns every row and the toolkit
-sorts, filters and pages them in memory. The `mode: 'server'` option,
-server-side paging and URL deep links are planned, not built; see
+By default (client mode) `loadDetail` returns every row and the toolkit sorts,
+filters and pages them in memory, which suits a few thousand rows.
+
+**Server mode** is for data too big for that. Set
+`detail: { mode: 'server', pageSize: 25 }` and your loader gets the viewer's
+query and returns just that page plus `totalRows` (the rows matching the
+search and filters across all pages):
+
+```tsx
+// A Prisma loader for an `order` table. The query is already validated by
+// you; the toolkit only passes it on.
+const loadDetail: DetailLoader = async (definition, { query, signal }) => {
+  const where = query.search
+    ? { customer_name: { contains: query.search, mode: 'insensitive' } }
+    : {};
+  const [rows, totalRows] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      orderBy: query.sort
+        ? { [query.sort.column]: query.sort.direction }
+        : { created_at: 'desc' },
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+    }),
+    prisma.order.count({ where }),
+  ]);
+  return {
+    columns: [
+      { key: 'customer_name', label: 'Customer' },
+      { key: 'total', label: 'Total', numeric: true },
+    ],
+    rows: rows.map((row) => [
+      { text: row.customer_name },
+      { text: formatMoney(row.total), value: row.total },
+    ]),
+    totalRows,
+  };
+};
+```
+
+- Every search, sort, filter or page change calls the loader again with the new
+  `query` and aborts the request before it. The old page stays on screen
+  (marked `aria-busy`) until the new one arrives. Typing waits 300 ms after the
+  last key (`SERVER_INPUT_DEBOUNCE_MS`).
+- The loader must honor `query.page` and `query.pageSize`. The result is
+  checked (`validateDetailData(data, subject, { mode: 'server', pageSize })`):
+  `totalRows` is required, and more rows than a page is an error. Column keys
+  are yours to map to database fields; only allow keys you listed in `columns`.
+- If the viewer is on a page that no longer exists (rows were deleted), the
+  dialog asks again for the last page (`clampServerQuery`).
+- The card's own data is never a fallback in server mode: a loader that
+  returns `undefined` shows an error.
+- Building your own page? `useDetailData(definition, load, true, undefined,
+options, { query })` does the loading and `WidgetDetail mode="server"` shows
+  it. `serverPage` is the core function behind it.
+
+URL deep links, page-size choice and column visibility are planned; see
 [docs/design/detail-view.md](./docs/design/detail-view.md).
 
 ### Searchable, sortable tables in the card
@@ -617,9 +685,9 @@ const { widgets } = useWidgets(all, providers, context, { optionValues });
   `definition.key` should use `definition.sourceKey ?? definition.key`. The
   cache key also uses the original's key plus the option values, so a clone
   with the same option values reuses the original's cached payload.
-- **Adding or deleting a clone** changes the definitions, so `useWidgets` starts
-  its loader again and every card reloads (from `cache` when you pass one). Pass
-  a `cache` to make this quick.
+- **Adding or deleting a clone** changes the definitions. `useWidgets` updates
+  its running loader in place: cards already loaded keep their data, and only
+  the new clone loads.
 - **Rules.** A clone of a clone is a clone of the original. Clones never inherit
   locks, so the viewer can always move, hide and delete them. A clone exists
   only while its original does; `normalizeLayout` drops the rest, along with
@@ -699,6 +767,43 @@ hide the built-in toolbar with `toolbar={false}`. The text is overridable
 `confirmRevert`, `locked`, and more), and the toolbar takes the `toolbar`
 class slot. With `overrideLocks`, locked cards show "locked for viewers"
 instead.
+
+### Drag and drop
+
+Add `draggable` to `Dashboard` and each card shows a grip button (labelled
+"Reorder Revenue") next to the Arrange menu, wherever the layout controls
+show (always, or only while Customize is on):
+
+```tsx
+<Dashboard widgets={widgets} layout={layout} onLayoutChange={save} draggable />
+```
+
+- **Pointer, touch and pen.** Press the grip and move: the card follows the
+  pointer, the card it would land on gets an indicator (the page behind scrolls
+  near the top and bottom edge), and releasing there moves it into that
+  slot. Escape or a cancelled touch aborts. Only the grip drags, so text
+  selection and links inside cards keep working.
+- **Keyboard.** On the grip, Space or Enter picks the card up, the arrow keys
+  move it (one position per press, stepping over pinned widgets), Space or
+  Enter drops it and Escape cancels. Moving focus away also cancels. Each step
+  is announced in a live region (`labels.pickedUp`, `movedTo`, `dropped`,
+  `dragCancelled`).
+- **One save per move.** `onLayoutChange` is called once, on drop (a keyboard
+  drag does not save each arrow press). The commit is the same `moveWidget` as
+  the move buttons, so pinned widgets have no grip and cannot be dropped
+  onto, and hidden widgets are skipped.
+- **The move buttons stay** in the Arrange menu: they are the single-pointer
+  alternative that WCAG 2.5.7 asks for.
+- **Styling.** `.dwt-drag-handle`, `.dwt-card--dragging`, `.dwt-card--grabbed`,
+  `.dwt-card--drop-before` / `-after`. The indicator color is
+  `--dwt-drop-indicator` (default: `--dwt-focus`).
+- **Your own handles.** The decisions are pure core functions: `dropTargetKey`
+  (hit-testing on card rectangles), `dropPlacement`, `reorderOnto`,
+  `listPosition` and `autoScrollStep`; `usePointerReorder` is the React hook.
+  To use a drag library instead, call `moveWidget` or `reorderOnto` in its
+  drop handler.
+
+Dragging between pages and onto a page tab are not built; use "Move to page".
 
 ### Storing the layout
 
@@ -1042,6 +1147,8 @@ custom properties (`--dwt-series-1` … `--dwt-series-8`) with built-in
 defaults from a palette checked for color-vision deficiency in light and
 dark modes; a graph may have at most eight series.
 
+[Back to Top](#getting-started)
+
 ## Maker Toolkit compatibility
 
 The kind names are upper case, as in Maker Toolkit's `WidgetViewType`, and
@@ -1080,4 +1187,8 @@ import {
 const result = validateWidgetData(upgradeLegacyWidgetData(apiPayload));
 ```
 
-[Return to README.md](./README.md)
+[Back to Top](#getting-started)
+
+---
+
+[Back to README](./README.md)

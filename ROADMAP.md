@@ -1,5 +1,9 @@
 # ROADMAP
 
+[Back to README](./README.md)
+
+| [Shipped](#shipped) | [Short term](#short-term) | [Next](#next) | [Never](#never) |
+
 ## Shipped
 
 - Core: widget definitions, seven payload kinds plus an empty state,
@@ -18,56 +22,79 @@
   definition (0.6.0).
 - Sort values on `TABLE` cells (`value`), so formatted columns sort and search
   correctly (0.7.0).
+- Locked widgets: `locked`, pinned slots, `enforceLocks` and `overrideLocks`
+  (0.8.0).
+- Edit mode: `editMode="toggle"` with a Customize/Done toolbar, Reset layout,
+  Revert changes and a lock icon on locked cards (0.9.0).
+- Pages of widgets: per-page layouts with a capacity of about 4 rows, `placeRows`
+  and `normalizeLayout` (0.10.0), then the page bar, Move to page and page
+  management in `Dashboard` (0.10.0 to 0.11.2).
+- Storage adapters: the adapter contract, `createLayoutPersistence`, wrappers
+  and the `useStoredLayout` hook (0.11.0).
+- Declared widget options with defaults (`choice`, `number`, `boolean`, `text`,
+  `dateRange`, `color`, `sort`, `columns`), passed to the provider, with
+  option-aware cache keys and client-side sort and columns (0.11.0).
+- One Arrange menu per card (0.12.0).
+- Theming: `createTheme` and a documented `--dwt-*` token reference (0.13.0).
+- Options dialog and viewer settings: title, width, Grow to fill and the
+  declared options, stored in the layout as `layout.settings`, with
+  `minWidth`/`maxWidth` limits and `locked.options` (0.14.0).
+- Alternate views: a table as a bar list or chart and other conversions, a View
+  field in the Options dialog (0.15.0).
+- Clones: Duplicate and Delete, `layout.clones`, `locked.clone` (0.16.0).
+- Views supplied by the provider (`views` without `convert`, `options.view`,
+  `viewValues`, `setView`) (0.17.0).
+
+[Back to Top](#roadmap)
 
 ## Short term
 
-- **Detail view, server mode.** `mode: 'server'` with `totalRows` so large
-  datasets are filtered, sorted and paged by the consumer's provider, plus URL
-  deep links, page-size choice and column visibility. See
+- **Detail view, the rest.** URL deep links (the query helpers exist; the
+  dialog does not read or write the URL yet), page-size choice and column
+  visibility, server-mode detail caching by query, and a detail view for each
+  provider-supplied view. Server mode itself is built. See
   [docs/design/detail-view.md](./docs/design/detail-view.md).
-- **Edit mode** (built, unreleased). `editMode="toggle"` with a Customize/Done
-  toolbar, Reset layout, Revert changes and a lock icon on locked cards.
-  Designed in
-  [docs/design/lock-and-edit-mode.md](./docs/design/lock-and-edit-mode.md);
-  drag and drop builds on it.
+- **Theming, the rest.** A `WidgetTheme` React wrapper, contrast and
+  color-vision checks (`checkTheme`) and presets. See
+  [docs/design/theming.md](./docs/design/theming.md).
+- **Storage, the rest.** The stored active page and backup history (`backup` and
+  `onBackup`), and a `data-dwt-default-title` attribute for reverting renames. See
+  [docs/design/storage-adapters.md](./docs/design/storage-adapters.md) and
+  [docs/design/widget-options-views-clones.md](./docs/design/widget-options-views-clones.md).
+
+[Back to Top](#roadmap)
 
 ## Next
 
+- **Pages, the rest.** Swipe between pages, drag a widget onto a page tab (the
+  `draggable` reordering works within a page), and
+  payload release (`retain`/`release`) for far-away pages. See
+  [docs/design/widget-pages.md](./docs/design/widget-pages.md).
+- **Field types** for table cells: `email`, `url`, `image`, `color` and `custom`
+  formatters.
+- **Widget Builder**, headless functions in a `./builder` subpath that create and
+  edit a definition as JSON, with data-source descriptions; viewer-created widgets
+  come after. See
+  [docs/design/widget-options-views-clones.md](./docs/design/widget-options-views-clones.md).
 - **Vue renderers** (`./vue`) for Maker Toolkit's Shop Dashboard and other
   Vue 3 apps, over the same core and `styles.css` class names.
-- **Drag-and-drop reordering** in `Dashboard`, on top of `moveWidget`, with
-  the move buttons kept as the keyboard-accessible path.
-- **Widget options, alternate views and clones.** Declared options with
-  defaults (default sort, columns, top N) passed to the provider are built and
-  released, and so is the Options dialog (unreleased): title, width, Grow to
-  fill and the declared options, stored in the layout as `layout.settings`.
-  Alternate views (a table as a bar list or chart, built and unreleased) are in
-  the dialog's View field (including views the provider supplies, built and
-  unreleased), and clones (Duplicate and Delete, built and
-  unreleased) keep a widget twice with different settings. Defaults
-  are definition data so a Widget Builder can bake them in later. Designed in
-  [docs/design/widget-options-views-clones.md](./docs/design/widget-options-views-clones.md);
-  builds on the lock and edit mode design.
-- **Widget pages** (built, unreleased). Phone-style pages of widgets (about 4
-  rows each), move widgets between pages, a page bar that appears only with two
-  or more pages, and loading only the page in view. Swipe, drag onto a page tab
-  and payload release for far-away pages come later. Designed in
-  [docs/design/widget-pages.md](./docs/design/widget-pages.md).
-- **Storage adapters** (built, unreleased). A small adapter contract, I/O-free
-  persistence helpers and a `useStoredLayout` hook, so layouts and backups can
-  live in localStorage, a database or a server without the package storing
-  anything. Stored active page and backup history come later. Designed in
-  [docs/design/storage-adapters.md](./docs/design/storage-adapters.md).
+- **Data sources and adapters**: payload builders and push (live) sources. See
+  [docs/design/widget-extensions.md](./docs/design/widget-extensions.md).
 - **Sparkline kind** (`SPARKLINE`), and an optional sparkline on `KPI` tiles
   (12 points, current period in the accent).
 - **More chart forms**: stacked bars for part-to-whole, and area charts.
 - **Texture fill** for bars (45°/135°) under `forced-colors`, print or an
   accessibility setting, as a second channel after color.
 
-See [docs/design/widget-extensions.md](./docs/design/widget-extensions.md) for
-the design of drag-and-drop, lazy loading, data sources and adapters.
+[Back to Top](#roadmap)
 
 ## Never
 
 - Data fetching, storage or database code in the package. Consumers supply
   providers and persist layouts themselves.
+
+[Back to Top](#roadmap)
+
+---
+
+[Back to README](./README.md)

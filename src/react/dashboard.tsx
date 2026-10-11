@@ -66,22 +66,32 @@ import {
 } from '../core/duplicate.js';
 import { applyView } from '../core/views.js';
 import {
+  clampServerQuery,
   defaultDetailQuery,
   deriveDetailData,
   resolveDetailOptions,
   type DetailData,
+  type DetailMode,
   type DetailQuery,
   type DetailSort,
 } from '../core/detail.js';
+import {
+  dropPlacement,
+  listPosition,
+  reorderOnto,
+  type DropPlacement,
+} from '../core/reorder.js';
 import { ResolvedWidgetCard } from './card.js';
 import { InlineConfirm } from './confirm.js';
 import { WidgetEditMenu, type EditMenuItem } from './edit-menu.js';
 import { WidgetOptionsDialog } from './options-dialog.js';
+import { usePointerReorder } from './use-reorder.js';
 import {
   WidgetDetail,
   WidgetDetailDialog,
   useDetailData,
   type DetailLoader,
+  type ServerDetailOptions,
 } from './detail.js';
 import {
   WidgetSettingsProvider,
@@ -289,6 +299,15 @@ export interface DashboardProps extends WidgetSettings {
   readonly editMode?: 'always' | 'toggle';
   /** Controlled editing state (`editMode="toggle"`). */
   readonly editing?: boolean;
+  /**
+   * Show a drag handle on each card (while the layout controls are shown) and
+   * let the viewer reorder by pointer, touch or keyboard: Space or Enter on
+   * the handle picks the card up, arrow keys move it, Space or Enter drops,
+   * Escape cancels. The move buttons stay as the single-pointer alternative.
+   * Locked (pinned) widgets get no handle and are not drop targets. Default
+   * false. Needs `onLayoutChange`.
+   */
+  readonly draggable?: boolean;
   /** Initial editing state when uncontrolled. Default false. */
   readonly defaultEditing?: boolean;
   /** Called when the viewer starts or finishes editing. */
@@ -358,13 +377,31 @@ function DetailHost({
         : undefined,
     [widget, locale]
   );
+  const mode: DetailMode = options?.mode ?? 'client';
+  const serverOptions: ServerDetailOptions | undefined = useMemo(
+    () => (mode === 'server' ? { query } : undefined),
+    [mode, query]
+  );
   const { state, reload } = useDetailData(
     definition,
     loadDetail,
     true,
     derived,
-    widget.options
+    widget.options,
+    serverOptions
   );
+  // Rows were removed while the viewer was on the last page: ask for the new
+  // last page instead of showing an empty one.
+  useEffect(() => {
+    if (mode !== 'server' || state.data === undefined || state.refreshing) {
+      return;
+    }
+    const corrected: DetailQuery | undefined = clampServerQuery(
+      state.data,
+      query
+    );
+    if (corrected !== undefined) setQuery(corrected);
+  }, [mode, state.data, state.refreshing, query]);
   const title: string = options?.title ?? definition.title;
   return (
     <WidgetDetailDialog title={title} open onClose={onClose}>
@@ -376,6 +413,8 @@ function DetailHost({
         {...(state.data === undefined ? {} : { data: state.data })}
         {...(state.error === undefined ? {} : { error: state.error })}
         onRetry={reload}
+        mode={mode}
+        busy={state.refreshing === true}
       />
     </WidgetDetailDialog>
   );
@@ -589,6 +628,7 @@ function DashboardInner({
   editMode = 'always',
   editing: editingProp,
   defaultEditing = false,
+  draggable = false,
   onEditingChange,
   defaultLayout,
   toolbar = true,
@@ -646,7 +686,20 @@ function DashboardInner({
   const activeKey: string = activePage.key;
   const pageDefs: WidgetDefinition[] =
     assignPages(definitions, layout).get(activeKey) ?? [];
-  const view: DashboardLayout = pageLayout(layout, activeKey) ?? layout;
+  const committedView: DashboardLayout =
+    pageLayout(layout, activeKey) ?? layout;
+  // A keyboard drag shows its steps on a copy of the page's layout and only
+  // commits it on drop, so each arrow press is not saved.
+  const [grab, setGrab] = useState<
+    | {
+        readonly key: string;
+        readonly pageKey: string;
+        readonly layout: DashboardLayout;
+      }
+    | undefined
+  >(undefined);
+  const grabbing: typeof grab = grab?.pageKey === activeKey ? grab : undefined;
+  const view: DashboardLayout = grabbing?.layout ?? committedView;
   const roomOptions: PageOptions = maxRows === undefined ? {} : { maxRows };
   const visible: WidgetDefinition[] = visibleWidgets(pageDefs, view);
   const hidden: WidgetDefinition[] = hiddenWidgets(pageDefs, view);
@@ -699,6 +752,107 @@ function DashboardInner({
   const [detailKey, setDetailKey] = useState<string | undefined>(undefined);
   const [optionsKey, setOptionsKey] = useState<string | undefined>(undefined);
   const gridRef = useRef<HTMLDivElement>(null);
+  const dragEnabled: boolean = draggable && controlsShown;
+  const [dragAnnouncement, setDragAnnouncement] = useState<string>('');
+  if (!dragEnabled && grab !== undefined) setGrab(undefined);
+  function titleOf(key: string): string {
+    return byKey.get(key)?.definition.title ?? key;
+  }
+  const { drag, handleProps } = usePointerReorder({
+    enabled: dragEnabled,
+    gridRef,
+    placementFor: (dragged, target): DropPlacement | undefined =>
+      reorderOnto(pageDefs, view, dragged, target) === view
+        ? undefined
+        : dropPlacement(pageDefs, view, dragged, target),
+    onDrop: (dragged, target): void => {
+      const next: DashboardLayout = reorderOnto(
+        pageDefs,
+        view,
+        dragged,
+        target
+      );
+      if (next === view) return;
+      changePage(next);
+      const where = listPosition(pageDefs, next, dragged);
+      if (where !== undefined) {
+        setDragAnnouncement(
+          labels.dropped(titleOf(dragged), where.position, where.total)
+        );
+      }
+    },
+    onStateChange: (event, key): void => {
+      if (event === 'cancel')
+        setDragAnnouncement(labels.dragCancelled(titleOf(key)));
+    },
+  });
+  // Moving a card in the DOM can drop its focus; give it back to the handle.
+  useEffect(() => {
+    if (grab === undefined) return;
+    const handle: Element | null | undefined = gridRef.current?.querySelector(
+      `[data-widget-key="${CSS.escape(grab.key)}"] .dwt-drag-handle`
+    );
+    if (handle instanceof HTMLElement && document.activeElement !== handle) {
+      handle.focus();
+    }
+  }, [grab]);
+
+  function handleKeyDown(
+    event: KeyboardEvent<HTMLElement>,
+    key: string,
+    title: string
+  ): void {
+    const confirms: boolean = event.key === ' ' || event.key === 'Enter';
+    if (grabbing === undefined || grabbing.key !== key) {
+      if (!confirms) return;
+      event.preventDefault();
+      setGrab({ key, pageKey: activeKey, layout: committedView });
+      const where = listPosition(pageDefs, committedView, key);
+      if (where !== undefined) {
+        setDragAnnouncement(
+          labels.pickedUp(title, where.position, where.total)
+        );
+      }
+      return;
+    }
+    const step: number =
+      event.key === 'ArrowUp' || event.key === 'ArrowLeft'
+        ? -1
+        : event.key === 'ArrowDown' || event.key === 'ArrowRight'
+          ? 1
+          : 0;
+    if (step !== 0) {
+      event.preventDefault();
+      const next: DashboardLayout = moveWidgetBy(
+        pageDefs,
+        grabbing.layout,
+        key,
+        step
+      );
+      if (next !== grabbing.layout) {
+        setGrab({ ...grabbing, layout: next });
+        const where = listPosition(pageDefs, next, key);
+        if (where !== undefined) {
+          setDragAnnouncement(
+            labels.movedTo(title, where.position, where.total)
+          );
+        }
+      }
+    } else if (confirms) {
+      event.preventDefault();
+      setGrab(undefined);
+      changePage(grabbing.layout);
+      const where = listPosition(pageDefs, grabbing.layout, key);
+      if (where !== undefined) {
+        setDragAnnouncement(labels.dropped(title, where.position, where.total));
+      }
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      setGrab(undefined);
+      setDragAnnouncement(labels.dragCancelled(title));
+    }
+  }
   const twelve: boolean = usesWidthColumns(shown);
   const spans: ReadonlyMap<string, number> = useFillSpans(
     shown,
@@ -1074,6 +1228,11 @@ function DashboardInner({
           )}
         </div>
       )}
+      {dragEnabled && (
+        <span className="dwt-visually-hidden" role="status" aria-live="polite">
+          {dragAnnouncement}
+        </span>
+      )}
       <PagePanel
         paged={paged}
         id={panelId}
@@ -1237,8 +1396,54 @@ function DashboardInner({
                       },
                     ]),
               ];
+              const dragHandle: boolean =
+                dragEnabled && !lock.move && shown.length > 1;
               const actions: ReactNode = controlsShown ? (
                 <>
+                  {dragHandle && (
+                    <button
+                      type="button"
+                      className={slot(
+                        'button',
+                        'dwt-button',
+                        'dwt-icon-button',
+                        'dwt-drag-handle'
+                      )}
+                      aria-label={labels.dragHandle(title)}
+                      title={labels.dragHandle(title)}
+                      aria-pressed={grabbing?.key === key}
+                      onKeyDown={(event) => handleKeyDown(event, key, title)}
+                      onBlur={(event) => {
+                        // Focus moving to another control ends a keyboard drag;
+                        // a DOM move while reordering has no related target.
+                        if (
+                          grabbing?.key === key &&
+                          event.relatedTarget !== null
+                        ) {
+                          setGrab(undefined);
+                          setDragAnnouncement(labels.dragCancelled(title));
+                        }
+                      }}
+                      {...handleProps(key)}
+                    >
+                      <svg
+                        viewBox="0 0 16 16"
+                        width="16"
+                        height="16"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <g fill="currentColor">
+                          <circle cx="6" cy="4" r="1.2" />
+                          <circle cx="10" cy="4" r="1.2" />
+                          <circle cx="6" cy="8" r="1.2" />
+                          <circle cx="10" cy="8" r="1.2" />
+                          <circle cx="6" cy="12" r="1.2" />
+                          <circle cx="10" cy="12" r="1.2" />
+                        </g>
+                      </svg>
+                    </button>
+                  )}
                   {isLocked && (
                     <span
                       role="img"
@@ -1284,10 +1489,28 @@ function DashboardInner({
                   loadDetail !== undefined ||
                   (widget.status === 'ok' &&
                     deriveDetailData(widget.data) !== undefined));
+              const dragClass: string | undefined =
+                drag?.key === key
+                  ? 'dwt-card--dragging'
+                  : drag?.targetKey === key
+                    ? drag.placement === 'before'
+                      ? 'dwt-card--drop-before'
+                      : 'dwt-card--drop-after'
+                    : grabbing?.key === key
+                      ? 'dwt-card--grabbed'
+                      : undefined;
               return (
                 <ResolvedWidgetCard
                   key={key}
                   widget={widget}
+                  {...(dragClass === undefined ? {} : { className: dragClass })}
+                  {...(drag?.key === key
+                    ? {
+                        style: {
+                          transform: `translate(${drag.dx}px, ${drag.dy}px)`,
+                        },
+                      }
+                    : {})}
                   {...(viewable
                     ? {
                         onView: () =>

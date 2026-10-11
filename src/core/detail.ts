@@ -281,6 +281,44 @@ export function queryRows(
   });
 }
 
+/**
+ * The page a server-mode provider answered: `data.rows` is already the
+ * requested page, so nothing is filtered, sorted or sliced. `totalRows` is
+ * required (it drives the page count and the "Showing 1-25 of 312" line).
+ * The page number is the requested one clamped into range; when it differs
+ * from `query.page` the rows belong to a page that no longer exists (data
+ * shrank), and `clampServerQuery` gives the query to ask again with.
+ */
+export function serverPage(
+  data: DetailData,
+  query: DetailQuery
+): Result<DetailPage> {
+  const totalRows: number | undefined = data.totalRows;
+  if (totalRows === undefined) {
+    return err(
+      'Detail data: server mode needs totalRows (the rows matching the query across all pages), but the provider did not return it.'
+    );
+  }
+  const pageSize: number = Math.max(1, Math.floor(query.pageSize));
+  const pageCount: number = Math.max(1, Math.ceil(totalRows / pageSize));
+  const page: number = Math.min(Math.max(1, Math.floor(query.page)), pageCount);
+  return ok({ rows: data.rows, totalRows, page, pageCount });
+}
+
+/**
+ * For server mode: the query to ask again with when `query.page` is past the
+ * last page of `data` (rows were deleted, or a filter narrowed the result).
+ * Undefined when the page is fine.
+ */
+export function clampServerQuery(
+  data: DetailData,
+  query: DetailQuery
+): DetailQuery | undefined {
+  const result: Result<DetailPage> = serverPage(data, query);
+  if (!result.ok || result.value.page === query.page) return undefined;
+  return { ...query, page: result.value.page };
+}
+
 function listKeys(data: DetailData): string {
   return data.columns.map((column) => `"${column.key}"`).join(', ');
 }
@@ -397,15 +435,26 @@ function describeType(value: unknown): string {
   return typeof value;
 }
 
+export interface ValidateDetailOptions {
+  /**
+   * `server`: also requires `totalRows`, no more rows than `totalRows`, and
+   * (with `pageSize`) no more rows than one page. Default `client`.
+   */
+  readonly mode?: DetailMode;
+  readonly pageSize?: number;
+}
+
 /**
  * Checks data from a detail provider: unique non-empty column keys, labels,
  * every row as long as `columns`, cell `text` strings, `value` a string or
  * finite number, safe `href`s, and `totalRows` a non-negative integer.
- * Reports every problem, naming the column or row and cell.
+ * Reports every problem, naming the column or row and cell. In server mode
+ * (`options.mode`) it also checks that the provider answered with one page.
  */
 export function validateDetailData(
   data: unknown,
-  subject = 'Detail data'
+  subject = 'Detail data',
+  options: ValidateDetailOptions = {}
 ): Result<DetailData> {
   const problems: string[] = [];
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
@@ -519,6 +568,25 @@ export function validateDetailData(
     problems.push(
       `totalRows must be a non-negative whole number, got ${describeType(totalRows)}.`
     );
+  }
+
+  if (options.mode === 'server') {
+    if (totalRows === undefined) {
+      problems.push(
+        'server mode needs totalRows (the rows matching the query across all pages).'
+      );
+    } else if (typeof totalRows === 'number' && Array.isArray(rows)) {
+      if (rows.length > totalRows) {
+        problems.push(
+          `totalRows is ${totalRows} but ${rows.length} rows were returned.`
+        );
+      }
+      if (options.pageSize !== undefined && rows.length > options.pageSize) {
+        problems.push(
+          `server mode must return one page: ${rows.length} rows came back for a page size of ${options.pageSize} (honor query.page and query.pageSize).`
+        );
+      }
+    }
   }
 
   if (problems.length > 0) {

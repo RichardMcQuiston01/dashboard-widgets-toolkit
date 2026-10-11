@@ -31,8 +31,12 @@ src/
     definition.ts       WidgetDefinition, defineWidget, sort, role filter
     validate.ts         validateWidgetData / validateWidgetDefinition
     resolve.ts          resolveWidgets, resolvePayload, loading/failed widgets
+    loader.ts           createWidgetLoader: async per-widget loading, setOptions/setView, cache
+    grid.ts             12-column widths, placeRows/fitCount (page capacity)
+    detail.ts           detail view data: queryRows, query (de)serialisation, validation
     layout.ts           DashboardLayout: parse/serialise, order, hide, minimize
     pages.ts            pages of widgets: helpers, capacity, normalizeLayout
+    reorder.ts          drag and drop decisions: dropTargetKey, reorderOnto, autoScrollStep
     options.ts          declared options: resolve values, cache suffix, client sort/columns
     settings.ts         viewer settings in the layout: title, width, view, option values
     views.ts            alternate views: conversions, applyView, effectiveViewKey
@@ -52,6 +56,10 @@ src/
     renderers.tsx       one renderer per kind, WidgetContent switch
     charts.tsx          GraphWidget: SVG bar/line, legend, tooltip, table twin
     dashboard.tsx       WidgetGrid, Dashboard (layout controls)
+    edit-menu.tsx       WidgetEditMenu: the Arrange menu on each card
+    detail.tsx          WidgetDetailDialog and useDetailData
+    use-widgets.ts      useWidgets: loader hook (optionValues, viewValues, polling)
+    use-reorder.ts      usePointerReorder: pointer/touch drag of cards by their handle
     options-dialog.tsx  WidgetOptionsDialog: title, width, view, declared options
     confirm.tsx         InlineConfirm (✓ / ✕)
     use-stored-layout.ts useStoredLayout: persistence + Dashboard
@@ -74,15 +82,15 @@ Plans for work that isn't built yet. Read the one that matches before
 starting that work; skip them otherwise. The shipped parts of each are
 documented in the code and README, which win if they disagree.
 
-- `docs/design/detail-view.md`: detail view. Core and client-mode React
-  shipped. Still planned: server mode (`mode: 'server'`, `totalRows`), URL
-  deep links, page-size choice and column visibility.
+- `docs/design/detail-view.md`: detail view. Core, client-mode and
+  server-mode (`mode: 'server'`, `totalRows`) React shipped. Still planned: URL
+  deep links in the dialog, page-size choice and column visibility.
 - `docs/design/widget-extensions.md`: async loading shipped (`useWidgets`,
   `createWidgetLoader`). Still planned: adapters and payload builders,
-  drag-and-drop reordering, push streams.
+  push streams. Drag-and-drop reordering shipped (`reorder.ts`, `use-reorder.ts`).
 - `docs/design/lock-and-edit-mode.md`: locked widgets (`locked`, pinned slots,
   `enforceLocks`, `overrideLocks`) and the Customize/Done edit mode
-  (`editMode="toggle"`, Reset, Revert) are built; drag and drop is not.
+  (`editMode="toggle"`, Reset, Revert) and drag and drop (`draggable`) are built.
 - `docs/design/widget-options-views-clones.md`: declared options with
   defaults are built (`options.ts`, `setOptions`, `optionValues`), and so is
   the Options dialog (title, width, options) with `layout.settings`

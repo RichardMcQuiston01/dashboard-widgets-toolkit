@@ -1,6 +1,7 @@
 import {
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -10,10 +11,12 @@ import {
 import {
   defaultDetailQuery,
   queryRows,
+  serverPage,
   validateDetailData,
   type DetailCell,
   type DetailColumn,
   type DetailData,
+  type DetailMode,
   type DetailProviderOptions,
   type DetailPage,
   type DetailQuery,
@@ -47,6 +50,16 @@ export interface WidgetDetailProps {
   readonly status?: 'ok' | 'loading' | 'error';
   readonly error?: string;
   readonly onRetry?: () => void;
+  /**
+   * `client` (default): `data` holds every row and this component filters,
+   * sorts and pages it. `server`: `data` is the one page your provider
+   * returned for `query` (with `totalRows`); this component only shows it and
+   * reports changes through `onQueryChange`. Typing in the search and filter
+   * boxes waits `SERVER_INPUT_DEBOUNCE_MS` after the last key.
+   */
+  readonly mode?: DetailMode;
+  /** True while a new page is loading: the old rows stay, marked busy. */
+  readonly busy?: boolean;
   /** Heading level of the title, 2 to 6. Default 2. */
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   /** Id of the heading, so a dialog can label itself with it. */
@@ -71,6 +84,56 @@ function withSort(
 ): DetailQuery {
   const { sort: _previous, ...rest } = query;
   return sort === undefined ? { ...rest, page: 1 } : { ...rest, sort, page: 1 };
+}
+
+/** How long server mode waits after the last key before asking again. */
+export const SERVER_INPUT_DEBOUNCE_MS = 300;
+
+/**
+ * A search box. With `debounceMs` above 0 it keeps what is typed locally and
+ * reports it after that pause (so a server is not asked on every key); a
+ * value that changes from outside replaces the text.
+ */
+function QueryInput({
+  value,
+  debounceMs,
+  onValue,
+}: {
+  readonly value: string;
+  readonly debounceMs: number;
+  readonly onValue: (value: string) => void;
+}): ReactNode {
+  const [text, setText] = useState<string>(value);
+  const latest = useRef<(value: string) => void>(onValue);
+  latest.current = onValue;
+  const sent = useRef<string>(value);
+
+  useEffect(() => {
+    if (value !== sent.current) {
+      sent.current = value;
+      setText(value);
+    }
+  }, [value]);
+
+  useEffect(() => {
+    if (debounceMs <= 0 || text === sent.current) return undefined;
+    const timer = setTimeout(() => {
+      sent.current = text;
+      latest.current(text);
+    }, debounceMs);
+    return () => clearTimeout(timer);
+  }, [text, debounceMs]);
+
+  return (
+    <input
+      type="search"
+      value={debounceMs > 0 ? text : value}
+      onChange={(event) => {
+        if (debounceMs > 0) setText(event.target.value);
+        else onValue(event.target.value);
+      }}
+    />
+  );
 }
 
 function SortGlyph({
@@ -120,6 +183,8 @@ export function WidgetDetail({
   status = 'ok',
   error,
   onRetry,
+  mode = 'client',
+  busy = false,
   headingLevel = 2,
   headingId,
   className,
@@ -134,7 +199,10 @@ export function WidgetDetail({
   let page: DetailPage | undefined;
   let problem: string | undefined;
   if (status === 'ok' && data !== undefined) {
-    const result = queryRows(data, query, localeTag);
+    const result =
+      mode === 'server'
+        ? serverPage(data, query)
+        : queryRows(data, query, localeTag);
     if (result.ok) page = result.value;
     else problem = result.error;
   }
@@ -142,6 +210,9 @@ export function WidgetDetail({
   function change(patch: Partial<DetailQuery>): void {
     onQueryChange({ ...query, ...patch, page: patch.page ?? 1 });
   }
+
+  const inputDebounceMs: number =
+    mode === 'server' ? SERVER_INPUT_DEBOUNCE_MS : 0;
 
   let body: ReactNode;
   if (status === 'loading') {
@@ -174,10 +245,10 @@ export function WidgetDetail({
         <div className="dwt-detail-controls">
           <label className="dwt-detail-field">
             <span>{labels.search}</span>
-            <input
-              type="search"
+            <QueryInput
               value={query.search ?? ''}
-              onChange={(event) => change({ search: event.target.value })}
+              debounceMs={inputDebounceMs}
+              onValue={(search) => change({ search })}
             />
           </label>
           {columns
@@ -185,15 +256,12 @@ export function WidgetDetail({
             .map((column) => (
               <label key={column.key} className="dwt-detail-field">
                 <span>{labels.filterBy(column.label)}</span>
-                <input
-                  type="search"
+                <QueryInput
                   value={query.filters?.[column.key] ?? ''}
-                  onChange={(event) =>
+                  debounceMs={inputDebounceMs}
+                  onValue={(text) =>
                     change({
-                      filters: {
-                        ...query.filters,
-                        [column.key]: event.target.value,
-                      },
+                      filters: { ...query.filters, [column.key]: text },
                     })
                   }
                 />
@@ -210,7 +278,11 @@ export function WidgetDetail({
             ? labels.noResults
             : labels.showingRows(from, to, page.totalRows)}
         </p>
-        <div className="dwt-table-wrap">
+        <div
+          className="dwt-table-wrap"
+          aria-busy={busy ? 'true' : undefined}
+          data-busy={busy ? 'true' : undefined}
+        >
           <table className={slot('table', 'dwt-table', 'dwt-detail-table')}>
             <caption className="dwt-visually-hidden">{title}</caption>
             <thead>
@@ -384,6 +456,17 @@ export interface DetailLoadState {
   readonly status: 'loading' | 'ok' | 'error';
   readonly data?: DetailData;
   readonly error?: string;
+  /**
+   * Server mode: a new query is loading and `data` is still the previous
+   * page. Show it as busy instead of replacing it with a spinner.
+   */
+  readonly refreshing?: boolean;
+}
+
+/** Server-mode inputs for `useDetailData`. */
+export interface ServerDetailOptions {
+  /** The current query. Every change asks the loader again. */
+  readonly query: DetailQuery;
 }
 
 /**
@@ -395,21 +478,41 @@ export interface DetailLoadState {
  * stable (`useCallback` / `useMemo`): a new value restarts the load.
  * `optionValues` (the widget's resolved options) go to the loader as
  * `options.options`.
+ *
+ * Pass `server` for `detail.mode: 'server'`: the loader receives the current
+ * `query` and must return one page plus `totalRows`; each query change aborts
+ * the request before it and asks again, keeping the previous page on screen
+ * (`state.refreshing`). The card's own data is never used as a fallback.
  */
 export function useDetailData(
   definition: WidgetDefinition,
   load: DetailLoader | undefined,
   enabled: boolean,
   fallback?: DetailData,
-  optionValues: OptionValues = NO_OPTION_VALUES
+  optionValues: OptionValues = NO_OPTION_VALUES,
+  server?: ServerDetailOptions
 ): { readonly state: DetailLoadState; readonly reload: () => void } {
   const [state, setState] = useState<DetailLoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const isServer: boolean = server !== undefined;
+  const queryRef = useRef<DetailQuery>(server?.query ?? defaultDetailQuery());
+  queryRef.current = server?.query ?? queryRef.current;
+  const querySignature: string = useMemo(
+    () => (server === undefined ? '' : JSON.stringify(server.query)),
+    [server]
+  );
 
   useEffect(() => {
     if (!enabled) return undefined;
     const controller = new AbortController();
-    setState({ status: 'loading' });
+    const query: DetailQuery = isServer
+      ? queryRef.current
+      : defaultDetailQuery();
+    setState((previous) =>
+      isServer && previous.data !== undefined
+        ? { status: 'ok', data: previous.data, refreshing: true }
+        : { status: 'loading' }
+    );
     Promise.resolve()
       .then(() =>
         load === undefined
@@ -417,22 +520,25 @@ export function useDetailData(
           : load(definition, {
               signal: controller.signal,
               options: optionValues,
-              query: defaultDetailQuery(),
+              query,
             })
       )
       .then((raw) => {
         if (controller.signal.aborted) return;
-        const data: DetailData | undefined = raw ?? fallback;
+        const data: DetailData | undefined = isServer ? raw : (raw ?? fallback);
         if (data === undefined) {
           setState({
             status: 'error',
-            error: `Widget "${definition.key}" detail: no data. The loader returned nothing for this widget and its card does not hold the full data (use a loader that returns rows, or a TABLE without a footer or a BAR_LIST).`,
+            error: isServer
+              ? `Widget "${definition.key}" detail: no data. The widget is in server mode (detail.mode), so the loader must return one page of rows and totalRows for the query it is given.`
+              : `Widget "${definition.key}" detail: no data. The loader returned nothing for this widget and its card does not hold the full data (use a loader that returns rows, or a TABLE without a footer or a BAR_LIST).`,
           });
           return;
         }
         const checked = validateDetailData(
           data,
-          `Widget "${definition.key}" detail`
+          `Widget "${definition.key}" detail`,
+          isServer ? { mode: 'server', pageSize: query.pageSize } : {}
         );
         setState(
           checked.ok
@@ -450,7 +556,16 @@ export function useDetailData(
         });
       });
     return () => controller.abort();
-  }, [enabled, load, fallback, definition, optionValues, attempt]);
+  }, [
+    enabled,
+    load,
+    fallback,
+    definition,
+    optionValues,
+    attempt,
+    isServer,
+    querySignature,
+  ]);
 
   return { state, reload: () => setAttempt((count) => count + 1) };
 }

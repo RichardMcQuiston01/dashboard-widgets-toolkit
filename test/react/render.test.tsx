@@ -527,6 +527,35 @@ void describe('detail view', () => {
     assert.match(markup, /aria-label="Sort by Sold"/);
   });
 
+  void it('server mode shows the page it was given, with totalRows driving the count and pager', () => {
+    const markup = html(
+      <WidgetDetail
+        title="Products"
+        mode="server"
+        busy
+        data={{ ...data, totalRows: 312 }}
+        query={{ page: 3, pageSize: 2, sort: query.sort }}
+        onQueryChange={() => undefined}
+      />
+    );
+    // Both rows shown (not re-sorted, filtered or sliced), count from totalRows.
+    assert.match(markup, /Jig/);
+    assert.match(markup, /Coaster/);
+    assert.match(markup, /Showing 5–6 of 312 results/);
+    assert.match(markup, /Page 3 of 156/);
+    assert.match(markup, /aria-busy="true"/);
+    const missing = html(
+      <WidgetDetail
+        title="Products"
+        mode="server"
+        data={data}
+        query={query}
+        onQueryChange={() => undefined}
+      />
+    );
+    assert.match(missing, /needs totalRows/);
+  });
+
   void it('shows loading, error with retry, and no-results states', () => {
     const noop = (): void => undefined;
     const loading = html(
@@ -825,6 +854,34 @@ void describe('WidgetGrid and Dashboard', () => {
       });
       assert.match(markup, /aria-label="Revenue is locked for viewers"/);
       assert.match(markup, /aria-label="Hide Revenue"/);
+    });
+
+    void it('draggable adds a handle to each unlocked card, only while controls show', () => {
+      const off = render();
+      assert.doesNotMatch(off, /dwt-drag-handle/);
+      assert.doesNotMatch(off, /Reorder /);
+      const on = render({ draggable: true });
+      assert.match(on, /aria-label="Reorder Low stock"/);
+      assert.match(on, /class="[^"]*dwt-drag-handle[^"]*"/);
+      // The locked (pinned) card has no handle.
+      assert.doesNotMatch(on, /aria-label="Reorder Revenue"/);
+      // The move buttons stay as the alternative.
+      assert.match(on, /aria-label="Hide Low stock"/);
+      assert.match(on, /role="status"/);
+      // Toggle mode: no handles until editing starts.
+      const closed = render({ draggable: true, editMode: 'toggle' });
+      assert.doesNotMatch(closed, /dwt-drag-handle/);
+      const editing = render({
+        draggable: true,
+        editMode: 'toggle',
+        defaultEditing: true,
+      });
+      assert.match(editing, /aria-label="Reorder Low stock"/);
+      // Read-only dashboards never show handles.
+      assert.doesNotMatch(
+        renderToStaticMarkup(<Dashboard widgets={lockedWidgets} draggable />),
+        /dwt-drag-handle/
+      );
     });
 
     void it('has no toolbar without onLayoutChange', () => {

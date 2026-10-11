@@ -1,7 +1,7 @@
 # Design: theming
 
-- **Status:** Steps 1 and 2 (token reference, `createTheme`) targeted for 0.13.0.
-  Steps 3 to 5 are planned.
+- **Status:** Steps 1 and 2 (token reference, `createTheme`) are built (0.13.0).
+  Steps 3 to 5 (the `WidgetTheme` wrapper, contrast checks, presets) are planned.
 - **Date:** 2026-10-10
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.12.x
 - **Author:** Richard McQuiston (drafted with Claude Code)

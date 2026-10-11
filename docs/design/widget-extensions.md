@@ -1,6 +1,7 @@
 # Design: drag and drop, asynchronous widget loading, data sources and adapters
 
-- **Status:** Draft for review
+- **Status:** Asynchronous loading is built (`useWidgets`, `createWidgetLoader`,
+  0.3.0). Drag-and-drop reordering is built (`draggable`, `reorder.ts`, `use-reorder.ts`). Data sources and adapters are still planned.
 - **Date:** 2026-10-06
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.2.0
 - **Author:** Richard McQuiston (drafted with Claude Code)

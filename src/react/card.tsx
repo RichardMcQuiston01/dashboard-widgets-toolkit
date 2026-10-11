@@ -49,6 +49,8 @@ export interface WidgetCardProps {
   /** 2 to 6; default 2. */
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
+  /** Extra inline style, merged after the width and span (a drag's offset). */
+  readonly style?: CSSProperties;
   readonly children?: ReactNode;
 }
 
@@ -76,6 +78,7 @@ export function WidgetCard({
   editing = false,
   headingLevel = 2,
   className,
+  style,
   children,
 }: WidgetCardProps): ReactNode {
   const slot = useSlotClassName();
@@ -132,7 +135,9 @@ export function WidgetCard({
         className
       )}
       {...(widgetKey === undefined ? {} : { 'data-widget-key': widgetKey })}
-      {...(columnSpan === undefined && width === undefined
+      {...(columnSpan === undefined &&
+      width === undefined &&
+      style === undefined
         ? {}
         : {
             style: {
@@ -140,6 +145,7 @@ export function WidgetCard({
               ...(columnSpan === undefined
                 ? {}
                 : { gridColumn: `span ${columnSpan}` }),
+              ...style,
             } as CSSProperties,
           })}
     >
@@ -261,6 +267,8 @@ export interface ResolvedWidgetCardProps {
   readonly editing?: boolean;
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
+  /** See `WidgetCardProps.style`. */
+  readonly style?: CSSProperties;
 }
 
 /** A WidgetCard for a resolved (or loading) widget, with its renderer. */
