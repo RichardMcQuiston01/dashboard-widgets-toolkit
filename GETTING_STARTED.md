@@ -519,8 +519,59 @@ there is no second load.
 - **Without the UI.** `applyView(widget, viewKey)`, `convertView`,
   `viewChoices`, `effectiveViewKey` and `viewNote` are plain functions.
   `validateWidgetDefinition` checks keys, kinds, column indexes and `defaultView`.
-- **Not yet.** Views supplied by a provider (a different payload per view) are
-  planned; today every view needs `convert`.
+
+#### Views your provider supplies
+
+Some views can't be built from the widget's own payload: a trend behind a KPI,
+a table behind an alert list. Declare the view **without `convert`** and your
+provider supplies it. It is called with `options.view` set to that view's key
+(`'base'` for the widget's own kind) and returns a payload of the view's `kind`:
+
+```ts
+defineWidget({
+  key: 'revenue',
+  title: 'Revenue',
+  kind: 'KPI',
+  views: [{ key: 'trend', label: 'Trend', kind: 'GRAPH' }],
+});
+
+const providers = {
+  revenue: async (context, definition, { view, signal }) =>
+    view === 'trend'
+      ? await loadRevenueTrend(context, signal)
+      : await loadRevenueKpi(context, signal),
+};
+
+const viewValues = useMemo(
+  () => viewValuesFromLayout(definitions, stored.layout),
+  [stored.layout]
+);
+const { widgets } = useWidgets(definitions, providers, context, {
+  optionValues,
+  viewValues,
+});
+```
+
+- **One load per view.** Only the view being shown loads; the card shows
+  loading until it arrives. Each provider view is cached apart
+  (`revenue?view=trend`), so switching back is instant when you pass a `cache`.
+  Converted views and `base` all load the base payload, so switching among them
+  reloads nothing.
+- **Wiring.** `viewValuesFromLayout(definitions, layout)` lists the widgets that
+  have a provider view (an empty string means "no choice", so a Reset reaches the
+  loader). `useWidgets` also returns `setView(key, view)`, and
+  `createWidgetLoader` has `setView` and a `viewValues` starting point.
+- **Validation.** The payload is checked against the view's `kind` (an error names
+  the widget and what was expected). Options you declare reach the provider for
+  every view; `sort` and `columns` options with `apply: 'client'` only apply to
+  the base payload, since they name its columns.
+- **Mixing.** A widget can have both: converted views for a quick look and a
+  provider view for the data a conversion can't build. A clone's provider view
+  loads through the original's provider like any other load.
+- **Without the hook.** `resolveWidgets(..., { viewValues })` and `resolvePayload`
+  take the same map, and `loadViewKey` / `loadViewKind` say what will be asked.
+  A provider written before this release ignores `options.view` and always
+  returns the base payload; a widget with a provider view needs it to branch.
 
 ### Clones
 

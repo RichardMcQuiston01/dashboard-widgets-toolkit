@@ -88,7 +88,8 @@ documented in the code and README, which win if they disagree.
   the Options dialog (title, width, options) with `layout.settings`
   (`settings.ts`). Converted alternate views (`views.ts`, `defaultView`, the
   View field) and clones (`clones.ts`, `duplicate.ts`, Duplicate in the Arrange
-  menu, Delete in the dialog) are built. Still planned: provider-supplied views.
+  menu, Delete in the dialog) and provider-supplied views (`views` without
+  `convert`, `options.view`, `viewValues`, `setView`) are built.
 - `docs/design/widget-pages.md`: pages of widgets (per-page layout, capacity of
   about 4 rows, moving widgets between pages, page bar hidden for one page,
   lazy loading by page). Built: the core (`pages.ts`, `placeRows`,
