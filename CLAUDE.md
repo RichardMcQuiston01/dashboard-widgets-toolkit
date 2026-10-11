@@ -31,6 +31,9 @@ src/
     definition.ts       WidgetDefinition, defineWidget, sort, role filter
     validate.ts         validateWidgetData / validateWidgetDefinition
     resolve.ts          resolveWidgets, resolvePayload, loading/failed widgets
+    loader.ts           createWidgetLoader: async per-widget loading, setOptions/setView, cache
+    grid.ts             12-column widths, placeRows/fitCount (page capacity)
+    detail.ts           detail view data: queryRows, query (de)serialisation, validation
     layout.ts           DashboardLayout: parse/serialise, order, hide, minimize
     pages.ts            pages of widgets: helpers, capacity, normalizeLayout
     options.ts          declared options: resolve values, cache suffix, client sort/columns
@@ -52,6 +55,9 @@ src/
     renderers.tsx       one renderer per kind, WidgetContent switch
     charts.tsx          GraphWidget: SVG bar/line, legend, tooltip, table twin
     dashboard.tsx       WidgetGrid, Dashboard (layout controls)
+    edit-menu.tsx       WidgetEditMenu: the Arrange menu on each card
+    detail.tsx          WidgetDetailDialog and useDetailData
+    use-widgets.ts      useWidgets: loader hook (optionValues, viewValues, polling)
     options-dialog.tsx  WidgetOptionsDialog: title, width, view, declared options
     confirm.tsx         InlineConfirm (✓ / ✕)
     use-stored-layout.ts useStoredLayout: persistence + Dashboard

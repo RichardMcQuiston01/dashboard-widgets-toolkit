@@ -1,12 +1,12 @@
 # Design: widget options, alternate views and clones
 
-- **Status:** Phases 1 and 2 built (declared options; `layout.settings` and the
-  Options dialog). Alternate views and clones are still a draft. Decisions on
-  the gear, Apply, width, Reset and defaults are recorded in section 15; the
-  rest are open.
+- **Status:** Phases 1 to 4 are built: declared options (0.11.0), `layout.settings`
+  and the Options dialog (0.14.0), converted alternate views (0.15.0), clones
+  (0.16.0), and views supplied by the provider (0.17.0). Phase 5 (the Widget
+  Builder) and the field types are not built. Decisions are recorded in section 15.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
-- **Builds on:** `lock-and-edit-mode.md` (not yet built)
+- **Builds on:** `lock-and-edit-mode.md` (built)
 - **Author:** Richard McQuiston (drafted with Claude Code)
 
 ## 1. Summary
@@ -757,16 +757,16 @@ expressible as definition data.**
 ## 12. Phasing
 
 Each phase is a minor release with its own changeset, README and
-GETTING_STARTED text, and a ROADMAP update. Version numbers are indicative; they
-follow the lock and edit-mode releases (0.8.0 and 0.9.0).
+GETTING_STARTED text, and a ROADMAP update. The versions below are the ones that
+shipped (the plan had them earlier, ahead of the pages and storage work).
 
-| Phase | Version | Scope                                                                                                                                                                                                                                                                  |
-| ----- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | 0.11.0  | Declared options with defaults (`choice`, `number`, `boolean`, `text`, `dateRange`, `color`, `sort`, `columns`), `ProviderOptions.options`, per-widget reload, cache keys, client-side sort and columns, seeding of table controls and the detail view. No gear needed |
-| 2     | 0.11.0  | `layout.settings`, `applySettings`, `normalizeLayout`, `minWidth`/`maxWidth`, gear and Options dialog (title, width, declared options), Apply and discard confirmations, Reset to defaults, pre-edit snapshot and Revert, `locked.options`                             |
-| 3     | 0.13.0  | `views`, `defaultView` and converted views, the View field; provider-supplied views follow as a later minor                                                                                                                                                            |
-| 4     | 0.14.0  | `clones`, `maxWidgets`, `locked.clone`, Duplicate and Delete, title uniqueness and clone naming                                                                                                                                                                        |
-| 5     | later   | Widget Builder in the library (`./builder`) and data-source descriptions, in their own design; viewer-created widgets after that                                                                                                                                       |
+| Phase | Version        | Scope                                                                                                                                                                                                                                                                  |
+| ----- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | 0.11.0         | Declared options with defaults (`choice`, `number`, `boolean`, `text`, `dateRange`, `color`, `sort`, `columns`), `ProviderOptions.options`, per-widget reload, cache keys, client-side sort and columns, seeding of table controls and the detail view. No gear needed |
+| 2     | 0.14.0         | `layout.settings`, `applySettings`, `normalizeLayout`, `minWidth`/`maxWidth`, gear and Options dialog (title, width, declared options), Apply and discard confirmations, Reset to defaults, pre-edit snapshot and Revert, `locked.options`                             |
+| 3     | 0.15.0, 0.17.0 | `views`, `defaultView` and converted views, the View field (0.15.0); provider-supplied views (0.17.0)                                                                                                                                                                  |
+| 4     | 0.16.0         | `clones`, `locked.clone` (`maxWidgets` was dropped for page capacity), Duplicate and Delete, title uniqueness and clone naming                                                                                                                                         |
+| 5     | later          | Widget Builder in the library (`./builder`) and data-source descriptions, in their own design; viewer-created widgets after that                                                                                                                                       |
 
 Independently of the phases, a small **field types** release (`email`, `url`,
 `image`, `color`, `custom` formatters) can ship at any time: it only changes how

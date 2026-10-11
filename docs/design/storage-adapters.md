@@ -1,7 +1,8 @@
 # Design: storage adapters
 
-- **Status:** Phases 1 and 2 built (contract, persistence, wrappers,
-  `useStoredLayout`); recipes are in GETTING_STARTED. Decisions 1 to 3 of
+- **Status:** Phases 1 and 2 built in 0.11.0 (contract, persistence, wrappers,
+  `useStoredLayout`); recipes are in GETTING_STARTED. Not built: the stored active
+  page, backup history and a companion package. Decisions 1 to 3 of
   section 11 come from the maintainer; the rest were taken as proposed.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
