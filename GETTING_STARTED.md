@@ -1,10 +1,16 @@
 # GETTING STARTED
 
+[Back to README](./README.md)
+
+| [Prerequisites](#prerequisites) | [Installation](#installation) | [Working on the package](#working-on-the-package) | [Usage](#usage) | [Examples](#examples) | [Maker Toolkit compatibility](#maker-toolkit-compatibility) |
+
 ## Prerequisites
 
 - Node.js 18+ or Bun 1.3+ (or any modern browser bundler).
 - React 18 or later, only if you use `/react`.
 - TypeScript is optional; type declarations are included.
+
+[Back to Top](#getting-started)
 
 ## Installation
 
@@ -22,10 +28,14 @@ const {
 } = require('@richardmcquiston01/dashboard-widgets-toolkit/core');
 ```
 
+[Back to Top](#getting-started)
+
 ## Working on the package
 
 Contributing to the toolkit itself (not using it)? The scripts and
 conventions are in [CLAUDE.md](./CLAUDE.md).
+
+[Back to Top](#getting-started)
 
 ## Usage
 
@@ -195,7 +205,11 @@ Links open in the same tab unless you set `linkTarget` (for example
 `"_blank"`); links that open a new tab get a small external-link icon and
 "(opens in a new tab)" for screen readers (label `opensInNewTab`).
 
+[Back to Top](#getting-started)
+
 ## Examples
+
+| [Layout functions on their own](#layout-functions-on-their-own) | [KPI deltas and formatting](#kpi-deltas-and-formatting) | [Styling with Tailwind (or any classes)](#styling-with-tailwind-or-any-classes) | [Widget width](#widget-width) | [Detail view](#detail-view) | [Searchable, sortable tables in the card](#searchable-sortable-tables-in-the-card) | [Declared options](#declared-options) | [Viewer settings: the Options dialog](#viewer-settings-the-options-dialog) | [Alternate views](#alternate-views) | [Clones](#clones) | [Locked widgets](#locked-widgets) | [Edit mode: Customize and Done](#edit-mode-customize-and-done) | [Storing the layout](#storing-the-layout) | [Pages of widgets (core)](#pages-of-widgets-core) | [Filling space](#filling-space) | [Loading data after the page renders](#loading-data-after-the-page-renders) | [Theming](#theming) | [Changing the text](#changing-the-text) | [Charts](#charts) |
 
 ### Layout functions on their own
 
@@ -1042,6 +1056,8 @@ custom properties (`--dwt-series-1` … `--dwt-series-8`) with built-in
 defaults from a palette checked for color-vision deficiency in light and
 dark modes; a graph may have at most eight series.
 
+[Back to Top](#getting-started)
+
 ## Maker Toolkit compatibility
 
 The kind names are upper case, as in Maker Toolkit's `WidgetViewType`, and
@@ -1080,4 +1096,8 @@ import {
 const result = validateWidgetData(upgradeLegacyWidgetData(apiPayload));
 ```
 
-[Return to README.md](./README.md)
+[Back to Top](#getting-started)
+
+---
+
+[Back to README](./README.md)

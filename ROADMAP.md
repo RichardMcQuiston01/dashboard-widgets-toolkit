@@ -1,5 +1,9 @@
 # ROADMAP
 
+[Back to README](./README.md)
+
+| [Shipped](#shipped) | [Short term](#short-term) | [Next](#next) | [Never](#never) |
+
 ## Shipped
 
 - Core: widget definitions, seven payload kinds plus an empty state,
@@ -19,6 +23,8 @@
 - Sort values on `TABLE` cells (`value`), so formatted columns sort and search
   correctly (0.7.0).
 
+[Back to Top](#roadmap)
+
 ## Short term
 
 - **Detail view, server mode.** `mode: 'server'` with `totalRows` so large
@@ -30,6 +36,8 @@
   Designed in
   [docs/design/lock-and-edit-mode.md](./docs/design/lock-and-edit-mode.md);
   drag and drop builds on it.
+
+[Back to Top](#roadmap)
 
 ## Next
 
@@ -67,7 +75,15 @@
 See [docs/design/widget-extensions.md](./docs/design/widget-extensions.md) for
 the design of drag-and-drop, lazy loading, data sources and adapters.
 
+[Back to Top](#roadmap)
+
 ## Never
 
 - Data fetching, storage or database code in the package. Consumers supply
   providers and persist layouts themselves.
+
+[Back to Top](#roadmap)
+
+---
+
+[Back to README](./README.md)
