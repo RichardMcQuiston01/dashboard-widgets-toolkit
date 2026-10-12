@@ -1314,6 +1314,173 @@ void describe('useWidgets (server rendering)', () => {
   });
 });
 
+void describe('field types', () => {
+  const table: WidgetData = {
+    kind: 'TABLE',
+    columns: [
+      { label: 'Name' },
+      { label: 'Email', type: 'email' },
+      { label: 'Site', type: 'url' },
+      { label: 'Logo', type: 'image' },
+      { label: 'Brand', type: 'color' },
+    ],
+    rows: [
+      [
+        { text: 'Ann' },
+        { text: 'Ann Lee', value: 'ann@example.com' },
+        { text: 'Acme', value: 'https://acme.example/about' },
+        { text: 'Acme logo', value: 'https://acme.example/logo.png' },
+        { text: 'Navy', value: '#123456' },
+      ],
+    ],
+  };
+
+  void it('draws an email, url, image and color cell', () => {
+    const markup = content(table);
+    assert.match(
+      markup,
+      /<a href="mailto:ann@example.com" class="dwt-link">Ann Lee<\/a>/
+    );
+    assert.match(
+      markup,
+      /<a href="https:\/\/acme.example\/about" target="_blank" rel="noopener noreferrer" class="dwt-link">Acme/
+    );
+    assert.match(markup, /\(opens in a new tab\)/);
+    assert.match(
+      markup,
+      /<img class="dwt-cell-image" src="https:\/\/acme.example\/logo.png" alt="Acme logo"/
+    );
+    assert.match(
+      markup,
+      /<span class="dwt-swatch" style="background-color:#123456" aria-hidden="true"><\/span>Navy/
+    );
+  });
+
+  void it('shows the text, not a link or image, for an unsafe value', () => {
+    const markup = content({
+      kind: 'TABLE',
+      columns: [
+        { label: 'Email', type: 'email' },
+        { label: 'Site', type: 'url' },
+        { label: 'Logo', type: 'image' },
+        { label: 'Brand', type: 'color' },
+      ],
+      rows: [
+        [
+          { text: 'a', value: 'a@b.co?cc=c@d.co' },
+          { text: 'b', value: 'javascript:alert(1)' },
+          { text: 'c', value: 'data:image/png;base64,AAAA' },
+          { text: 'd', value: 'red; background:url(x)' },
+        ],
+      ],
+    });
+    assert.doesNotMatch(markup, /<a /);
+    assert.doesNotMatch(markup, /<img/);
+    assert.doesNotMatch(markup, /dwt-swatch/);
+    assert.doesNotMatch(markup, /javascript:/);
+    assert.match(markup, /<td>a<\/td><td>b<\/td><td>c<\/td><td>d<\/td>/);
+  });
+
+  void it('a cell with its own href stays a link whatever the column type', () => {
+    const markup = content({
+      kind: 'TABLE',
+      columns: [{ label: 'Logo', type: 'image' }],
+      rows: [[{ text: 'Home', href: '/home', value: 'https://x.co/a.png' }]],
+    });
+    assert.match(markup, /<a href="\/home"/);
+    assert.doesNotMatch(markup, /<img/);
+  });
+
+  void it('also applies in the search and sort table and the detail view', () => {
+    const controlled = html(
+      <WidgetContent
+        data={table}
+        tableControls={{ search: true, sort: true }}
+      />
+    );
+    assert.match(controlled, /href="mailto:ann@example.com"/);
+    const detail = html(
+      <WidgetDetail
+        title="People"
+        query={{ page: 1, pageSize: 25 }}
+        onQueryChange={() => undefined}
+        data={{
+          columns: [
+            { key: 'name', label: 'Name' },
+            { key: 'logo', label: 'Logo', type: 'image' },
+          ],
+          rows: [
+            [
+              { text: 'Ann' },
+              { text: 'Ann photo', value: 'https://acme.example/ann.png' },
+            ],
+          ],
+        }}
+      />
+    );
+    assert.match(
+      detail,
+      /<img class="dwt-cell-image" src="https:\/\/acme.example\/ann.png" alt="Ann photo"/
+    );
+  });
+
+  void describe('custom formatters', () => {
+    const custom: WidgetData = {
+      kind: 'TABLE',
+      columns: [
+        { label: 'Name' },
+        { label: 'Status', type: 'custom', formatter: 'statusIcon' },
+      ],
+      rows: [[{ text: 'Ann' }, { text: 'Active', value: 'active' }]],
+    };
+
+    void it('draws what the formatter returns and keeps the text as its name', () => {
+      let seen: unknown;
+      const markup = renderToStaticMarkup(
+        <WidgetSettingsProvider
+          formatters={{
+            statusIcon: (input) => {
+              seen = input;
+              return <b data-status={String(input.value)}>●</b>;
+            },
+          }}
+        >
+          <WidgetContent data={custom} widgetKey="people" />
+        </WidgetSettingsProvider>
+      );
+      assert.match(
+        markup,
+        /<span class="dwt-visually-hidden">Active<\/span><b data-status="active">●<\/b>/
+      );
+      assert.deepEqual(seen, {
+        widgetKey: 'people',
+        columnKey: 'c1',
+        text: 'Active',
+        value: 'active',
+        row: [{ text: 'Ann' }, { text: 'Active', value: 'active' }],
+      });
+    });
+
+    void it('shows the text when the formatter is missing or throws', () => {
+      const missing = html(<WidgetContent data={custom} widgetKey="people" />);
+      assert.match(missing, /<td>Active<\/td>/);
+      const throwing = renderToStaticMarkup(
+        <WidgetSettingsProvider
+          formatters={{
+            statusIcon: () => {
+              throw new Error('boom');
+            },
+          }}
+        >
+          <WidgetContent data={custom} widgetKey="people" />
+        </WidgetSettingsProvider>
+      );
+      assert.match(throwing, /<td>Active<\/td>/);
+      assert.doesNotMatch(throwing, /boom/);
+    });
+  });
+});
+
 void describe('table controls', () => {
   const table: WidgetData = {
     kind: 'TABLE',

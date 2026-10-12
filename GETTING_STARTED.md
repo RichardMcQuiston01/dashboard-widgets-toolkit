@@ -458,6 +458,78 @@ so pair it with `detail` to search the full list. Matching and sorting are the
 detail view's (`queryRows`): case- and accent-insensitive, numeric-aware. The
 validator rejects `tableControls` on any other kind.
 
+### Field types: email, url, image, color and custom
+
+A `TABLE` column can say how its cells are shown with `type`. The default is
+`text`. The other types read the cell's address, URL or color from its `value`
+when that is a string, else from its `text`; the `text` is what's shown (and the
+link text, image alt text or swatch label).
+
+```ts
+const people: TableWidgetData = {
+  kind: 'TABLE',
+  columns: [
+    { label: 'Name' },
+    { label: 'Email', type: 'email' },
+    { label: 'Site', type: 'url' },
+    { label: 'Photo', type: 'image' },
+    { label: 'Brand', type: 'color' },
+    { label: 'Status', type: 'custom', formatter: 'statusIcon' },
+  ],
+  rows: [
+    [
+      { text: 'Ann Lee' },
+      { text: 'Ann Lee', value: 'ann@example.com' },
+      { text: 'Acme', value: 'https://acme.example' },
+      { text: 'Ann Lee, headshot', value: '/people/ann.jpg' },
+      { text: 'Navy', value: '#123456' },
+      { text: 'Active', value: 'active' },
+    ],
+  ],
+};
+```
+
+- `email`: a `mailto:` link. A display name, a list of addresses or header
+  parameters (`?cc=`, `?body=`) are refused.
+- `url`: a link that opens in a new tab with `rel="noopener noreferrer"`. Absolute
+  `http` and `https` only.
+- `image`: an `<img>` with the text as its alt text, 2rem high. `http`, `https`
+  and relative URLs only (no `data:`).
+- `color`: a small swatch next to the text, never color alone. `#rgb` or
+  `#rrggbb`.
+- A value a type can't use falls back to the cell's plain text, and
+  `validateWidgetData` / `validateDetailData` report it with its row and column
+  (`rows[0][1].value "..." is not a plain email address`). A cell with its own
+  `href` stays a link.
+- Sorting and search keep using `text` and `value`, so the card's table controls,
+  the detail view and the "View as table" twin behave the same. Column types
+  carry over to the detail view.
+
+`custom` names a formatter you register once; the definition stays JSON:
+
+```tsx
+<WidgetSettingsProvider
+  formatters={{
+    statusIcon: ({ value, text }) => (
+      <StatusIcon status={String(value)} label={text} />
+    ),
+  }}
+  onFormatterError={(problem) => console.warn(problem.message)}
+>
+  <Dashboard widgets={widgets} />
+</WidgetSettingsProvider>
+```
+
+A formatter is given `{ widgetKey, columnKey, text, value, row }` (`columnKey` is
+`c0`, `c1`, ... like sort and filter keys) and returns a `ReactNode`. It changes
+what is drawn, not what the data is. The cell's text stays in the page as visually
+hidden text, so an icon-only formatter still has an accessible name. A formatter
+that is missing, throws, or returns something that fails to render shows the text
+and calls `onFormatterError` with a message naming the widget, column and
+formatter. `validateFormatters(columns, Object.keys(formatters))` checks ahead of
+time that every `custom` column has one. Returned strings are escaped by React;
+the toolkit adds no HTML sanitizer.
+
 ### Declared options
 
 Give a widget `options` and each one has a default that providers receive. There

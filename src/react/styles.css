@@ -1121,3 +1121,27 @@
     box-shadow: 0 0 0 2px var(--dwt-drop-indicator, var(--dwt-focus));
   }
 }
+
+/* Field types: image and color cells in a table. */
+.dwt-cell-image {
+  display: block;
+  height: 2rem;
+  width: auto;
+  max-width: 6rem;
+  object-fit: cover;
+  border-radius: calc(var(--dwt-radius, 8px) / 2);
+}
+
+.dwt-cell-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.dwt-swatch {
+  flex: none;
+  width: 0.9em;
+  height: 0.9em;
+  border-radius: 3px;
+  border: 1px solid var(--dwt-border, rgba(0, 0, 0, 0.2));
+}
