@@ -184,6 +184,76 @@ void describe('createLayoutPersistence', () => {
     assert.ok(afterBackup.ok && afterBackup.value === null);
   });
 
+  void it('clears only the backup', async () => {
+    const adapter = memoryAdapter();
+    const store = createLayoutPersistence(adapter);
+    await store.save(scope, layoutOf(['a']));
+    await store.saveBackup(scope, layoutOf(['b']));
+    const cleared = await store.clearBackup(scope);
+    assert.ok(cleared.ok);
+    const backup = await store.loadBackup(scope);
+    assert.ok(backup.ok && backup.value === null);
+    const layout = await store.load(scope, definitions);
+    assert.ok(layout.ok && layout.value.layout?.order[0] === 'a');
+    // Clearing a backup that isn't there is fine.
+    assert.ok((await store.clearBackup(scope)).ok);
+  });
+
+  void it('clearing a backup needs an adapter that can remove', async () => {
+    const store = createLayoutPersistence({
+      get: memoryAdapter().get,
+      set: memoryAdapter().set,
+    });
+    const result = await store.clearBackup(scope);
+    assert.ok(!result.ok && result.code === 'invalid');
+    assert.match(result.error, /dwt:sales:user-42:backup.*no remove method/);
+  });
+
+  void it('stores the active page under its own key', async () => {
+    const adapter = memoryAdapter();
+    const store = createLayoutPersistence(adapter);
+    assert.equal(store.keyFor(scope, 'page'), 'dwt:sales:user-42:page');
+    const none = await store.loadActivePage(scope);
+    assert.ok(none.ok && none.value === null);
+    const saved = await store.saveActivePage(scope, 'orders');
+    assert.ok(saved.ok);
+    const loaded = await store.loadActivePage(scope);
+    assert.ok(loaded.ok && loaded.value === 'orders');
+    // The layout and the page don't touch each other.
+    await store.save(scope, layoutOf(['a']));
+    const again = await store.loadActivePage(scope);
+    assert.ok(again.ok && again.value === 'orders');
+    const layoutRead = await adapter.get(KEY, { signal });
+    assert.ok(layoutRead.ok && layoutRead.value !== null);
+    assert.doesNotMatch(layoutRead.value.value, /orders/);
+  });
+
+  void it('rejects an unusable page key and reports an unreadable stored one', async () => {
+    const adapter = memoryAdapter();
+    const store = createLayoutPersistence(adapter);
+    const empty = await store.saveActivePage(scope, '');
+    assert.ok(!empty.ok && empty.code === 'invalid');
+    const long = await store.saveActivePage(scope, 'x'.repeat(201));
+    assert.ok(!long.ok && long.code === 'invalid');
+    assert.match(long.error, /1 to 200 characters, not 201/);
+    for (const bad of ['{not json', '{"v":1,"page":7}', '[]', '{"page":""}']) {
+      await adapter.set('dwt:sales:user-42:page', bad, { signal });
+      const loaded = await store.loadActivePage(scope);
+      assert.ok(!loaded.ok && loaded.code === 'corrupt', bad);
+      assert.match(loaded.error, /dwt:sales:user-42:page/);
+    }
+  });
+
+  void it('reset also removes the active page', async () => {
+    const adapter = memoryAdapter();
+    const store = createLayoutPersistence(adapter);
+    await store.save(scope, layoutOf(['a']));
+    await store.saveActivePage(scope, 'orders');
+    assert.ok((await store.reset(scope)).ok);
+    const loaded = await store.loadActivePage(scope);
+    assert.ok(loaded.ok && loaded.value === null);
+  });
+
   void it('reset needs an adapter that can remove', async () => {
     const store = createLayoutPersistence({
       get: memoryAdapter().get,

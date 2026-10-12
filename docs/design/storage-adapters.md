@@ -1,8 +1,9 @@
 # Design: storage adapters
 
 - **Status:** Phases 1 and 2 built in 0.11.0 (contract, persistence, wrappers,
-  `useStoredLayout`); recipes are in GETTING_STARTED. Not built: the stored active
-  page, backup history and a companion package. Decisions 1 to 3 of
+  `useStoredLayout`); recipes are in GETTING_STARTED. The stored active page and
+  the `backup` / `onBackup` props on `Dashboard` are built (0.21.0). Not built: a
+  companion package, and a backup history beyond the one snapshot. Decisions 1 to 3 of
   section 11 come from the maintainer; the rest were taken as proposed.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
@@ -303,7 +304,14 @@ second tab's change appears, a disabled localStorage still lets the dashboard wo
 - The hook surfaces a change from another tab as `remoteLayout` /
   `resolveRemote` instead of drawing the notice itself, because it can't see
   edit mode; it also returns `conflict` / `resolveConflict`.
-- `stored.activePage` is not built.
+- `stored.activePage` / `setActivePage` are built, with `loadActivePage` and
+  `saveActivePage` on the persistence (key `dwt:<dashboard>:<user>:page`, value
+  `{ "v": 1, "page": "<key>" }`, up to 200 characters). A load that finds nothing
+  or something unreadable leaves the dashboard on its first page.
+- The backup stays one snapshot per edit session (decision 7). `Dashboard`
+  reports it with `onBackup(layout)` when editing starts and `onBackup(null)` when
+  it ends; `clearBackup` removes the stored copy. A snapshot still stored when
+  editing starts is treated as an interrupted session and resumed.
 
 ### Still open (proposals above)
 

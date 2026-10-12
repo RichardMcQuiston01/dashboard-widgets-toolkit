@@ -884,6 +884,31 @@ void describe('WidgetGrid and Dashboard', () => {
       assert.doesNotMatch(markup, /Reset layout/);
     });
 
+    void it('a stored backup makes Revert available when editing starts', () => {
+      const backup = { order: ['revenue'], hidden: [], minimized: [] };
+      const markup = render({
+        editMode: 'toggle',
+        defaultEditing: true,
+        backup,
+        onBackup: () => undefined,
+      });
+      assert.doesNotMatch(markup, /disabled=""[^>]*>Revert changes</);
+      assert.match(markup, />Revert changes</);
+    });
+
+    void it('cards carry the author title as data-dwt-default-title', () => {
+      const markup = render({
+        layout: {
+          order: [],
+          hidden: ['broken'],
+          minimized: [],
+          settings: { stock: { title: 'Running low' } },
+        },
+      });
+      assert.match(markup, /data-dwt-default-title="Low stock"/);
+      assert.match(markup, />Running low</);
+    });
+
     void it('toggle mode while editing shows controls, lock icons and the toolbar', () => {
       const markup = render({ editMode: 'toggle', defaultEditing: true });
       assert.match(markup, /aria-pressed="true"[^>]*>Done</);

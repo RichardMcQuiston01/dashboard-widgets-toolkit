@@ -799,8 +799,9 @@ Phase 2 is built. Differences from the sketch above:
 - `locked.options` is part of `locked: true`. **Reset layout** keeps settings;
   **Revert changes** restores them from the pre-edit snapshot; the dialog's own
   Reset and Revert act on one widget.
-- Not built yet: the `backup` and `onBackup` props (the snapshot is in memory),
-  and a `data-dwt-default-title` attribute.
+- The `backup` and `onBackup` props on `Dashboard` and the
+  `data-dwt-default-title` attribute (the author's title on each card) are built
+  (0.21.0).
 
 Phase 3 is built (converted views only). Differences from the sketch above:
 

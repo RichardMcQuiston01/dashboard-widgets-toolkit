@@ -539,9 +539,15 @@ export interface SaveOptions {
   readonly force?: boolean;
 }
 
+/** Which of a scope's stored values a key is for. */
+export type StorePart = 'layout' | 'backup' | 'page';
+
+/** The longest page key `saveActivePage` stores. */
+export const MAX_ACTIVE_PAGE_LENGTH = 200;
+
 export interface LayoutPersistence {
   /** The adapter key for a scope, for example `dwt:sales:user-42:layout`. */
-  keyFor(scope: StoreScope, part?: 'layout' | 'backup'): string;
+  keyFor(scope: StoreScope, part?: StorePart): string;
   load(
     scope: StoreScope,
     definitions: readonly PageItem[],
@@ -557,7 +563,16 @@ export interface LayoutPersistence {
     scope: StoreScope,
     layout: DashboardLayout
   ): Promise<StoreResult<null>>;
-  /** Removes the layout and its backup. */
+  /** Removes the backup only (an edit session ended). A missing backup is fine. */
+  clearBackup(scope: StoreScope): Promise<StoreResult<null>>;
+  /** The stored active page key, or null when none is stored or it is unreadable. */
+  loadActivePage(scope: StoreScope): Promise<StoreResult<string | null>>;
+  /** Stores the active page key under its own key, so it never conflicts with the layout. */
+  saveActivePage(
+    scope: StoreScope,
+    pageKey: string
+  ): Promise<StoreResult<null>>;
+  /** Removes the layout, its backup and the stored active page. */
   reset(scope: StoreScope): Promise<StoreResult<null>>;
   /** Calls `onChange` when another tab or device changes the layout; needs `adapter.subscribe`. */
   watch(
@@ -654,10 +669,7 @@ export function createLayoutPersistence(
   const inFlight = new Set<string>();
   const pending = new Map<string, PendingSave>();
 
-  const keyFor = (
-    scope: StoreScope,
-    part: 'layout' | 'backup' = 'layout'
-  ): string =>
+  const keyFor = (scope: StoreScope, part: StorePart = 'layout'): string =>
     `dwt:${keyPart(scope.dashboardKey)}:${keyPart(scope.userKey ?? '_')}:${part}`;
 
   const checkScope = (scope: StoreScope): StoreResult<null> =>
@@ -880,6 +892,68 @@ export function createLayoutPersistence(
       );
       return stored.ok ? { ok: true, value: null } : stored;
     },
+    async clearBackup(scope) {
+      const valid = checkScope(scope);
+      if (!valid.ok) return valid;
+      const key: string = keyFor(scope, 'backup');
+      if (adapter.remove === undefined) {
+        return failure(
+          'invalid',
+          `Could not clear "${key}": the adapter has no remove method.`
+        );
+      }
+      const remove = adapter.remove.bind(adapter);
+      return guarded(key, 'remove', () => remove(key, { signal }));
+    },
+    async loadActivePage(scope) {
+      const valid = checkScope(scope);
+      if (!valid.ok) return valid;
+      const key: string = keyFor(scope, 'page');
+      const result = await guarded(key, 'load', () =>
+        adapter.get(key, { signal })
+      );
+      if (!result.ok) return result;
+      if (result.value === null) return { ok: true, value: null };
+      try {
+        const parsed: unknown = JSON.parse(result.value.value);
+        const page: unknown =
+          typeof parsed === 'object' && parsed !== null
+            ? (parsed as Record<string, unknown>)['page']
+            : undefined;
+        if (
+          typeof page === 'string' &&
+          page !== '' &&
+          page.length <= MAX_ACTIVE_PAGE_LENGTH
+        ) {
+          return { ok: true, value: page };
+        }
+      } catch {
+        // Falls through to the message below.
+      }
+      return failure(
+        'corrupt',
+        `The active page stored at "${key}" is not a page key, so the first page is used.`
+      );
+    },
+    async saveActivePage(scope, pageKey) {
+      const valid = checkScope(scope);
+      if (!valid.ok) return valid;
+      const key: string = keyFor(scope, 'page');
+      if (pageKey === '' || pageKey.length > MAX_ACTIVE_PAGE_LENGTH) {
+        return failure(
+          'invalid',
+          `Could not save "${key}": the page key must be 1 to ${MAX_ACTIVE_PAGE_LENGTH} characters, not ${pageKey.length}.`
+        );
+      }
+      const text: string = JSON.stringify({
+        v: LAYOUT_ENVELOPE_VERSION,
+        page: pageKey,
+      });
+      const stored = await guarded(key, 'save', () =>
+        adapter.set(key, text, { signal })
+      );
+      return stored.ok ? { ok: true, value: null } : stored;
+    },
     async reset(scope) {
       const valid = checkScope(scope);
       if (!valid.ok) return valid;
@@ -900,7 +974,12 @@ export function createLayoutPersistence(
       const second = await guarded(backupKey, 'remove', () =>
         remove(backupKey, { signal })
       );
-      return second.ok ? { ok: true, value: null } : second;
+      if (!second.ok) return second;
+      const pageKey: string = keyFor(scope, 'page');
+      const third = await guarded(pageKey, 'remove', () =>
+        remove(pageKey, { signal })
+      );
+      return third.ok ? { ok: true, value: null } : third;
     },
     watch(scope, definitions, onChange, normalizeOptions) {
       const key: string = keyFor(scope);
