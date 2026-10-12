@@ -108,9 +108,10 @@ documented in the code and README, which win if they disagree.
   `normalizeLayout`) and the React page bar, Move to page and page management.
   Not built: swipe, drag onto a page tab, `retain`/`release`.
 - `docs/design/storage-adapters.md`: the adapter contract, wrappers,
-  `createLayoutPersistence` and `useStoredLayout` are built; concrete adapters
-  stay in consumer code (recipes in GETTING_STARTED). Not built: stored active
-  page, backup history, a companion package.
+  `createLayoutPersistence` and `useStoredLayout` are built, with the stored
+  active page and `Dashboard` `backup` / `onBackup`; concrete adapters stay in
+  consumer code (recipes in GETTING_STARTED). Not built: a companion package, a
+  backup history beyond one snapshot.
 - `docs/design/theming.md`: theming. `createTheme`, the token reference,
   `WidgetTheme` / `Dashboard` `theme`, `checkTheme` (`color.ts`,
   `theme-check.ts`, `theme-defaults.ts`) and `themePresets` are built. Nothing

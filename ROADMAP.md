@@ -35,7 +35,7 @@
   `dateRange`, `color`, `sort`, `columns`), passed to the provider, with
   option-aware cache keys and client-side sort and columns (0.11.0).
 - One Arrange menu per card (0.12.0).
-- Theming: `createTheme` and a documented `--dwt-*` token reference (0.13.0), then `WidgetTheme` and the `Dashboard` `theme` prop, `checkTheme` (contrast and color-vision checks) and `themePresets`.
+- Theming: `createTheme` and a documented `--dwt-*` token reference (0.13.0), then `WidgetTheme` and the `Dashboard` `theme` prop, `checkTheme` (contrast and color-vision checks) and `themePresets` (0.20.0).
 - Options dialog and viewer settings: title, width, Grow to fill and the
   declared options, stored in the layout as `layout.settings`, with
   `minWidth`/`maxWidth` limits and `locked.options` (0.14.0).
@@ -44,6 +44,11 @@
 - Clones: Duplicate and Delete, `layout.clones`, `locked.clone` (0.16.0).
 - Views supplied by the provider (`views` without `convert`, `options.view`,
   `viewValues`, `setView`) (0.17.0).
+- Detail view in server mode, drag-and-drop reordering (`draggable`) and the
+  clone-reload fix (0.18.0).
+- Detail view deep links: `detail` / `onDetailChange` and `parseDetailLink` (0.19.0).
+- Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
+  and `data-dwt-default-title` on cards (0.21.0).
 
 [Back to Top](#roadmap)
 
@@ -53,10 +58,6 @@
   server-mode detail caching by query, and a detail view for each
   provider-supplied view. Server mode and URL deep links are built. See
   [docs/design/detail-view.md](./docs/design/detail-view.md).
-- **Storage, the rest.** The stored active page and backup history (`backup` and
-  `onBackup`), and a `data-dwt-default-title` attribute for reverting renames. See
-  [docs/design/storage-adapters.md](./docs/design/storage-adapters.md) and
-  [docs/design/widget-options-views-clones.md](./docs/design/widget-options-views-clones.md).
 
 [Back to Top](#roadmap)
 

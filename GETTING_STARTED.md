@@ -950,6 +950,14 @@ const stored = useStoredLayout({
   unsaved edits; otherwise it is offered as `stored.remoteLayout`, which you
   accept or ignore with `stored.resolveRemote('use' | 'ignore')`.
 - `stored.backup` / `stored.setBackup` keep a pre-edit snapshot under its own key.
+  Pass them to `Dashboard` as `backup` / `onBackup`: the dashboard hands over the
+  snapshot when an edit session starts and `null` when it ends (`setBackup(null)`
+  removes the stored copy, so the adapter needs `remove`). A snapshot still stored
+  when editing starts is taken as an interrupted session and Revert goes back to
+  it, so Revert survives a reload mid-edit.
+- `stored.activePage` / `stored.setActivePage` remember the page in view under a
+  separate `:page` key. Pass them as `activePage` / `onActivePageChange`; until a
+  page is loaded `activePage` is `undefined` and the dashboard starts on its first.
 
 Wrappers turn one adapter into another: `withPrefix`, `withFallback(primary,
 secondary)` (a server first, localStorage when it's down), `withReadCache`,

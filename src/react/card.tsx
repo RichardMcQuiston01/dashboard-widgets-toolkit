@@ -44,6 +44,11 @@ export interface WidgetCardProps {
    * which card scrolled into view. `ResolvedWidgetCard` sets it for you.
    */
   readonly widgetKey?: string;
+  /**
+   * The author's title, rendered as `data-dwt-default-title` so styles and
+   * tests can find a card whose viewer renamed it. `Dashboard` sets it.
+   */
+  readonly defaultTitle?: string;
   /** Marks the card as being edited (dashed outline); set by `Dashboard`. */
   readonly editing?: boolean;
   /** 2 to 6; default 2. */
@@ -75,6 +80,7 @@ export function WidgetCard({
   columnSpan,
   width,
   widgetKey,
+  defaultTitle,
   editing = false,
   headingLevel = 2,
   className,
@@ -135,6 +141,9 @@ export function WidgetCard({
         className
       )}
       {...(widgetKey === undefined ? {} : { 'data-widget-key': widgetKey })}
+      {...(defaultTitle === undefined
+        ? {}
+        : { 'data-dwt-default-title': defaultTitle })}
       {...(columnSpan === undefined &&
       width === undefined &&
       style === undefined
@@ -253,6 +262,8 @@ export function widgetTitle(widget: DashboardWidget): string {
 
 export interface ResolvedWidgetCardProps {
   readonly widget: DashboardWidget;
+  /** See `WidgetCardProps.defaultTitle`. */
+  readonly defaultTitle?: string;
   /** See `WidgetCardProps.columnSpan`. */
   readonly columnSpan?: number;
   /** 12-column width (see `WidgetDefinition.width`); sets `--dwt-width`. */
