@@ -24,7 +24,7 @@ import {
 } from '../core/detail.js';
 import type { WidgetDefinition } from '../core/definition.js';
 import type { OptionValues } from '../core/options.js';
-import { WidgetLink } from './primitives.js';
+import { CellContent } from './cells.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
 /**
@@ -41,6 +41,8 @@ export type DetailLoader = (
 export interface WidgetDetailProps {
   /** Table caption: the widget's title. */
   readonly title: string;
+  /** The widget's key, passed to `custom` column formatters. */
+  readonly widgetKey?: string;
   /** The rows to show. Absent while `status` is `loading` or `error`. */
   readonly data?: DetailData;
   /** Controlled: you own the query, so you can keep it in the URL. */
@@ -152,19 +154,23 @@ function SortGlyph({
 function Cell({
   cell,
   column,
+  row,
+  widgetKey,
 }: {
   readonly cell: DetailCell;
   readonly column: DetailColumn | undefined;
+  readonly row: readonly DetailCell[];
+  readonly widgetKey: string;
 }): ReactNode {
   return (
     <td className={column?.numeric === true ? 'dwt-numeric' : undefined}>
-      {cell.href === undefined ? (
-        cell.text
-      ) : (
-        <WidgetLink href={cell.href} className="dwt-link">
-          {cell.text}
-        </WidgetLink>
-      )}
+      <CellContent
+        widgetKey={widgetKey}
+        columnKey={column?.key ?? ''}
+        column={column}
+        cell={cell}
+        row={row}
+      />
     </td>
   );
 }
@@ -188,6 +194,7 @@ export function WidgetDetail({
   headingLevel = 2,
   headingId,
   className,
+  widgetKey = '',
 }: WidgetDetailProps): ReactNode {
   const slot = useSlotClassName();
   const { labels, locale } = useWidgetSettings();
@@ -334,6 +341,8 @@ export function WidgetDetail({
                       key={cellIndex}
                       cell={cell}
                       column={columns[cellIndex]}
+                      row={row}
+                      widgetKey={widgetKey}
                     />
                   ))}
                 </tr>

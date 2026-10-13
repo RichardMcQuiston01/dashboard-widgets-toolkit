@@ -6,6 +6,11 @@
  */
 
 import type { WidgetDefinition } from './definition.js';
+import {
+  fieldCellProblem,
+  fieldColumnProblems,
+  type FieldColumn,
+} from './fields.js';
 import { formatValue, type Locale } from './format.js';
 import type { TableWidgetData, WidgetData } from './payload.js';
 import type { ProviderOptions, WidgetContext } from './resolve.js';
@@ -50,7 +55,7 @@ export interface ResolvedTableControls {
   readonly sort: boolean;
 }
 
-export interface DetailColumn {
+export interface DetailColumn extends FieldColumn {
   /** Stable id used by sort, filters and URLs. Unique within the data. */
   readonly key: string;
   readonly label: string;
@@ -659,6 +664,7 @@ export function validateDetailData(
           );
         }
       }
+      problems.push(...fieldColumnProblems(fields, at));
     });
   }
 
@@ -698,6 +704,26 @@ export function validateDetailData(
           problems.push(
             `${at}.value must be a string or a finite number, got ${describeType(value)}.`
           );
+        }
+        const column: unknown = Array.isArray(columns)
+          ? columns[cellIndex]
+          : undefined;
+        if (
+          typeof column === 'object' &&
+          column !== null &&
+          typeof fields['text'] === 'string'
+        ) {
+          const fieldProblem: string | undefined = fieldCellProblem(
+            column as FieldColumn,
+            {
+              text: fields['text'],
+              ...(typeof value === 'string' || typeof value === 'number'
+                ? { value }
+                : {}),
+            },
+            at
+          );
+          if (fieldProblem !== undefined) problems.push(fieldProblem);
         }
         const href: unknown = fields['href'];
         if (href !== undefined) {
@@ -766,6 +792,10 @@ export function tableDetailData(data: TableWidgetData): DetailData {
       key: `c${index}`,
       label: column.label,
       ...(column.numeric === undefined ? {} : { numeric: column.numeric }),
+      ...(column.type === undefined ? {} : { type: column.type }),
+      ...(column.formatter === undefined
+        ? {}
+        : { formatter: column.formatter }),
     })),
     rows: data.rows,
   };

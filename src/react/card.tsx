@@ -307,6 +307,7 @@ export function ResolvedWidgetCard({
       {widget.status === 'ok' ? (
         <WidgetContent
           data={widget.data}
+          widgetKey={definition.key}
           tableControls={resolveTableControls(definition)}
           initialSort={sortFromOptions(definition, widget.options)}
         />

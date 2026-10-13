@@ -1,5 +1,7 @@
 import { useId, useState, type ReactNode } from 'react';
 
+import { CellContent } from './cells.js';
+
 import {
   queryRows,
   tableDetailData,
@@ -142,8 +144,11 @@ export function TableWidget({
   data,
   controls,
   initialSort,
+  widgetKey = '',
 }: {
   readonly data: TableWidgetData;
+  /** The widget's key, passed to `custom` column formatters. */
+  readonly widgetKey?: string;
   /** Search box and sortable headers; see `WidgetDefinition.tableControls`. */
   readonly controls?: ResolvedTableControls | undefined;
   /** The header sort to start with, for example from a `sort` option. */
@@ -152,7 +157,7 @@ export function TableWidget({
   if (controls === undefined) {
     return (
       <div className="dwt-table-wrap">
-        <TableView data={data} />
+        <TableView data={data} widgetKey={widgetKey} />
         {data.footer !== undefined && <p className="dwt-note">{data.footer}</p>}
       </div>
     );
@@ -162,6 +167,7 @@ export function TableWidget({
       data={data}
       controls={controls}
       initialSort={initialSort}
+      widgetKey={widgetKey}
     />
   );
 }
@@ -171,8 +177,10 @@ function TableView({
   rows = data.rows,
   sort,
   onSort,
+  widgetKey,
 }: {
   readonly data: TableWidgetData;
+  readonly widgetKey: string;
   readonly rows?: TableWidgetData['rows'];
   readonly sort?: DetailSort | undefined;
   /** Makes the headers sort buttons. */
@@ -239,13 +247,13 @@ function TableView({
                       : undefined
                   }
                 >
-                  {cell.href === undefined ? (
-                    cell.text
-                  ) : (
-                    <WidgetLink href={cell.href} className="dwt-link">
-                      {cell.text}
-                    </WidgetLink>
-                  )}
+                  <CellContent
+                    widgetKey={widgetKey}
+                    columnKey={`c${cellIndex}`}
+                    column={data.columns[cellIndex]}
+                    cell={cell}
+                    row={row}
+                  />
                 </td>
               ))}
             </tr>
@@ -271,8 +279,10 @@ function InteractiveTable({
   data,
   controls,
   initialSort,
+  widgetKey,
 }: {
   readonly data: TableWidgetData;
+  readonly widgetKey: string;
   readonly controls: ResolvedTableControls;
   readonly initialSort: DetailSort | undefined;
 }): ReactNode {
@@ -336,6 +346,7 @@ function InteractiveTable({
           </p>
           <TableView
             data={data}
+            widgetKey={widgetKey}
             rows={page?.rows ?? data.rows}
             sort={sort}
             onSort={
@@ -446,8 +457,11 @@ export function WidgetContent({
   data,
   tableControls,
   initialSort,
+  widgetKey,
 }: {
   readonly data: WidgetData;
+  /** The widget's key, for `custom` column formatters. */
+  readonly widgetKey?: string;
   /** Search and sort for TABLE data; see `resolveTableControls`. */
   readonly tableControls?: ResolvedTableControls | undefined;
   /** TABLE header sort to start with; see `sortFromOptions`. */
@@ -466,6 +480,7 @@ export function WidgetContent({
           data={data}
           controls={tableControls}
           initialSort={initialSort}
+          {...(widgetKey === undefined ? {} : { widgetKey })}
         />
       );
     case 'BAR_LIST':

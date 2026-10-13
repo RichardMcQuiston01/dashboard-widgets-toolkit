@@ -2,8 +2,9 @@
 
 - **Status:** Phases 1 to 4 are built: declared options (0.11.0), `layout.settings`
   and the Options dialog (0.14.0), converted alternate views (0.15.0), clones
-  (0.16.0), and views supplied by the provider (0.17.0). Phase 5 (the Widget
-  Builder) and the field types are not built. Decisions are recorded in section 15.
+  (0.16.0), and views supplied by the provider (0.17.0). The field types
+  (`email`, `url`, `image`, `color`, `custom`) are built (0.22.0). Phase 5 (the
+  Widget Builder) is not built. Decisions are recorded in section 15.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
 - **Builds on:** `lock-and-edit-mode.md` (built)
@@ -770,8 +771,9 @@ shipped (the plan had them earlier, ahead of the pages and storage work).
 
 Independently of the phases, a small **field types** release (`email`, `url`,
 `image`, `color`, `custom` formatters) can ship at any time: it only changes how
-cells render. Pages and storage adapters have their own designs
-(`widget-pages.md`, `storage-adapters.md`).
+cells render. It is built (0.22.0); see "Field types as built" below. Pages and
+storage adapters have their own designs (`widget-pages.md`,
+`storage-adapters.md`).
 
 Phase 1 is built. Differences from the sketch above: `ProviderOptions.options`
 is always present; `sort` and `columns` keys are `c0`, `c1`, ... for `TABLE` and
@@ -869,6 +871,31 @@ sorts, "top N" and column sets, with the viewer's choice arriving later in phase
 through the same declarations. It is also what a Widget Builder bakes in, so it
 comes first. Phase 2 needs edit mode (0.9.0). Phase 4 needs phase 3 to be
 interesting but not to work.
+
+### Field types as built
+
+Differences from the sketch in section 5:
+
+- The type lives on the payload's `TableColumn` (and `DetailColumn`), as `type`
+  and, for `custom`, `formatter`; columns have no `key` in a `TABLE`, so a
+  formatter's `columnKey` is the positional `c0`, `c1`, ... that sort and filter
+  already use. `core/fields.ts` holds the types and checks, `react/cells.tsx` the
+  rendering (`CellContent`), shared by the card's table and the detail view.
+- `number` and `date` are not field types: the provider already formats a cell
+  (`text`) and says how it sorts (`value`), and a column can be `numeric`.
+- A cell reads its address, URL or color from a string `value`, else its `text`.
+  `image` takes `http`, `https` and relative URLs, `color` takes `#rgb` and
+  `#rrggbb`, `url` takes absolute `http(s)`. A cell with its own `href` stays a
+  link.
+- `CellFormatter`, `formatters` and `onFormatterError` are on
+  `WidgetSettingsProvider` (and `Dashboard`). A missing or throwing formatter, or
+  one whose elements fail to render, shows the text and calls `onFormatterError`
+  from an effect (never while rendering). Formatters are synchronous. The
+  cell's text is always rendered as visually hidden text beside the formatter's
+  output.
+- `validateFormatters(columns, registeredNames, subject?)` returns a `Result`
+  naming each unregistered formatter, and the payload validators report a bad
+  `type`, a `custom` column without a `formatter` and a typed cell's bad value.
 
 ## 13. Testing
 

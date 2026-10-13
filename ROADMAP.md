@@ -47,6 +47,8 @@
 - Detail view in server mode, drag-and-drop reordering (`draggable`) and the
   clone-reload fix (0.18.0).
 - Detail view deep links: `detail` / `onDetailChange` and `parseDetailLink` (0.19.0).
+- Field types for table columns: `email`, `url`, `image`, `color` and `custom`
+  formatters (0.22.0).
 - Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
   and `data-dwt-default-title` on cards (0.21.0).
 
@@ -67,8 +69,6 @@
   `draggable` reordering works within a page), and
   payload release (`retain`/`release`) for far-away pages. See
   [docs/design/widget-pages.md](./docs/design/widget-pages.md).
-- **Field types** for table cells: `email`, `url`, `image`, `color` and `custom`
-  formatters.
 - **Widget Builder**, headless functions in a `./builder` subpath that create and
   edit a definition as JSON, with data-source descriptions; viewer-created widgets
   come after. See

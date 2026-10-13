@@ -471,6 +471,7 @@ function DetailHost({
     <WidgetDetailDialog title={title} open onClose={onClose}>
       <WidgetDetail
         title={title}
+        widgetKey={definition.key}
         query={query}
         onQueryChange={onQueryChange}
         status={state.status}
@@ -1724,10 +1725,13 @@ export function Dashboard({
   linkTarget,
   classNames,
   labels,
+  formatters,
+  onFormatterError,
   theme,
   ...props
 }: DashboardProps): ReactNode {
   const parent = useWidgetSettings();
+  const resolvedOnFormatterError = onFormatterError ?? parent.onFormatterError;
   const resolvedLocale = locale ?? parent.locale;
   const resolvedTarget: string | undefined = linkTarget ?? parent.linkTarget;
   const dashboard: ReactNode = (
@@ -1736,6 +1740,10 @@ export function Dashboard({
       {...(resolvedTarget === undefined ? {} : { linkTarget: resolvedTarget })}
       classNames={{ ...parent.classNames, ...classNames }}
       labels={{ ...parent.labels, ...labels }}
+      formatters={{ ...parent.formatters, ...formatters }}
+      {...(resolvedOnFormatterError === undefined
+        ? {}
+        : { onFormatterError: resolvedOnFormatterError })}
     >
       <DashboardInner {...props} />
     </WidgetSettingsProvider>

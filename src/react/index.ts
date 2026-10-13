@@ -75,8 +75,12 @@ export {
   WidgetSettingsProvider,
   joinClassNames,
   useWidgetSettings,
+  type CellFormatter,
+  type CellFormatterInput,
+  type CellFormatterProblem,
   type DashboardClassNames,
   type DashboardClassSlot,
   type DashboardLabels,
   type WidgetSettings,
 } from './settings.js';
+export { CellContent, type CellContentProps } from './cells.js';
