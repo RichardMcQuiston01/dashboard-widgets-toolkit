@@ -56,10 +56,25 @@
 
 ## Short term
 
-- **Detail view, the rest.** Page-size choice and column visibility,
-  server-mode detail caching by query, and a detail view for each
-  provider-supplied view. Server mode and URL deep links are built. See
-  [docs/design/detail-view.md](./docs/design/detail-view.md).
+Listed in the order they are planned. None needs data fetching in the package.
+
+1. **Click and drill-down events.** Charts, bar lists, alert lists and table rows
+   report a click through an `onSelect` / `onAction` callback with the widget
+   key and the datum, so an app can navigate, open a detail view or filter other
+   widgets. Display-only cards stay the default.
+2. **Dashboard-level filters.** A shared filter bar (`dashboardFilters`) whose
+   values (a date range, a store, a segment) reach every provider through the
+   context, with option-aware cache keys, so a "last 30 days" choice is made once
+   instead of card by card. Reuses the declared option types.
+3. **Export.** CSV for any table and the detail view (all rows in server mode,
+   through the provider), an SVG or PNG download for charts, and a print
+   stylesheet.
+4. **Freshness.** A per-card "Updated 2 min ago" and a refresh button, and the
+   last good data kept on screen with an error badge when a reload fails.
+5. **Detail view, the rest.** Page-size choice and column visibility,
+   server-mode detail caching by query, and a detail view for each
+   provider-supplied view. Server mode and URL deep links are built. See
+   [docs/design/detail-view.md](./docs/design/detail-view.md).
 
 [Back to Top](#roadmap)
 
@@ -82,6 +97,25 @@
 - **More chart forms**: stacked bars for part-to-whole, and area charts.
 - **Texture fill** for bars (45°/135°) under `forced-colors`, print or an
   accessibility setting, as a second channel after color.
+- **More widget kinds**: a donut for part-to-whole, a funnel, progress toward a
+  goal, and a heat or calendar map. Each keeps the chart rules (one scale,
+  `<title>`/`<desc>`, a "View as table" twin).
+- **Conditional formatting and thresholds**: color bands on `GAUGE` and `KPI`,
+  goal or reference lines on charts, and table cell rules (for example, red under
+  5), as typed fields so definitions stay JSON.
+- **Layout depth**: drag-to-resize widths, a layout per breakpoint (a phone
+  layout can differ from a desktop one), named saved views ("Monday review"), and
+  layout migrations so stored layouts survive changes to definitions.
+- **Ready-made translations** for `labels` (`es`, `fr`, `de`), with right-to-left
+  checked.
+- **Next.js App Router and SSR**: an `initialWidgets` option on `useWidgets` and
+  a documented recipe (fetch on the server, pass serialized widgets to
+  `Dashboard`), and a web-component wrapper for frameworks beyond React and Vue.
+- **Bundle size and large tables**: per-kind lazy loading (charts are the heavy
+  part) and virtualized rows in big detail views.
+- **A component gallery**: Storybook (or similar) for every kind, state and
+  theme, doubling as visual-regression coverage; the demo stays the integrated
+  showcase.
 
 [Back to Top](#roadmap)
 
