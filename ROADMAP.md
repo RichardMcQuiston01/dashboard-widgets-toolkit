@@ -49,6 +49,9 @@
 - Detail view deep links: `detail` / `onDetailChange` and `parseDetailLink` (0.19.0).
 - Field types for table columns: `email`, `url`, `image`, `color` and `custom`
   formatters (0.22.0).
+- Click and drill-down events: `onSelect` reports a picked table row, bar, alert
+  item or chart position, from `Dashboard`, `WidgetGrid` and the renderers
+  (0.23.0).
 - Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
   and `data-dwt-default-title` on cards (0.21.0).
 
@@ -58,20 +61,16 @@
 
 Listed in the order they are planned. None needs data fetching in the package.
 
-1. **Click and drill-down events.** Charts, bar lists, alert lists and table rows
-   report a click through an `onSelect` / `onAction` callback with the widget
-   key and the datum, so an app can navigate, open a detail view or filter other
-   widgets. Display-only cards stay the default.
-2. **Dashboard-level filters.** A shared filter bar (`dashboardFilters`) whose
+1. **Dashboard-level filters.** A shared filter bar (`dashboardFilters`) whose
    values (a date range, a store, a segment) reach every provider through the
    context, with option-aware cache keys, so a "last 30 days" choice is made once
    instead of card by card. Reuses the declared option types.
-3. **Export.** CSV for any table and the detail view (all rows in server mode,
+2. **Export.** CSV for any table and the detail view (all rows in server mode,
    through the provider), an SVG or PNG download for charts, and a print
    stylesheet.
-4. **Freshness.** A per-card "Updated 2 min ago" and a refresh button, and the
+3. **Freshness.** A per-card "Updated 2 min ago" and a refresh button, and the
    last good data kept on screen with an error badge when a reload fails.
-5. **Detail view, the rest.** Page-size choice and column visibility,
+4. **Detail view, the rest.** Page-size choice and column visibility,
    server-mode detail caching by query, and a detail view for each
    provider-supplied view. Server mode and URL deep links are built. See
    [docs/design/detail-view.md](./docs/design/detail-view.md).

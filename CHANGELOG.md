@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.23.0
+
+### Minor Changes
+
+- 328ece2: Click and drill-down events. `Dashboard` and `WidgetGrid` take `onSelect`, which makes table rows, bar-list items, alert-list items and chart positions selectable and reports the pick as a `WidgetSelection` (`widgetKey`, `kind` and a `target`: `{ type: 'row', index, cells }`, `{ type: 'bar' | 'alert', index, item }` or `{ type: 'point', index, label, values }`). A row's `index` is its place in the payload even when the viewer sorted or searched the table. Rows, bars and alert items put a real `<button>` on their label (the first non-link cell in a table) and also select on a click anywhere on the row, never when a link or control inside it is clicked; a chart selects its highlighted position with Enter or Space or a click, and its description says so (`labels.chartSelectHint`). Items and cells with their own `href` stay links. `WidgetContent`, `TableWidget`, `BarListWidget`, `AlertListWidget`, `GraphWidget` and `ResolvedWidgetCard` take `onSelect` too. Core: the `WidgetSelection`, `SelectionTarget` and `PointSelection` types. Styles: `.dwt-selectable`, `.dwt-select` and `.dwt-chart--selectable`.
+
 ## 0.22.0
 
 ### Minor Changes
