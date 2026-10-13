@@ -21,10 +21,13 @@ import type {
   BarListWidgetData,
   GaugeWidgetData,
   KpiWidgetData,
+  TableCell,
   TableWidgetData,
   TextWidgetData,
   WidgetData,
 } from '../core/payload.js';
+import { cellField } from '../core/fields.js';
+import type { SelectionTarget } from '../core/select.js';
 import { GraphWidget } from './charts.js';
 import { CHART_COLORS, seriesColor } from './palette.js';
 import { Thumbnail, WidgetLink } from './primitives.js';
@@ -145,8 +148,11 @@ export function TableWidget({
   controls,
   initialSort,
   widgetKey = '',
+  onSelect,
 }: {
   readonly data: TableWidgetData;
+  /** Makes rows selectable; the target's `index` is the row's place in `data.rows`. */
+  readonly onSelect?: ((target: SelectionTarget) => void) | undefined;
   /** The widget's key, passed to `custom` column formatters. */
   readonly widgetKey?: string;
   /** Search box and sortable headers; see `WidgetDefinition.tableControls`. */
@@ -157,7 +163,7 @@ export function TableWidget({
   if (controls === undefined) {
     return (
       <div className="dwt-table-wrap">
-        <TableView data={data} widgetKey={widgetKey} />
+        <TableView data={data} widgetKey={widgetKey} onSelect={onSelect} />
         {data.footer !== undefined && <p className="dwt-note">{data.footer}</p>}
       </div>
     );
@@ -168,8 +174,32 @@ export function TableWidget({
       controls={controls}
       initialSort={initialSort}
       widgetKey={widgetKey}
+      onSelect={onSelect}
     />
   );
+}
+
+/** Whether a click landed on the row itself or on its select button, not on a link or control. */
+function isPlainClick(target: EventTarget): boolean {
+  if (!(target instanceof Element)) return true;
+  const control: Element | null = target.closest(
+    'a, button, input, select, textarea, summary, label'
+  );
+  return control === null || control.classList.contains('dwt-select');
+}
+
+/** The first cell that can hold the select button: plain text or a color, not a link. */
+function selectButtonCell(
+  data: TableWidgetData,
+  row: readonly TableCell[]
+): number {
+  return row.findIndex((cell, index) => {
+    if (cell.href !== undefined) return false;
+    const column = data.columns[index];
+    const kind: string =
+      column === undefined ? 'text' : cellField(column, cell).kind;
+    return kind === 'text' || kind === 'color';
+  });
 }
 
 function TableView({
@@ -178,9 +208,11 @@ function TableView({
   sort,
   onSort,
   widgetKey,
+  onSelect,
 }: {
   readonly data: TableWidgetData;
   readonly widgetKey: string;
+  readonly onSelect?: ((target: SelectionTarget) => void) | undefined;
   readonly rows?: TableWidgetData['rows'];
   readonly sort?: DetailSort | undefined;
   /** Makes the headers sort buttons. */
@@ -188,6 +220,10 @@ function TableView({
 }): ReactNode {
   const slot = useSlotClassName();
   const { labels } = useWidgetSettings();
+  // Sorting and search reorder `rows`; a selection reports the place in the payload.
+  const originalIndex = new Map<readonly TableCell[], number>(
+    data.rows.map((row, index) => [row, index])
+  );
   return (
     <>
       <table className={slot('table', 'dwt-table')}>
@@ -236,28 +272,62 @@ function TableView({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {row.map((cell, cellIndex) => (
-                <td
-                  key={cellIndex}
-                  className={
-                    data.columns[cellIndex]?.numeric === true
-                      ? 'dwt-numeric'
-                      : undefined
-                  }
-                >
-                  <CellContent
-                    widgetKey={widgetKey}
-                    columnKey={`c${cellIndex}`}
-                    column={data.columns[cellIndex]}
-                    cell={cell}
-                    row={row}
-                  />
-                </td>
-              ))}
-            </tr>
-          ))}
+          {rows.map((row, rowIndex) => {
+            // The first plain cell gets the button that makes the row
+            // reachable by keyboard; a click anywhere else on the row works too.
+            const buttonCell: number =
+              onSelect === undefined ? -1 : selectButtonCell(data, row);
+            const original: number = originalIndex.get(row) ?? rowIndex;
+            return (
+              <tr
+                key={rowIndex}
+                {...(onSelect === undefined
+                  ? {}
+                  : {
+                      className: 'dwt-selectable',
+                      onClick: (event) => {
+                        if (isPlainClick(event.target)) {
+                          onSelect({
+                            type: 'row',
+                            index: original,
+                            cells: row,
+                          });
+                        }
+                      },
+                    })}
+              >
+                {row.map((cell, cellIndex) => {
+                  const content: ReactNode = (
+                    <CellContent
+                      widgetKey={widgetKey}
+                      columnKey={`c${cellIndex}`}
+                      column={data.columns[cellIndex]}
+                      cell={cell}
+                      row={row}
+                    />
+                  );
+                  return (
+                    <td
+                      key={cellIndex}
+                      className={
+                        data.columns[cellIndex]?.numeric === true
+                          ? 'dwt-numeric'
+                          : undefined
+                      }
+                    >
+                      {cellIndex === buttonCell ? (
+                        <button type="button" className="dwt-select">
+                          {content}
+                        </button>
+                      ) : (
+                        content
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </>
@@ -280,9 +350,11 @@ function InteractiveTable({
   controls,
   initialSort,
   widgetKey,
+  onSelect,
 }: {
   readonly data: TableWidgetData;
   readonly widgetKey: string;
+  readonly onSelect: ((target: SelectionTarget) => void) | undefined;
   readonly controls: ResolvedTableControls;
   readonly initialSort: DetailSort | undefined;
 }): ReactNode {
@@ -347,6 +419,7 @@ function InteractiveTable({
           <TableView
             data={data}
             widgetKey={widgetKey}
+            onSelect={onSelect}
             rows={page?.rows ?? data.rows}
             sort={sort}
             onSort={
@@ -375,8 +448,11 @@ function InteractiveTable({
  */
 export function BarListWidget({
   data,
+  onSelect,
 }: {
   readonly data: BarListWidgetData;
+  /** Makes each bar selectable (a button on its label, and the row clickable). */
+  readonly onSelect?: ((target: SelectionTarget) => void) | undefined;
 }): ReactNode {
   const slot = useSlotClassName();
   const { locale } = useWidgetSettings();
@@ -397,8 +473,28 @@ export function BarListWidget({
             ? `${formatValue(item.value, 'number', { locale })} (${shareOf(item.value, data.total)}%)`
             : formatValue(item.value, 'number', { locale }));
         return (
-          <li key={`${index}-${item.label}`} className="dwt-bar-row">
-            <span className="dwt-bar-label">{item.label}</span>
+          <li
+            key={`${index}-${item.label}`}
+            className={
+              onSelect === undefined
+                ? 'dwt-bar-row'
+                : 'dwt-bar-row dwt-selectable'
+            }
+            {...(onSelect === undefined
+              ? {}
+              : {
+                  onClick: () => onSelect({ type: 'bar', index, item }),
+                })}
+          >
+            <span className="dwt-bar-label">
+              {onSelect === undefined ? (
+                item.label
+              ) : (
+                <button type="button" className="dwt-select">
+                  {item.label}
+                </button>
+              )}
+            </span>
             <span className="dwt-bar-value">{display}</span>
             <span
               className="dwt-bar-track"
@@ -420,8 +516,11 @@ export function BarListWidget({
 /** ALERT_LIST: rows needing attention, with thumbnail, link and value. */
 export function AlertListWidget({
   data,
+  onSelect,
 }: {
   readonly data: AlertListWidgetData;
+  /** Makes items without their own `href` selectable. */
+  readonly onSelect?: ((target: SelectionTarget) => void) | undefined;
 }): ReactNode {
   const slot = useSlotClassName();
   const { labels } = useWidgetSettings();
@@ -433,12 +532,30 @@ export function AlertListWidget({
     <div>
       <ul className={slot('alertList', 'dwt-alert-list')}>
         {data.items.map((item, index) => (
-          <li key={`${index}-${item.title}`} className="dwt-alert-row">
+          <li
+            key={`${index}-${item.title}`}
+            className={
+              onSelect !== undefined && item.href === undefined
+                ? 'dwt-alert-row dwt-selectable'
+                : 'dwt-alert-row'
+            }
+            {...(onSelect !== undefined && item.href === undefined
+              ? {
+                  onClick: () => onSelect({ type: 'alert', index, item }),
+                }
+              : {})}
+          >
             <Thumbnail url={item.thumbnailUrl} />
             <span className="dwt-alert-main">
-              <WidgetLink href={item.href} className="dwt-alert-title">
-                {item.title}
-              </WidgetLink>
+              {onSelect !== undefined && item.href === undefined ? (
+                <button type="button" className="dwt-select dwt-alert-title">
+                  {item.title}
+                </button>
+              ) : (
+                <WidgetLink href={item.href} className="dwt-alert-title">
+                  {item.title}
+                </WidgetLink>
+              )}
               {item.detail !== undefined && (
                 <span className="dwt-alert-detail">{item.detail}</span>
               )}
@@ -458,8 +575,14 @@ export function WidgetContent({
   tableControls,
   initialSort,
   widgetKey,
+  onSelect,
 }: {
   readonly data: WidgetData;
+  /**
+   * Makes table rows, bars, alert items and chart positions selectable. Called
+   * with what was picked; `ResolvedWidgetCard` adds the widget's key and kind.
+   */
+  readonly onSelect?: ((target: SelectionTarget) => void) | undefined;
   /** The widget's key, for `custom` column formatters. */
   readonly widgetKey?: string;
   /** Search and sort for TABLE data; see `resolveTableControls`. */
@@ -481,13 +604,14 @@ export function WidgetContent({
           controls={tableControls}
           initialSort={initialSort}
           {...(widgetKey === undefined ? {} : { widgetKey })}
+          onSelect={onSelect}
         />
       );
     case 'BAR_LIST':
-      return <BarListWidget data={data} />;
+      return <BarListWidget data={data} onSelect={onSelect} />;
     case 'ALERT_LIST':
-      return <AlertListWidget data={data} />;
+      return <AlertListWidget data={data} onSelect={onSelect} />;
     case 'GRAPH':
-      return <GraphWidget data={data} />;
+      return <GraphWidget data={data} onSelect={onSelect} />;
   }
 }

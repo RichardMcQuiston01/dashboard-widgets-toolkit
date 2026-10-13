@@ -52,6 +52,7 @@ src/
     url.ts              isSafeHref / isSafeImageUrl
     compat.ts           Maker Toolkit payload/definition upgrades
     result.ts           Result<T>
+    select.ts           WidgetSelection / SelectionTarget: what a viewer picked (onSelect)
   react/                subpath ./react: browser code, React >= 18 peer
     index.ts            barrel
     settings.tsx        WidgetSettingsProvider: locale, linkTarget, classNames, labels

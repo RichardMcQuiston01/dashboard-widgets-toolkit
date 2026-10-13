@@ -157,6 +157,8 @@ export interface DashboardLabels {
   readonly emptyPage: string;
   /** Added to the accessible name of links that open in a new tab. */
   readonly opensInNewTab: string;
+  /** Added to a chart's description when its positions are selectable (`onSelect`). */
+  readonly chartSelectHint: string;
   /** The card's View button, opening the detail view. */
   readonly view: (title: string) => string;
   readonly close: string;
@@ -276,6 +278,7 @@ export const DEFAULT_LABELS: DashboardLabels = {
     `Page "${pageTitle}" is full (${maxRows} rows). Move or hide a widget first.`,
   emptyPage: 'This page has no widgets. Move one here from another page.',
   opensInNewTab: '(opens in a new tab)',
+  chartSelectHint: 'Press Enter to select the highlighted position.',
   view: (title) => `View ${title}`,
   close: 'Close',
   search: 'Search',
