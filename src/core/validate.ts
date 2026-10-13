@@ -20,6 +20,11 @@ import {
 } from './payload.js';
 import { DETAIL_MODES, MAX_DETAIL_PAGE_SIZE } from './detail.js';
 import {
+  fieldCellProblem,
+  fieldColumnProblems,
+  type FieldColumn,
+} from './fields.js';
+import {
   DATE_RANGE_PRESETS,
   MAX_TEXT_OPTION_LENGTH,
   MAX_WIDGET_OPTIONS,
@@ -210,12 +215,12 @@ function eachRecord(
   items: readonly unknown[],
   path: string,
   problems: Problems,
-  check: (item: Record_, itemPath: string) => void
+  check: (item: Record_, itemPath: string, index: number) => void
 ): void {
   items.forEach((item: unknown, index: number) => {
     const itemPath = `${path}[${index}]`;
     if (isRecord(item)) {
-      check(item, itemPath);
+      check(item, itemPath, index);
     } else {
       problems.push(
         `${itemPath} must be an object, got ${describeType(item)}.`
@@ -262,6 +267,7 @@ function checkPayloadFields(
         eachRecord(columns, 'columns', problems, (column, path) => {
           requireString(column, 'label', path, problems);
           optionalBoolean(column, 'numeric', path, problems);
+          problems.push(...fieldColumnProblems(column, path));
         });
       }
       const rows = requireArray(data, 'rows', '', problems);
@@ -279,9 +285,28 @@ function checkPayloadFields(
               `${rowPath} has ${row.length} cell(s) but there are ${columns.length} column(s).`
             );
           }
-          eachRecord(row, rowPath, problems, (cell, cellPath) => {
+          eachRecord(row, rowPath, problems, (cell, cellPath, cellIndex) => {
             requireString(cell, 'text', cellPath, problems);
             optionalSortValue(cell, cellPath, problems);
+            const column: unknown = columns?.[cellIndex];
+            if (
+              typeof column === 'object' &&
+              column !== null &&
+              typeof cell['text'] === 'string'
+            ) {
+              const fieldProblem: string | undefined = fieldCellProblem(
+                column as FieldColumn,
+                {
+                  text: cell['text'],
+                  ...(typeof cell['value'] === 'string' ||
+                  typeof cell['value'] === 'number'
+                    ? { value: cell['value'] }
+                    : {}),
+                },
+                cellPath
+              );
+              if (fieldProblem !== undefined) problems.push(fieldProblem);
+            }
             optionalUrl(
               cell,
               'href',

@@ -335,6 +335,19 @@ export interface DashboardProps extends WidgetSettings {
   readonly activePage?: string;
   readonly defaultActivePage?: string;
   readonly onActivePageChange?: (pageKey: string) => void;
+  /**
+   * The layout from before the current edit session (`editMode="toggle"`), for
+   * Revert, as `useStoredLayout` returns it. When editing starts and this is
+   * not null, the session resumes from it (an edit that was interrupted by a
+   * reload) instead of from the current layout.
+   */
+  readonly backup?: DashboardLayout | null;
+  /**
+   * Called with the layout at the start of an edit session (when it isn't the
+   * `backup` already given), and with null when the session ends, so a store
+   * can keep the snapshot only while it is needed.
+   */
+  readonly onBackup?: (backup: DashboardLayout | null) => void;
   /** Rows a page holds unless the page says otherwise. Default 4. */
   readonly maxRows?: number;
   /** Most pages the viewer can add while editing. Default: no limit. */
@@ -458,6 +471,7 @@ function DetailHost({
     <WidgetDetailDialog title={title} open onClose={onClose}>
       <WidgetDetail
         title={title}
+        widgetKey={definition.key}
         query={query}
         onQueryChange={onQueryChange}
         status={state.status}
@@ -686,6 +700,8 @@ function DashboardInner({
   activePage: activePageProp,
   defaultActivePage,
   onActivePageChange,
+  backup,
+  onBackup,
   maxRows,
   maxPages,
   onRetry,
@@ -768,10 +784,28 @@ function DashboardInner({
     undefined
   );
   if (toggleMode && editable && editing) {
-    if (snapshot === undefined) setSnapshot(savedLayout);
+    if (snapshot === undefined) setSnapshot(backup ?? savedLayout);
   } else if (snapshot !== undefined) {
     setSnapshot(undefined);
   }
+  // Tell the store about the snapshot once per session, and clear it at the end.
+  const backupRef = useRef<DashboardLayout | null | undefined>(backup);
+  backupRef.current = backup;
+  const onBackupRef = useRef(onBackup);
+  onBackupRef.current = onBackup;
+  const reportedBackup = useRef<DashboardLayout | null>(null);
+  useEffect(() => {
+    if (snapshot === undefined) {
+      if (reportedBackup.current !== null) {
+        reportedBackup.current = null;
+        onBackupRef.current?.(null);
+      }
+      return;
+    }
+    if (reportedBackup.current === snapshot) return;
+    reportedBackup.current = snapshot;
+    if (snapshot !== backupRef.current) onBackupRef.current?.(snapshot);
+  }, [snapshot]);
   const [confirming, setConfirming] = useState<'reset' | 'revert' | undefined>(
     undefined
   );
@@ -1568,6 +1602,9 @@ function DashboardInner({
                 <ResolvedWidgetCard
                   key={key}
                   widget={widget}
+                  defaultTitle={
+                    authorDefinitions.get(key)?.title ?? definition.title
+                  }
                   {...(dragClass === undefined ? {} : { className: dragClass })}
                   {...(drag?.key === key
                     ? {
@@ -1688,10 +1725,13 @@ export function Dashboard({
   linkTarget,
   classNames,
   labels,
+  formatters,
+  onFormatterError,
   theme,
   ...props
 }: DashboardProps): ReactNode {
   const parent = useWidgetSettings();
+  const resolvedOnFormatterError = onFormatterError ?? parent.onFormatterError;
   const resolvedLocale = locale ?? parent.locale;
   const resolvedTarget: string | undefined = linkTarget ?? parent.linkTarget;
   const dashboard: ReactNode = (
@@ -1700,6 +1740,10 @@ export function Dashboard({
       {...(resolvedTarget === undefined ? {} : { linkTarget: resolvedTarget })}
       classNames={{ ...parent.classNames, ...classNames }}
       labels={{ ...parent.labels, ...labels }}
+      formatters={{ ...parent.formatters, ...formatters }}
+      {...(resolvedOnFormatterError === undefined
+        ? {}
+        : { onFormatterError: resolvedOnFormatterError })}
     >
       <DashboardInner {...props} />
     </WidgetSettingsProvider>

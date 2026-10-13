@@ -34,6 +34,7 @@ src/
     loader.ts           createWidgetLoader: async per-widget loading, setOptions/setView, cache
     grid.ts             12-column widths, placeRows/fitCount (page capacity)
     detail.ts           detail view data: queryRows, query (de)serialisation, validation
+    fields.ts           column field types (email, url, image, color, custom): cellField, checks
     layout.ts           DashboardLayout: parse/serialise, order, hide, minimize
     pages.ts            pages of widgets: helpers, capacity, normalizeLayout
     reorder.ts          drag and drop decisions: dropTargetKey, reorderOnto, autoScrollStep
@@ -55,6 +56,7 @@ src/
     index.ts            barrel
     settings.tsx        WidgetSettingsProvider: locale, linkTarget, classNames, labels
     card.tsx            WidgetCard, ResolvedWidgetCard, widgetTitle
+    cells.tsx           CellContent: a table cell by its column's field type, custom formatters
     renderers.tsx       one renderer per kind, WidgetContent switch
     charts.tsx          GraphWidget: SVG bar/line, legend, tooltip, table twin
     dashboard.tsx       WidgetGrid, Dashboard (layout controls)
@@ -101,16 +103,18 @@ documented in the code and README, which win if they disagree.
   (`settings.ts`). Converted alternate views (`views.ts`, `defaultView`, the
   View field) and clones (`clones.ts`, `duplicate.ts`, Duplicate in the Arrange
   menu, Delete in the dialog) and provider-supplied views (`views` without
-  `convert`, `options.view`, `viewValues`, `setView`) are built.
+  `convert`, `options.view`, `viewValues`, `setView`) are built, and so are the
+  field types for table columns (`fields.ts`, `cells.tsx`, `formatters`).
 - `docs/design/widget-pages.md`: pages of widgets (per-page layout, capacity of
   about 4 rows, moving widgets between pages, page bar hidden for one page,
   lazy loading by page). Built: the core (`pages.ts`, `placeRows`,
   `normalizeLayout`) and the React page bar, Move to page and page management.
   Not built: swipe, drag onto a page tab, `retain`/`release`.
 - `docs/design/storage-adapters.md`: the adapter contract, wrappers,
-  `createLayoutPersistence` and `useStoredLayout` are built; concrete adapters
-  stay in consumer code (recipes in GETTING_STARTED). Not built: stored active
-  page, backup history, a companion package.
+  `createLayoutPersistence` and `useStoredLayout` are built, with the stored
+  active page and `Dashboard` `backup` / `onBackup`; concrete adapters stay in
+  consumer code (recipes in GETTING_STARTED). Not built: a companion package, a
+  backup history beyond one snapshot.
 - `docs/design/theming.md`: theming. `createTheme`, the token reference,
   `WidgetTheme` / `Dashboard` `theme`, `checkTheme` (`color.ts`,
   `theme-check.ts`, `theme-defaults.ts`) and `themePresets` are built. Nothing

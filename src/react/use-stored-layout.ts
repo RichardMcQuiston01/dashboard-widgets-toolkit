@@ -43,8 +43,18 @@ export interface UseStoredLayoutResult {
   readonly setLayout: (layout: DashboardLayout) => void;
   /** The pre-edit snapshot, or null. */
   readonly backup: DashboardLayout | null;
-  /** Stores a snapshot at once (not debounced). Pass null to clear it in memory only. */
+  /**
+   * Stores a snapshot at once (not debounced). Pass null to clear it, in memory
+   * and in storage. Pass this to `Dashboard` as `onBackup`.
+   */
   readonly setBackup: (layout: DashboardLayout | null) => void;
+  /**
+   * The stored active page key, or undefined until one is loaded (or when none
+   * is stored). Pass it to `Dashboard` as `activePage`.
+   */
+  readonly activePage: string | undefined;
+  /** Remembers the active page; pass to `Dashboard` as `onActivePageChange`. */
+  readonly setActivePage: (pageKey: string) => void;
   readonly status: StoredLayoutStatus;
   /** The latest failure, specific enough to log or show; null when none. */
   readonly error: string | null;
@@ -86,6 +96,9 @@ export function useStoredLayout(
     initialLayout ?? defaultLayout
   );
   const [backup, setBackupState] = useState<DashboardLayout | null>(null);
+  const [activePage, setActivePageState] = useState<string | undefined>(
+    undefined
+  );
   const [status, setStatus] = useState<StoredLayoutStatus>('loading');
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<StoredLayoutConflict | null>(null);
@@ -101,6 +114,8 @@ export function useStoredLayout(
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   /** True from a local change until its save finishes. */
   const dirty = useRef<boolean>(false);
+  /** True once the viewer picked a page, so a late load doesn't undo it. */
+  const pageChosen = useRef<boolean>(false);
 
   const apply = useCallback((next: DashboardLayout): void => {
     latest.current = next;
@@ -154,6 +169,8 @@ export function useStoredLayout(
     setStatus('loading');
     setConflict(null);
     setRemoteLayout(null);
+    pageChosen.current = false;
+    setActivePageState(undefined);
     void persistence
       .load(scopeRef.current, definitions, normalizeRef.current)
       .then((result) => {
@@ -171,6 +188,12 @@ export function useStoredLayout(
       });
     void persistence.loadBackup(scopeRef.current).then((result) => {
       if (current && result.ok) setBackupState(result.value);
+    });
+    void persistence.loadActivePage(scopeRef.current).then((result) => {
+      if (!current || pageChosen.current) return;
+      // An unreadable value just means the first page; the layout load reports
+      // real storage failures.
+      if (result.ok && result.value !== null) setActivePageState(result.value);
     });
     return () => {
       current = false;
@@ -232,10 +255,26 @@ export function useStoredLayout(
   const setBackup = useCallback(
     (next: DashboardLayout | null): void => {
       setBackupState(next);
-      if (next === null) return;
-      void persistence.saveBackup(scopeRef.current, next).then((result) => {
+      const request =
+        next === null
+          ? persistence.clearBackup(scopeRef.current)
+          : persistence.saveBackup(scopeRef.current, next);
+      void request.then((result) => {
         if (!result.ok) setError(result.error);
       });
+    },
+    [persistence]
+  );
+
+  const setActivePage = useCallback(
+    (pageKey: string): void => {
+      pageChosen.current = true;
+      setActivePageState(pageKey);
+      void persistence
+        .saveActivePage(scopeRef.current, pageKey)
+        .then((result) => {
+          if (!result.ok) setError(result.error);
+        });
     },
     [persistence]
   );
@@ -280,6 +319,8 @@ export function useStoredLayout(
     setLayout,
     backup,
     setBackup,
+    activePage,
+    setActivePage,
     status,
     error,
     conflict,

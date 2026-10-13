@@ -8,6 +8,8 @@
  * no functions, no class instances.
  */
 
+import type { FieldColumn } from './fields.js';
+
 /** Every widget kind, in a stable order. */
 export const WIDGET_KINDS = [
   'TEXT',
@@ -69,7 +71,7 @@ export interface GaugeWidgetData {
   readonly label: string;
 }
 
-export interface TableColumn {
+export interface TableColumn extends FieldColumn {
   readonly label: string;
   /** Right-aligned, tabular figures. */
   readonly numeric?: boolean;
@@ -83,7 +85,8 @@ export interface TableCell {
    * What the card's table controls (and the detail view) sort and search
    * on, when `text` is formatted for reading: a timestamp behind "3 days
    * ago", a rating behind stars, an amount behind "$1,234.00". Default:
-   * `text`.
+   * `text`. In an `email`, `url`, `image` or `color` column, a string
+   * `value` is the address, URL or color behind the `text`.
    */
   readonly value?: string | number;
 }
