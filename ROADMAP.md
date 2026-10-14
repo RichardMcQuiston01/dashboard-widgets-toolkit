@@ -52,6 +52,9 @@
 - Click and drill-down events: `onSelect` reports a picked table row, bar, alert
   item or chart position, from `Dashboard`, `WidgetGrid` and the renderers
   (0.23.0).
+- Storage extracted into `@richardmcquiston01/storage-adapters`, the toolkit's
+  one runtime dependency; the adapter helpers are re-exported and layouts keep
+  loading (0.24.0).
 - Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
   and `data-dwt-default-title` on cards (0.21.0).
 
