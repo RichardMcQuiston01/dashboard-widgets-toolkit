@@ -2,8 +2,12 @@
 
 - **Status:** Phases 1 and 2 built in 0.11.0 (contract, persistence, wrappers,
   `useStoredLayout`); recipes are in GETTING_STARTED. The stored active page and
-  the `backup` / `onBackup` props on `Dashboard` are built (0.21.0). Not built: a
-  companion package, and a backup history beyond the one snapshot. Decisions 1 to 3 of
+  the `backup` / `onBackup` props on `Dashboard` are built (0.21.0). The companion
+  package now exists: the contract, wrappers and a generic `createPersistence` moved to
+  `@richardmcquiston01/storage-adapters` (with an optional `/browser`
+  `localStorageAdapter`), and the toolkit re-exports them and builds
+  `createLayoutPersistence` on top. Not built: a backup history beyond the one
+  snapshot. Decisions 1 to 3 of
   section 11 come from the maintainer; the rest were taken as proposed.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
