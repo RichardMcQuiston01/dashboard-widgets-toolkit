@@ -1,6 +1,6 @@
 {
   "name": "@richardmcquiston01/dashboard-widgets-toolkit",
-  "version": "0.23.0",
+  "version": "0.24.0",
   "description": "Framework-agnostic dashboard widget toolkit: typed widget definitions and data payloads (KPI, gauge, table, bar list, alert list, chart), user layout (order, hide, minimise), and React renderers. Bring your own data providers.",
   "keywords": [
     "dashboard",
@@ -117,5 +117,8 @@
     "tsup": "^8.5.1",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.71.1"
+  },
+  "dependencies": {
+    "@richardmcquiston01/storage-adapters": "^0.3.0"
   }
 }

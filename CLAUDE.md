@@ -43,7 +43,9 @@ src/
     views.ts            alternate views: conversions, applyView, effectiveViewKey
     clones.ts           layout.clones: parse, cleanClones, withClones (materialize)
     duplicate.ts        duplicateWidget, deleteClone, nextCloneKey
-    storage.ts          StorageAdapter contract, wrappers, createLayoutPersistence
+    storage.ts          re-exports the adapter contract and wrappers from
+                        @richardmcquiston01/storage-adapters; createLayoutPersistence
+                        (keys, backup, active page, repair) on its createPersistence
     theme.ts            createTheme: validated, scoped CSS for the --dwt-* tokens
     theme-check.ts      checkTheme: contrast and color-vision warnings (+ color.ts, theme-defaults.ts)
     theme-presets.ts    themePresets: highContrast, compact, mono
@@ -114,8 +116,10 @@ documented in the code and README, which win if they disagree.
 - `docs/design/storage-adapters.md`: the adapter contract, wrappers,
   `createLayoutPersistence` and `useStoredLayout` are built, with the stored
   active page and `Dashboard` `backup` / `onBackup`; concrete adapters stay in
-  consumer code (recipes in GETTING_STARTED). Not built: a companion package, a
-  backup history beyond one snapshot.
+  consumer code (recipes in GETTING_STARTED). The contract, wrappers and generic
+  `createPersistence` live in `@richardmcquiston01/storage-adapters` (with an
+  optional `/browser` `localStorageAdapter`). Not built: a backup history beyond
+  one snapshot.
 - `docs/design/theming.md`: theming. `createTheme`, the token reference,
   `WidgetTheme` / `Dashboard` `theme`, `checkTheme` (`color.ts`,
   `theme-check.ts`, `theme-defaults.ts`) and `themePresets` are built. Nothing
@@ -176,6 +180,13 @@ storage adapters are fine; see `docs/design/storage-adapters.md`). Links render 
 with `rel="noreferrer"`; images are plain `<img>` tags. Only http(s),
 mailto and relative URLs are rendered (`url.ts`); the validator rejects the
 rest, and the renderers fall back to text even for unvalidated data.
+
+## Dependencies
+
+One runtime dependency: `@richardmcquiston01/storage-adapters` (the adapter
+contract, wrappers and `createPersistence`; runtime-neutral, ESM and CJS). tsup
+leaves it external. Add no other runtime dependency without discussing it, and
+keep React as an optional peer.
 
 ## Charts
 

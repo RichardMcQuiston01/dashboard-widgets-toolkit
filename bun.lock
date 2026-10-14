@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "@richardmcquiston01/dashboard-widgets-toolkit",
+      "dependencies": {
+        "@richardmcquiston01/storage-adapters": "^0.3.0",
+      },
       "devDependencies": {
         "@changesets/cli": "^3.0.3",
         "@eslint/js": "^10.0.1",
@@ -165,6 +168,8 @@
     "@napi-rs/lzma-linux-x64-gnu": ["@napi-rs/lzma-linux-x64-gnu@1.5.1", "", { "os": "linux", "cpu": "x64" }, "sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ=="],
 
     "@pnpm/deps.graph-sequencer": ["@pnpm/deps.graph-sequencer@1100.0.1", "", {}, "sha512-pOr5+q1fLYKwFN3LAJuGZEnfXDcQ73zqgDHMtGy+K+uIoUqyY+6MeDCWFwfu+4EFuq76I5EPFofoNAI+Bmmq4A=="],
+
+    "@richardmcquiston01/storage-adapters": ["@richardmcquiston01/storage-adapters@0.3.0", "", {}, "sha512-jnB/bikeuhPyV4Va3tYieEToWxRk9upI0VVhJVkTHDhXfjoTH0vivwtfbtFQ0ciJ61VEXkXswD/e4N7io4Xr6A=="],
 
     "@rollup/rollup-android-arm-eabi": ["@rollup/rollup-android-arm-eabi@4.64.0", "", { "os": "android", "cpu": "arm" }, "sha512-FLLpX941CD/7aBvX3GqLGBM9OvY5PGXTryPJkG5r5/OuBpZpV5k45Uo3RxAvqd35tsyc3hH1bhtz921IKzoIzg=="],
 
