@@ -85,6 +85,14 @@ export interface WidgetDefinition {
    */
   readonly options?: readonly WidgetOption[];
   /**
+   * Which of the dashboard's filters this widget uses (their keys). Absent:
+   * all of them. Empty: none. A widget reloads only when a filter it uses
+   * changes, and its cached payloads are kept apart by those values only. The
+   * resolved values reach your provider as `ProviderOptions.filters`. See
+   * `filters.ts`.
+   */
+  readonly filters?: readonly string[];
+  /**
    * Other ways to show this widget, built from its payload by a named
    * conversion (a table as bars or a chart). The widget's own `kind` is
    * always available as the view `base`. See `views.ts`.

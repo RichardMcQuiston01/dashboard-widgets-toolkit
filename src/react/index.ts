@@ -36,6 +36,12 @@ export {
   type WidgetDetailProps,
 } from './detail.js';
 export {
+  FilterBar,
+  useDashboardFilters,
+  type DashboardFilterState,
+  type FilterBarProps,
+} from './filters.js';
+export {
   WidgetOptionsDialog,
   type WidgetOptionsDialogProps,
 } from './options-dialog.js';

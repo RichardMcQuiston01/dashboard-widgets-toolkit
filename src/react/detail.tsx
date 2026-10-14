@@ -486,7 +486,8 @@ export interface ServerDetailOptions {
  * instead. `reload` runs it again. Keep `load` and `fallback` referentially
  * stable (`useCallback` / `useMemo`): a new value restarts the load.
  * `optionValues` (the widget's resolved options) go to the loader as
- * `options.options`.
+ * `options.options`, and `filterValues` (the dashboard filters the widget
+ * uses) as `options.filters`.
  *
  * Pass `server` for `detail.mode: 'server'`: the loader receives the current
  * `query` and must return one page plus `totalRows`; each query change aborts
@@ -499,7 +500,8 @@ export function useDetailData(
   enabled: boolean,
   fallback?: DetailData,
   optionValues: OptionValues = NO_OPTION_VALUES,
-  server?: ServerDetailOptions
+  server?: ServerDetailOptions,
+  filterValues: OptionValues = NO_OPTION_VALUES
 ): { readonly state: DetailLoadState; readonly reload: () => void } {
   const [state, setState] = useState<DetailLoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
@@ -529,6 +531,7 @@ export function useDetailData(
           : load(definition, {
               signal: controller.signal,
               options: optionValues,
+              filters: filterValues,
               query,
             })
       )
@@ -571,6 +574,7 @@ export function useDetailData(
     fallback,
     definition,
     optionValues,
+    filterValues,
     attempt,
     isServer,
     querySignature,

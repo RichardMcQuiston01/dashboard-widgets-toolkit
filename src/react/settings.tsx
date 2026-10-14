@@ -8,6 +8,7 @@ export type DashboardClassSlot =
   | 'dashboard'
   | 'hiddenBar'
   | 'toolbar'
+  | 'filters'
   | 'pageBar'
   | 'grid'
   | 'card'
@@ -68,6 +69,10 @@ export interface DashboardLabels {
   readonly editingOff: string;
   /** Names the toolbar group for assistive technology. */
   readonly dashboardControls: string;
+  /** Names the dashboard filter bar for assistive technology. */
+  readonly filters: string;
+  /** The button that puts every dashboard filter back to its default. */
+  readonly filtersReset: string;
   /** The lock icon on a locked card, e.g. "Revenue is locked". */
   readonly locked: (title: string) => string;
   /** The lock icon on a card shown to an administrator (`overrideLocks`). */
@@ -203,6 +208,8 @@ export const DEFAULT_LABELS: DashboardLabels = {
     'Editing dashboard. Use the buttons on each card to reorder or hide it.',
   editingOff: 'Finished editing.',
   dashboardControls: 'Dashboard controls',
+  filters: 'Filters',
+  filtersReset: 'Reset filters',
   locked: (title) => `${title} is locked`,
   lockedForViewers: (title) => `${title} is locked for viewers`,
   pageBar: 'Pages',

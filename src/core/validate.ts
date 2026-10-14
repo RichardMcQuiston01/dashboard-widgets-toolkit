@@ -20,6 +20,11 @@ import {
 } from './payload.js';
 import { DETAIL_MODES, MAX_DETAIL_PAGE_SIZE } from './detail.js';
 import {
+  DASHBOARD_FILTER_TYPES,
+  MAX_DASHBOARD_FILTERS,
+  type DashboardFilter,
+} from './filters.js';
+import {
   fieldCellProblem,
   fieldColumnProblems,
   type FieldColumn,
@@ -861,6 +866,68 @@ function checkOptions(
   });
 }
 
+/** Checks a definition's `filters`: the keys of the dashboard filters it uses. */
+function checkFilterUse(filters: unknown, problems: Problems): void {
+  if (filters === undefined) return;
+  if (!Array.isArray(filters)) {
+    problems.push(`filters must be an array, got ${describeType(filters)}.`);
+    return;
+  }
+  const seen = new Set<string>();
+  filters.forEach((key: unknown, index: number) => {
+    if (typeof key !== 'string' || !OPTION_KEY_PATTERN.test(key)) {
+      problems.push(
+        `filters[${index}] must be a filter key (letters, digits, "_" or "-", starting with a letter), got ${
+          typeof key === 'string' ? JSON.stringify(key) : describeType(key)
+        }.`
+      );
+    } else if (seen.has(key)) {
+      problems.push(`filters[${index}] "${key}" is listed twice.`);
+    } else {
+      seen.add(key);
+    }
+  });
+}
+
+/**
+ * Checks the filters a dashboard declares (see `DashboardFilter`): the same
+ * rules as widget options, limited to the types that suit a whole dashboard.
+ * Returns the filters, or an error that names the problem.
+ */
+export function validateDashboardFilters(
+  value: unknown
+): Result<readonly DashboardFilter[]> {
+  const subject = 'Dashboard filters';
+  if (!Array.isArray(value)) {
+    return err(`${subject}: must be an array, got ${describeType(value)}.`);
+  }
+  if (value.length > MAX_DASHBOARD_FILTERS) {
+    return err(
+      `${subject}: ${value.length} filters are declared; the most a dashboard may have is ${MAX_DASHBOARD_FILTERS}.`
+    );
+  }
+  const problems: Problems = [];
+  const seenKeys = new Set<string>();
+  const seenTypes = new Set<string>();
+  value.forEach((filter: unknown, index: number) => {
+    const path = `filters[${index}]`;
+    if (
+      isRecord(filter) &&
+      typeof filter['type'] === 'string' &&
+      WIDGET_OPTION_TYPES.includes(filter['type'] as never) &&
+      !DASHBOARD_FILTER_TYPES.includes(filter['type'] as never)
+    ) {
+      problems.push(
+        `${path}.type "${filter['type']}" describes a single widget; a dashboard filter must be one of ${DASHBOARD_FILTER_TYPES.map((type) => `"${type}"`).join(', ')}.`
+      );
+      return;
+    }
+    checkOption(filter, path, undefined, seenKeys, seenTypes, problems);
+  });
+  if (problems.length > 0) return err(formatProblems(subject, problems));
+  return ok(value as unknown as readonly DashboardFilter[]);
+}
+
 const MAX_VIEW_COLUMN = 1000;
 
 function checkColumnIndex(
@@ -1127,6 +1194,7 @@ export function validateWidgetDefinition(
   checkTableControlsOption(value['tableControls'], value['kind'], problems);
   checkLockedOption(value['locked'], problems);
   checkOptions(value['options'], value['kind'], problems);
+  checkFilterUse(value['filters'], problems);
   checkViews(value, problems);
   if (value['page'] !== undefined) {
     if (typeof value['page'] !== 'string' || value['page'].trim() === '') {

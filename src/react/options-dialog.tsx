@@ -475,7 +475,7 @@ export function WidgetOptionsDialog({
   );
 }
 
-interface OptionFieldProps {
+export interface OptionFieldProps {
   readonly option: WidgetOption;
   /** The viewer's value, or undefined for the author's default. */
   readonly value: OptionValue | undefined;
@@ -484,7 +484,7 @@ interface OptionFieldProps {
 }
 
 /** One declared option as a form field. */
-function OptionField({
+export function OptionField({
   option,
   value,
   id,
