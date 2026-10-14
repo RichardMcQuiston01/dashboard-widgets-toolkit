@@ -50,6 +50,7 @@ import {
   withPageLayout,
   type PageOptions,
 } from '../core/pages.js';
+import type { DashboardFilter } from '../core/filters.js';
 import { sortFromOptions } from '../core/options.js';
 import {
   applySettings,
@@ -88,6 +89,7 @@ import {
 import { ResolvedWidgetCard } from './card.js';
 import { InlineConfirm } from './confirm.js';
 import { WidgetEditMenu, type EditMenuItem } from './edit-menu.js';
+import { FilterBar } from './filters.js';
 import { WidgetOptionsDialog } from './options-dialog.js';
 import { WidgetTheme } from './theme.js';
 import { usePointerReorder } from './use-reorder.js';
@@ -367,6 +369,21 @@ export interface DashboardProps extends WidgetSettings {
    */
   readonly onSelect?: (selection: WidgetSelection) => void;
   /**
+   * The dashboard-level filters (a date range, a store, a segment). With
+   * `onFilterChange` they show as a filter bar above the cards. The choices
+   * belong to you: keep them in state (`useDashboardFilters`), the URL or
+   * storage, and pass the same filters and values to `useWidgets` so the
+   * providers receive them as `options.filters`.
+   */
+  readonly filters?: readonly DashboardFilter[];
+  /** The values chosen for `filters`, by filter key. */
+  readonly filterValues?: Readonly<Record<string, unknown>>;
+  /**
+   * Called with all the chosen values when the viewer changes a filter or
+   * resets them. The filter bar is shown only when this is given.
+   */
+  readonly onFilterChange?: (values: Record<string, unknown>) => void;
+  /**
    * Loads the full data for a widget's detail view (widgets whose definition
    * sets `detail`). Close over your own context. Return `undefined` for a
    * widget you have no extra data for: a TABLE with no footer or a BAR_LIST
@@ -458,7 +475,8 @@ function DetailHost({
     true,
     derived,
     widget.options,
-    serverOptions
+    serverOptions,
+    widget.filters
   );
   // Rows were removed while the viewer was on the last page: ask for the new
   // last page instead of showing an empty one.
@@ -719,6 +737,9 @@ function DashboardInner({
   maxPages,
   onRetry,
   onSelect,
+  filters,
+  filterValues,
+  onFilterChange,
   loadDetail,
   onOpenDetail,
   detail: detailProp,
@@ -1185,6 +1206,15 @@ function DashboardInner({
         className
       )}
     >
+      {filters !== undefined &&
+        filters.length > 0 &&
+        onFilterChange !== undefined && (
+          <FilterBar
+            filters={filters}
+            values={filterValues ?? {}}
+            onChange={onFilterChange}
+          />
+        )}
       {editable && toggleMode && toolbar && (
         <div
           role="group"

@@ -22,6 +22,12 @@ import {
   type WidgetData,
   type WidgetPayload,
 } from './payload.js';
+import {
+  filterCacheParts,
+  filterValuesFor,
+  resolveFilterValues,
+  type DashboardFilter,
+} from './filters.js';
 import { BASE_VIEW_KEY, hasViews, loadViewKey, loadViewKind } from './views.js';
 import { describeUnknownError } from './result.js';
 import { validateWidgetData } from './validate.js';
@@ -55,6 +61,14 @@ export interface ProviderOptions {
    * `base` payload.
    */
   readonly view: string;
+  /**
+   * The dashboard's filters this widget uses, resolved: what was chosen when it
+   * is valid, else the default (a date range arrives as an ISO interval).
+   * Empty when the dashboard declares none or the widget uses none. Treat
+   * `text` values that reach a database query as untrusted input and check
+   * them again on the server.
+   */
+  readonly filters: OptionValues;
 }
 
 /**
@@ -84,6 +98,11 @@ export interface OkWidget {
   /** The widget's resolved option values; present when it declares options. */
   readonly options?: OptionValues;
   /**
+   * The dashboard filter values this widget was loaded with; present when the
+   * dashboard has filters the widget uses.
+   */
+  readonly filters?: OptionValues;
+  /**
    * The view this data was loaded for (`base` or a provider-supplied view's
    * key); present when the widget declares `views`.
    */
@@ -97,6 +116,11 @@ export interface EmptyWidget {
   readonly emptyText: string;
   /** The widget's resolved option values; present when it declares options. */
   readonly options?: OptionValues;
+  /**
+   * The dashboard filter values this widget was loaded with; present when the
+   * dashboard has filters the widget uses.
+   */
+  readonly filters?: OptionValues;
 }
 
 export interface ErrorWidget {
@@ -106,6 +130,11 @@ export interface ErrorWidget {
   readonly error: string;
   /** The widget's resolved option values; present when it declares options. */
   readonly options?: OptionValues;
+  /**
+   * The dashboard filter values this widget was loaded with; present when the
+   * dashboard has filters the widget uses.
+   */
+  readonly filters?: OptionValues;
 }
 
 /** One widget after its provider ran. */
@@ -117,6 +146,11 @@ export interface LoadingWidget {
   readonly status: 'loading';
   /** The widget's resolved option values; present when it declares options. */
   readonly options?: OptionValues;
+  /**
+   * The dashboard filter values this widget was loaded with; present when the
+   * dashboard has filters the widget uses.
+   */
+  readonly filters?: OptionValues;
 }
 
 /** Anything a dashboard can render: resolved, or still loading. */
@@ -158,6 +192,17 @@ export interface ResolveOptions extends OptionContext {
    * choice (the widget's `defaultView`).
    */
   readonly viewValues?: Readonly<Record<string, string | undefined>>;
+  /**
+   * The filters the dashboard offers (see `DashboardFilter`). Together with
+   * `filterValues` they give each provider `options.filters` and keep cached
+   * payloads for different choices apart.
+   */
+  readonly filters?: readonly DashboardFilter[];
+  /**
+   * The values chosen for those filters, by filter key. Values that aren't
+   * valid for the filter are ignored and its default is used.
+   */
+  readonly filterValues?: Readonly<Record<string, unknown>>;
   /**
    * Validate each provider's payload with `validateWidgetData` (and check
    * its kind matches the definition). Default true; turn off only for
@@ -260,10 +305,33 @@ export function cacheKeyFor(
     view === BASE_VIEW_KEY ? '' : `view=${encodeURIComponent(view)}`;
   const optionPart: string =
     values === undefined ? '' : optionsCacheSuffix(definition, values, options);
-  if (viewPart === '') return `${base}${optionPart}`;
-  return optionPart === ''
-    ? `${base}?${viewPart}`
-    : `${base}?${viewPart}&${optionPart.slice(1)}`;
+  // The dashboard filters this widget uses, apart from the widget's own options.
+  const filterParts: string[] = filterCacheParts(
+    definition,
+    options.filters,
+    resolveFilterValues(options.filters, options.filterValues, options),
+    options
+  );
+  const parts: string[] = [
+    ...(viewPart === '' ? [] : [viewPart]),
+    ...filterParts,
+    ...(optionPart === '' ? [] : [optionPart.slice(1)]),
+  ];
+  return parts.length === 0 ? base : `${base}?${parts.join('&')}`;
+}
+
+/**
+ * The dashboard filter values a widget receives under these options: the
+ * resolved values of the filters it uses.
+ */
+export function filterValuesOf(
+  definition: WidgetDefinition,
+  options: ResolveOptions
+): OptionValues {
+  return filterValuesFor(
+    definition,
+    resolveFilterValues(options.filters, options.filterValues, options)
+  );
 }
 
 /** The resolved option values for a widget under these resolve options. */
@@ -285,9 +353,16 @@ export function optionValuesFor(
  */
 export function finalizeWidget<W extends DashboardWidget>(
   widget: W,
-  values: OptionValues
+  values: OptionValues,
+  filterValues: OptionValues = {}
 ): W {
-  if (Object.keys(values).length === 0) return widget;
+  const filtered: { filters?: OptionValues } =
+    Object.keys(filterValues).length === 0 ? {} : { filters: filterValues };
+  if (Object.keys(values).length === 0) {
+    return Object.keys(filtered).length === 0
+      ? widget
+      : { ...widget, ...filtered };
+  }
   if (
     widget.status === 'ok' &&
     widget.view !== undefined &&
@@ -295,7 +370,7 @@ export function finalizeWidget<W extends DashboardWidget>(
   ) {
     // Sort and columns name the base payload's columns, so a view the provider
     // supplied (with its own shape) is left as it came.
-    return { ...widget, options: values };
+    return { ...widget, options: values, ...filtered };
   }
   if (widget.status === 'ok') {
     const data: WidgetData = applyClientOptions(
@@ -303,9 +378,9 @@ export function finalizeWidget<W extends DashboardWidget>(
       widget.data,
       values
     );
-    return { ...widget, data, options: values };
+    return { ...widget, data, options: values, ...filtered };
   }
-  return { ...widget, options: values };
+  return { ...widget, options: values, ...filtered };
 }
 
 /** Thrown inside the resolver when a load is canceled or times out. */
@@ -324,7 +399,8 @@ export async function resolveWidget<C extends WidgetContext>(
   const values: OptionValues = optionValuesFor(definition, options);
   return finalizeWidget(
     await resolveWidgetUnapplied(definition, provider, context, options),
-    values
+    values,
+    filterValuesOf(definition, options)
   );
 }
 
@@ -392,6 +468,7 @@ export async function resolveWidgetUnapplied<C extends WidgetContext>(
           signal: controller.signal,
           options: values,
           view: loadViewKey(definition, options.viewValues?.[definition.key]),
+          filters: filterValuesOf(definition, options),
         });
       }),
       interrupted,

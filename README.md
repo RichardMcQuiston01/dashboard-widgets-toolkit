@@ -18,6 +18,7 @@ It gives you:
 - A layout that each viewer can change. They can reorder (by buttons, or by dragging with the `draggable` prop), hide, and minimize widgets.
 - React renderers, including accessible charts drawn as Scalable Vector Graphics (SVG), each with a "View as table" twin.
 - Controls for viewers, all saved in the layout: an edit mode, pages of widgets, and an Options dialog for each widget's title, width, view and options. A viewer can also duplicate a widget into a clone with its own settings.
+- Dashboard-level filters (a date range, a store, a segment) chosen once in a filter bar and passed to every provider, with option-aware cache keys and reloads only for the widgets that use a changed filter.
 - Locks that keep chosen widgets in place, a detail view with search, sort and paging, and CSS-variable theming with a `WidgetTheme` wrapper, contrast and color-vision checks, and presets.
 - Storage helpers (an adapter contract and a `useStoredLayout` hook) so you can keep layouts in localStorage, a database or a server.
 

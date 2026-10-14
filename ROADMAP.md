@@ -55,6 +55,10 @@
 - Storage extracted into `@richardmcquiston01/storage-adapters`, the toolkit's
   one runtime dependency; the adapter helpers are re-exported and layouts keep
   loading (0.24.0).
+- Dashboard-level filters: a filter bar (`filters`, `filterValues`,
+  `onFilterChange`) whose values reach every provider as `options.filters`, with
+  filter-aware cache keys and reloads only for the widgets that use a changed
+  filter (0.25.0).
 - Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
   and `data-dwt-default-title` on cards (0.21.0).
 
@@ -64,16 +68,12 @@
 
 Listed in the order they are planned. None needs data fetching in the package.
 
-1. **Dashboard-level filters.** A shared filter bar (`dashboardFilters`) whose
-   values (a date range, a store, a segment) reach every provider through the
-   context, with option-aware cache keys, so a "last 30 days" choice is made once
-   instead of card by card. Reuses the declared option types.
-2. **Export.** CSV for any table and the detail view (all rows in server mode,
+1. **Export.** CSV for any table and the detail view (all rows in server mode,
    through the provider), an SVG or PNG download for charts, and a print
    stylesheet.
-3. **Freshness.** A per-card "Updated 2 min ago" and a refresh button, and the
+2. **Freshness.** A per-card "Updated 2 min ago" and a refresh button, and the
    last good data kept on screen with an error badge when a reload fails.
-4. **Detail view, the rest.** Page-size choice and column visibility,
+3. **Detail view, the rest.** Page-size choice and column visibility,
    server-mode detail caching by query, and a detail view for each
    provider-supplied view. Server mode and URL deep links are built. See
    [docs/design/detail-view.md](./docs/design/detail-view.md).

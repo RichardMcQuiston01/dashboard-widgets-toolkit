@@ -706,6 +706,83 @@ option values need the wiring above.
   `optionsFor`, `apply`, `resetToDefaults`, ...) and a `dialog` class slot;
   classes are `dwt-options-dialog`, `dwt-options`, `dwt-options-field`.
 
+### Dashboard filters
+
+A filter is a choice made once for the whole dashboard (a date range, a store, a
+segment) instead of card by card. Declare filters the way you declare widget
+options (`choice`, `number`, `boolean`, `text` and `dateRange`, with defaults),
+give the same list and the chosen values to `useWidgets` and `Dashboard`, and
+every provider receives the resolved values as `options.filters`.
+
+```tsx
+import {
+  Dashboard,
+  useDashboardFilters,
+  useWidgets,
+} from '@richardmcquiston01/dashboard-widgets-toolkit/react';
+import type { DashboardFilter } from '@richardmcquiston01/dashboard-widgets-toolkit';
+
+const filters: readonly DashboardFilter[] = [
+  { key: 'period', type: 'dateRange', label: 'Period', default: 'last30' },
+  {
+    key: 'store',
+    type: 'choice',
+    label: 'Store',
+    default: 'all',
+    choices: [
+      { value: 'all', label: 'All stores' },
+      { value: 'north', label: 'North' },
+    ],
+  },
+];
+
+const providers = {
+  revenue: async (context, definition, { signal, filters }) => {
+    // filters.period === 'YYYY-MM-DD/YYYY-MM-DD', filters.store === 'all'
+    return loadRevenue(filters.period, filters.store, signal);
+  },
+};
+
+function SalesDashboard() {
+  const chosen = useDashboardFilters(filters);
+  const { widgets } = useWidgets(definitions, providers, context, {
+    filters,
+    filterValues: chosen.values,
+  });
+  return (
+    <Dashboard
+      widgets={widgets}
+      filters={filters}
+      filterValues={chosen.values}
+      onFilterChange={chosen.setValues}
+    />
+  );
+}
+```
+
+- `Dashboard` shows a filter bar above the cards when it has `filters` and
+  `onFilterChange`. `FilterBar` is also exported for placing it yourself. The
+  choices belong to you: `useDashboardFilters(filters, initial)` keeps them in
+  state, or keep them in the URL or storage and pass them back. They are not part
+  of the saved layout.
+- A widget gets every filter unless its definition lists the ones it uses:
+  `filters: ['store']` receives only `store`, and `filters: []` ignores filters.
+  A widget reloads only when a filter it uses changes, keeping what it shows
+  (marked `stale`) until the new data arrives.
+- Values are checked like options: a choice that isn't valid for its filter is
+  ignored in favor of the default, and a `dateRange` arrives as an ISO interval
+  (use `timeZone` and `now` in the resolve options to control "today"). Treat a
+  `text` filter that reaches a query as untrusted input.
+- Cache keys gain `filter.name=value` for the filters a widget uses when they
+  differ from the defaults, so different choices never share a cached answer.
+  `createWidgetLoader` has `setFilterValues(values)` and `filters` /
+  `filterValues` starting points.
+- A widget's detail loader receives the same values as `options.filters`
+  (server-mode detail views need them to match the card), and a resolved widget
+  carries them as `widget.filters`.
+- `validateDashboardFilters(filters)` checks a list ahead of time, and
+  `resolveFilterValues(filters, chosen)` gives the values a provider will see.
+
 ### Alternate views
 
 A widget can offer other ways to show its data. Declare `views`; each is built
