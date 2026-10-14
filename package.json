@@ -117,5 +117,8 @@
     "tsup": "^8.5.1",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.71.1"
+  },
+  "dependencies": {
+    "@richardmcquiston01/storage-adapters": "^0.3.0"
   }
 }
