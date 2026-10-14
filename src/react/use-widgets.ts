@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 import type { WidgetDefinition } from '../core/definition.js';
+import type { DashboardFilter } from '../core/filters.js';
 import { createWidgetLoader, type WidgetLoader } from '../core/loader.js';
 import {
   loadingWidgets,
@@ -49,6 +50,18 @@ export interface UseWidgetsOptions extends ResolveOptions {
    * it arrives. It may be a fresh object each render.
    */
   readonly viewValues?: Readonly<Record<string, string | undefined>>;
+  /**
+   * The dashboard's filters (see `DashboardFilter`). They may be an inline
+   * array: only a change in their content matters.
+   */
+  readonly filters?: readonly DashboardFilter[];
+  /**
+   * The values chosen for those filters, by filter key (see
+   * `useDashboardFilters`). Changing them reloads only the widgets that use a
+   * filter whose resolved value changed, keeping what they show (marked
+   * `stale`) until the new data arrives. It may be a fresh object each render.
+   */
+  readonly filterValues?: Readonly<Record<string, unknown>>;
 }
 
 export interface UseWidgetsResult {
@@ -61,6 +74,8 @@ export interface UseWidgetsResult {
     key: string,
     chosen: Readonly<Record<string, unknown>>
   ) => void;
+  /** Choose the dashboard filter values; same effect as `filterValues`. */
+  readonly setFilterValues: (chosen: Readonly<Record<string, unknown>>) => void;
   /** Choose a widget's view; same effect as `viewValues`. */
   readonly setView: (key: string, view: string | undefined) => void;
   /**
@@ -99,6 +114,8 @@ export function useWidgets<C extends WidgetContext>(
     cacheKey,
     optionValues,
     viewValues,
+    filters,
+    filterValues,
   } = options;
 
   const placeholders: readonly DashboardWidget[] = useMemo(
@@ -114,6 +131,15 @@ export function useWidgets<C extends WidgetContext>(
   optionValuesRef.current = optionValues;
   const viewValuesRef = useRef(viewValues);
   viewValuesRef.current = viewValues;
+  // Filters are compared by content, so an inline array doesn't restart the
+  // loader on every render.
+  const filtersSignature: string = JSON.stringify(filters ?? []);
+  const stableFilters: readonly DashboardFilter[] | undefined = useMemo(
+    () => (filters === undefined ? undefined : filters),
+    [filtersSignature]
+  );
+  const filterValuesRef = useRef(filterValues);
+  filterValuesRef.current = filterValues;
   // The latest definitions, for a loader created later; changing them never
   // recreates the loader (see the effect below).
   const definitionsRef = useRef(definitions);
@@ -138,6 +164,10 @@ export function useWidgets<C extends WidgetContext>(
       ...(viewValuesRef.current === undefined
         ? {}
         : { viewValues: viewValuesRef.current }),
+      ...(stableFilters === undefined ? {} : { filters: stableFilters }),
+      ...(filterValuesRef.current === undefined
+        ? {}
+        : { filterValues: filterValuesRef.current }),
     });
     loaderRef.current = created;
     setWidgets(created.getSnapshot());
@@ -163,6 +193,7 @@ export function useWidgets<C extends WidgetContext>(
     cache,
     cacheKey,
     loadWhen,
+    stableFilters,
   ]);
 
   // Definitions changed (a clone added or deleted, a widget shown or hidden):
@@ -266,6 +297,21 @@ export function useWidgets<C extends WidgetContext>(
     }
   }, [loader, viewSignature]);
 
+  // Likewise for the dashboard filters: only the widgets that use a changed
+  // filter reload.
+  const filterSignature: string = JSON.stringify(filterValues ?? {});
+  useEffect(() => {
+    if (loader === null) return;
+    loader.setFilterValues(filterValuesRef.current ?? {});
+  }, [loader, filterSignature]);
+
+  const setFilterValues = useCallback(
+    (chosen: Readonly<Record<string, unknown>>): void => {
+      loaderRef.current?.setFilterValues(chosen);
+    },
+    []
+  );
+
   const setView = useCallback((key: string, view: string | undefined): void => {
     loaderRef.current?.setView(key, view);
   }, []);
@@ -281,5 +327,5 @@ export function useWidgets<C extends WidgetContext>(
     loaderRef.current?.refresh(key);
   }, []);
 
-  return { widgets, refresh, setOptions, setView, gridRef };
+  return { widgets, refresh, setOptions, setFilterValues, setView, gridRef };
 }

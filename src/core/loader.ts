@@ -20,6 +20,7 @@ import {
 import { loadViewKey } from './views.js';
 import {
   cacheKeyFor,
+  filterValuesOf,
   finalizeWidget,
   loadingWidgets,
   optionValuesFor,
@@ -74,6 +75,16 @@ export interface WidgetLoader {
    */
   setOptions(key: string, chosen: Readonly<Record<string, unknown>>): void;
   /**
+   * Sets the values chosen for the dashboard's filters (all of them: keys left
+   * out go back to their defaults). A widget that uses a filter whose resolved
+   * value changed reloads: what is shown stays (marked `stale`) until the new
+   * data arrives, and an earlier answer for the same choices comes back from
+   * the cache. Widgets that don't use the changed filters keep their data and
+   * are not asked again, and widgets that haven't started yet simply load with
+   * the new values. Does nothing when the resolved values don't change.
+   */
+  setFilterValues(values: Readonly<Record<string, unknown>>): void;
+  /**
    * Sets the view a widget shows (`undefined` or an empty string: its
    * `defaultView`). Only a view the provider supplies loads anything: the
    * provider is called with that view, the card shows loading until it
@@ -110,6 +121,10 @@ export function createWidgetLoader<C extends WidgetContext>(
       view === undefined ? [] : [[key, view] as const]
     )
   );
+  // The dashboard filter values chosen; `setFilterValues` changes them.
+  let chosenFilters: Readonly<Record<string, unknown>> = {
+    ...(baseOptions.filterValues ?? {}),
+  };
   const resolveOptions: ResolveOptions = baseOptions;
   /** The resolve options as they are right now, with the current choices. */
   function currentOptions(): ResolveOptions {
@@ -117,6 +132,7 @@ export function createWidgetLoader<C extends WidgetContext>(
       ...resolveOptions,
       optionValues: Object.fromEntries(chosen),
       viewValues: Object.fromEntries(chosenViews),
+      filterValues: chosenFilters,
     };
   }
   // The payload as the provider returned it, before client-side options.
@@ -185,7 +201,14 @@ export function createWidgetLoader<C extends WidgetContext>(
           if (cached.status === 'ok') {
             const stale = { ...cached, updatedAt: entry.storedAt, stale: true };
             unapplied.set(key, stale);
-            replace(key, finalizeWidget(stale, values));
+            replace(
+              key,
+              finalizeWidget(
+                stale,
+                values,
+                filterValuesOf(definition, runOptions)
+              )
+            );
           }
         }
       } catch {
@@ -209,7 +232,10 @@ export function createWidgetLoader<C extends WidgetContext>(
     inFlight.delete(key);
     if (result.status === 'ok') unapplied.set(key, result);
     else unapplied.delete(key);
-    replace(key, finalizeWidget(result, values));
+    replace(
+      key,
+      finalizeWidget(result, values, filterValuesOf(definition, runOptions))
+    );
   }
 
   function start(definition: WidgetDefinition, readCache: boolean): void {
@@ -269,7 +295,10 @@ export function createWidgetLoader<C extends WidgetContext>(
         optionsCacheSuffix(definition, after, runOptions)
     ) {
       // Only a choice the toolkit applies changed: no need to ask again.
-      replace(key, finalizeWidget(kept, after));
+      replace(
+        key,
+        finalizeWidget(kept, after, filterValuesOf(definition, runOptions))
+      );
       return;
     }
     const current: DashboardWidget | undefined = snapshot.find(
@@ -280,6 +309,33 @@ export function createWidgetLoader<C extends WidgetContext>(
       replace(key, { definition, status: 'loading' });
     }
     start(definition, true);
+  }
+
+  function setFilterValues(values: Readonly<Record<string, unknown>>): void {
+    if (disposed) return;
+    const before: ResolveOptions = currentOptions();
+    chosenFilters = { ...values };
+    const after: ResolveOptions = currentOptions();
+    for (const definition of visible) {
+      if (!started.has(definition.key)) continue;
+      if (
+        sameOptionValues(
+          filterValuesOf(definition, before),
+          filterValuesOf(definition, after)
+        )
+      ) {
+        continue;
+      }
+      const current: DashboardWidget | undefined = snapshot.find(
+        (widget) => widget.definition.key === definition.key
+      );
+      if (current?.status === 'ok') {
+        replace(definition.key, { ...current, stale: true });
+      } else if (current?.status === 'error') {
+        replace(definition.key, { definition, status: 'loading' });
+      }
+      start(definition, true);
+    }
   }
 
   function setView(key: string, view: string | undefined): void {
@@ -350,6 +406,7 @@ export function createWidgetLoader<C extends WidgetContext>(
     loadAll,
     refresh,
     setOptions,
+    setFilterValues,
     setView,
     setDefinitions,
     dispose,
