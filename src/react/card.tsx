@@ -5,6 +5,7 @@ import { resolveTableControls } from '../core/detail.js';
 import { fillsHeight, fillsWidth } from '../core/grid.js';
 import { sortFromOptions } from '../core/options.js';
 import type { DashboardWidget } from '../core/resolve.js';
+import type { SelectionTarget, WidgetSelection } from '../core/select.js';
 import { WidgetContent } from './renderers.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
@@ -274,6 +275,11 @@ export interface ResolvedWidgetCardProps {
   /** See `WidgetCardProps.onView`. */
   readonly onView?: () => void;
   readonly onRetry?: () => void;
+  /**
+   * Makes the widget's table rows, bars, alert items or chart positions
+   * selectable and reports the pick with this widget's key and kind.
+   */
+  readonly onSelect?: (selection: WidgetSelection) => void;
   /** See `WidgetCardProps.editing`. */
   readonly editing?: boolean;
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
@@ -285,6 +291,7 @@ export interface ResolvedWidgetCardProps {
 /** A WidgetCard for a resolved (or loading) widget, with its renderer. */
 export function ResolvedWidgetCard({
   widget,
+  onSelect,
   ...props
 }: ResolvedWidgetCardProps): ReactNode {
   const { definition } = widget;
@@ -308,6 +315,16 @@ export function ResolvedWidgetCard({
         <WidgetContent
           data={widget.data}
           widgetKey={definition.key}
+          {...(onSelect === undefined
+            ? {}
+            : {
+                onSelect: (target: SelectionTarget) =>
+                  onSelect({
+                    widgetKey: definition.key,
+                    kind: widget.data.kind,
+                    target,
+                  }),
+              })}
           tableControls={resolveTableControls(definition)}
           initialSort={sortFromOptions(definition, widget.options)}
         />

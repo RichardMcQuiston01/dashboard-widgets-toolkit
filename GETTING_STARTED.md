@@ -458,6 +458,55 @@ so pair it with `detail` to search the full list. Matching and sorting are the
 detail view's (`queryRows`): case- and accent-insensitive, numeric-aware. The
 validator rejects `tableControls` on any other kind.
 
+### Selecting rows, bars and chart positions
+
+Cards are display-only until you pass `onSelect`. Then table rows, bar-list
+items, alert-list items and chart positions report a pick, and your app decides
+what it means: navigate, open your own page, or filter other widgets.
+
+```tsx
+<Dashboard
+  widgets={widgets}
+  onSelect={({ widgetKey, kind, target }) => {
+    if (widgetKey === 'recent-orders' && target.type === 'row') {
+      router.push(`/orders/${target.cells[0]?.value ?? target.cells[0]?.text}`);
+    }
+  }}
+/>
+```
+
+`target` is one of (types in the core, `WidgetSelection` / `SelectionTarget`):
+
+- `{ type: 'row', index, cells }`: a `TABLE` row. `index` is the row's place in
+  the payload's `rows`, even when the viewer sorted or searched the table, and
+  `cells` carry your `text` and `value`.
+- `{ type: 'bar', index, item }`: a `BAR_LIST` item.
+- `{ type: 'alert', index, item }`: an `ALERT_LIST` item.
+- `{ type: 'point', index, label, values }`: a chart position, with the x label
+  and every series' value there (`{ series, value }`, `null` for a gap).
+
+How it behaves:
+
+- **Keyboard and pointer.** Table rows, bars and alert items put a real
+  `<button>` on their label (in a table, the first cell that isn't a link), so
+  Tab, Enter and Space work; clicking anywhere else on the row also selects.
+  Clicking a link, button or input inside a row never selects. A chart keeps its
+  arrow-key position (the tooltip), and Enter or Space selects it; a click on a
+  position selects it too. The chart's description tells screen readers
+  (`labels.chartSelectHint`).
+- **Links win.** A cell or alert item with its own `href` stays a link and that
+  item isn't selectable; a table row whose every cell is a link is selectable by
+  click only.
+- **Nothing is decided for you.** The dashboard doesn't open a dialog or filter
+  anything. Combine it with the detail view's `detail` / `onDetailChange`, or
+  with your own state.
+- Also available on `WidgetGrid` (`onSelect`), and on `WidgetContent`,
+  `TableWidget`, `BarListWidget`, `AlertListWidget` and `GraphWidget`, where it
+  receives just the `target`.
+
+Style the affordances with `.dwt-selectable` (the clickable row or item),
+`.dwt-select` (the button) and `.dwt-chart--selectable`.
+
 ### Field types: email, url, image, color and custom
 
 A `TABLE` column can say how its cells are shown with `type`. The default is

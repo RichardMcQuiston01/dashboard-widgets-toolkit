@@ -1314,6 +1314,103 @@ void describe('useWidgets (server rendering)', () => {
   });
 });
 
+void describe('selection (onSelect)', () => {
+  const noop = (): void => undefined;
+
+  void it('adds nothing without onSelect', () => {
+    const markup = content({
+      kind: 'BAR_LIST',
+      items: [{ label: 'Alpha', value: 3 }],
+    });
+    assert.doesNotMatch(markup, /dwt-select/);
+  });
+
+  void it('bar items get a button on the label and a selectable row', () => {
+    const markup = html(
+      <WidgetContent
+        data={{
+          kind: 'BAR_LIST',
+          items: [{ label: 'Alpha', value: 3 }],
+        }}
+        onSelect={noop}
+      />
+    );
+    assert.match(markup, /class="dwt-bar-row dwt-selectable"/);
+    assert.match(
+      markup,
+      /<button type="button" class="dwt-select">Alpha<\/button>/
+    );
+  });
+
+  void it('alert items select unless they have their own href', () => {
+    const markup = html(
+      <WidgetContent
+        data={{
+          kind: 'ALERT_LIST',
+          total: 2,
+          emptyText: 'none',
+          items: [
+            { title: 'Plain', valueLabel: '1 left' },
+            { title: 'Linked', href: '/p', valueLabel: '2 left' },
+          ],
+        }}
+        onSelect={noop}
+      />
+    );
+    assert.match(
+      markup,
+      /<button type="button" class="dwt-select dwt-alert-title">Plain<\/button>/
+    );
+    assert.match(markup, /<a href="\/p"[^>]*class="dwt-alert-title">Linked/);
+    assert.equal((markup.match(/dwt-selectable/g) ?? []).length, 1);
+  });
+
+  void it('table rows put the button in the first plain cell', () => {
+    const markup = html(
+      <WidgetContent
+        data={{
+          kind: 'TABLE',
+          columns: [
+            { label: 'Link' },
+            { label: 'Name' },
+            { label: 'N', numeric: true },
+          ],
+          rows: [
+            [{ text: 'Go', href: '/go' }, { text: 'Ann' }, { text: '3' }],
+            [{ text: 'Row two' }, { text: 'Bob' }, { text: '4' }],
+          ],
+        }}
+        onSelect={noop}
+      />
+    );
+    assert.equal((markup.match(/<tr class="dwt-selectable"/g) ?? []).length, 2);
+    // Row 1: the first cell is a link, so the second gets the button.
+    assert.match(
+      markup,
+      /<a href="\/go"[^>]*>Go[\s\S]*?<button type="button" class="dwt-select">Ann<\/button>/
+    );
+    // Row 2: the first cell.
+    assert.match(
+      markup,
+      /<button type="button" class="dwt-select">Row two<\/button>/
+    );
+  });
+
+  void it('a chart says it is selectable', () => {
+    const data: WidgetData = {
+      kind: 'GRAPH',
+      chartType: 'bar',
+      valueFormat: 'number',
+      series: [{ name: 'Sales', points: [{ label: 'Jan', value: 1 }] }],
+    };
+    const off = content(data);
+    const on = html(<WidgetContent data={data} onSelect={noop} />);
+    assert.doesNotMatch(off, /dwt-chart--selectable|Press Enter/);
+    assert.match(on, /dwt-chart--selectable/);
+    assert.match(on, /Press Enter to select the highlighted position\./);
+  });
+});
+
 void describe('field types', () => {
   const table: WidgetData = {
     kind: 'TABLE',

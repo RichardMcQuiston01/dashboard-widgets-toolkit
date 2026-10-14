@@ -7,6 +7,7 @@ import {
 
 import { formatValue } from '../core/format.js';
 import type { GraphWidgetData } from '../core/payload.js';
+import type { SelectionTarget } from '../core/select.js';
 import { labelStride, niceDomain, type NiceDomain } from '../core/scale.js';
 import { CHART_COLORS, seriesColor } from './palette.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
@@ -173,10 +174,17 @@ export function describeChart(
 export function GraphWidget({
   data,
   title,
+  onSelect,
 }: {
   readonly data: GraphWidgetData;
   /** The accessible name; defaults to the series names. */
   readonly title?: string;
+  /**
+   * Makes each x position selectable: a click on it, or Enter or Space on the
+   * highlighted position (arrow keys move it). Reports the label and every
+   * series' value there.
+   */
+  readonly onSelect?: ((target: SelectionTarget) => void) | undefined;
 }): ReactNode {
   const slot = useSlotClassName();
   const { locale, labels: text } = useWidgetSettings();
@@ -196,7 +204,7 @@ export function GraphWidget({
       ...currency,
     });
   const chartTitle: string = title ?? data.series.map((s) => s.name).join(', ');
-  const description: string = describeChart(data, model, format);
+  const description: string = `${describeChart(data, model, format)}${onSelect === undefined ? '' : ` ${text.chartSelectHint}`}`;
   const stride: number = labelStride(count);
   const zeroY: number = yFor(
     model.domain,
@@ -217,10 +225,29 @@ export function GraphWidget({
   const groupWidth: number =
     barWidth * seriesCount + BAR_GAP * (seriesCount - 1);
 
+  function select(index: number): void {
+    if (onSelect === undefined) return;
+    onSelect({
+      type: 'point',
+      index,
+      label: model.labels[index] ?? '',
+      values: data.series.map((series, s) => ({
+        series: series.name,
+        value: model.values[s]?.[index] ?? null,
+      })),
+    });
+  }
+
   function handleKeyDown(event: ReactKeyboardEvent<SVGSVGElement>): void {
     if (count === 0) return;
     let next: number | null;
     switch (event.key) {
+      case 'Enter':
+      case ' ':
+        if (onSelect === undefined || active === null) return;
+        event.preventDefault();
+        select(active);
+        return;
       case 'ArrowRight':
         next = Math.min(count - 1, (active ?? -1) + 1);
         break;
@@ -248,7 +275,12 @@ export function GraphWidget({
 
   return (
     <figure
-      className={slot('chart', 'dwt-chart', `dwt-chart--${data.chartType}`)}
+      className={slot(
+        'chart',
+        'dwt-chart',
+        `dwt-chart--${data.chartType}`,
+        onSelect !== undefined && 'dwt-chart--selectable'
+      )}
     >
       {seriesCount >= 2 && (
         <ul className={slot('legend', 'dwt-legend')}>
@@ -492,6 +524,9 @@ export function GraphWidget({
                   fill="transparent"
                   onPointerEnter={() => setActive(index)}
                   onPointerMove={() => setActive(index)}
+                  {...(onSelect === undefined
+                    ? {}
+                    : { onClick: () => select(index) })}
                 />
               );
             })}

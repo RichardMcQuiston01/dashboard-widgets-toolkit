@@ -64,6 +64,7 @@ import {
   deleteClone,
   duplicateWidget,
 } from '../core/duplicate.js';
+import type { WidgetSelection } from '../core/select.js';
 import type { WidgetThemeStyles } from '../core/theme.js';
 import { applyView } from '../core/views.js';
 import {
@@ -231,6 +232,8 @@ export interface WidgetGridProps {
   /** Rendered in the order given. */
   readonly widgets: readonly DashboardWidget[];
   readonly onRetry?: (key: string) => void;
+  /** See `DashboardProps.onSelect`. */
+  readonly onSelect?: (selection: WidgetSelection) => void;
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
 }
@@ -239,6 +242,7 @@ export interface WidgetGridProps {
 export function WidgetGrid({
   widgets,
   onRetry,
+  onSelect,
   headingLevel,
   className,
 }: WidgetGridProps): ReactNode {
@@ -267,6 +271,7 @@ export function WidgetGrid({
           widget={widget}
           {...spanProps(spans, widget.definition.key)}
           {...widthProps(twelve, widget.definition)}
+          {...(onSelect === undefined ? {} : { onSelect })}
           {...(headingLevel === undefined ? {} : { headingLevel })}
           {...(onRetry === undefined || widget.status !== 'error'
             ? {}
@@ -353,6 +358,14 @@ export interface DashboardProps extends WidgetSettings {
   /** Most pages the viewer can add while editing. Default: no limit. */
   readonly maxPages?: number;
   readonly onRetry?: (key: string) => void;
+  /**
+   * Makes table rows, bars, alert items and chart positions selectable and
+   * reports the pick: the widget's key and kind, and what was picked (a row's
+   * cells, a bar's item, a chart position's label and values). Items and cells
+   * with their own `href` stay links. Use it to navigate, open your own detail
+   * page or filter other widgets; the dashboard decides nothing.
+   */
+  readonly onSelect?: (selection: WidgetSelection) => void;
   /**
    * Loads the full data for a widget's detail view (widgets whose definition
    * sets `detail`). Close over your own context. Return `undefined` for a
@@ -705,6 +718,7 @@ function DashboardInner({
   maxRows,
   maxPages,
   onRetry,
+  onSelect,
   loadDetail,
   onOpenDetail,
   detail: detailProp,
@@ -1639,6 +1653,7 @@ function DashboardInner({
                   {...(onRetry === undefined || widget.status !== 'error'
                     ? {}
                     : { onRetry: () => onRetry(key) })}
+                  {...(onSelect === undefined ? {} : { onSelect })}
                 />
               );
             })}
