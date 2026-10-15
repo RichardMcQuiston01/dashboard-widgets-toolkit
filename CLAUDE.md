@@ -43,6 +43,7 @@ src/
     views.ts            alternate views: conversions, applyView, effectiveViewKey
     clones.ts           layout.clones: parse, cleanClones, withClones (materialize)
     duplicate.ts        duplicateWidget, deleteClone, nextCloneKey
+    export.ts           widgetToCsv / detailToCsv / exportFileName: pure CSV text
     storage.ts          re-exports the adapter contract and wrappers from
                         @richardmcquiston01/storage-adapters; createLayoutPersistence
                         (keys, backup, active page, repair) on its createPersistence
@@ -59,6 +60,7 @@ src/
     index.ts            barrel
     settings.tsx        WidgetSettingsProvider: locale, linkTarget, classNames, labels
     card.tsx            WidgetCard, ResolvedWidgetCard, widgetTitle
+    download.ts         ExportFile, downloadExportFile (the one export DOM call)
     cells.tsx           CellContent: a table cell by its column's field type, custom formatters
     renderers.tsx       one renderer per kind, WidgetContent switch
     charts.tsx          GraphWidget: SVG bar/line, legend, tooltip, table twin
@@ -113,6 +115,9 @@ documented in the code and README, which win if they disagree.
   lazy loading by page). Built: the core (`pages.ts`, `placeRows`,
   `normalizeLayout`) and the React page bar, Move to page and page management.
   Not built: swipe, drag onto a page tab, `retain`/`release`.
+- `docs/design/export.md`: CSV for cards is built (`export.ts`, `exportFormats`,
+  `onExport`). Planned: detail view CSV (server mode through the host), chart
+  SVG/PNG download, print stylesheet.
 - `docs/design/storage-adapters.md`: the adapter contract, wrappers,
   `createLayoutPersistence` and `useStoredLayout` are built, with the stored
   active page and `Dashboard` `backup` / `onBackup`; concrete adapters stay in

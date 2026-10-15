@@ -166,6 +166,8 @@ export interface DashboardLabels {
   readonly chartSelectHint: string;
   /** The card's View button, opening the detail view. */
   readonly view: (title: string) => string;
+  /** The card's Download CSV button (`exportFormats`). */
+  readonly downloadCsv: (title: string) => string;
   readonly close: string;
   readonly search: string;
   readonly filterBy: (column: string) => string;
@@ -287,6 +289,7 @@ export const DEFAULT_LABELS: DashboardLabels = {
   opensInNewTab: '(opens in a new tab)',
   chartSelectHint: 'Press Enter to select the highlighted position.',
   view: (title) => `View ${title}`,
+  downloadCsv: (title) => `Download ${title} as CSV`,
   close: 'Close',
   search: 'Search',
   filterBy: (column) => `Filter ${column}`,

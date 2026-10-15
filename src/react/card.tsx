@@ -2,10 +2,12 @@ import { useId, type CSSProperties, type ReactNode } from 'react';
 
 import type { WidgetFill, WidgetSize } from '../core/definition.js';
 import { resolveTableControls } from '../core/detail.js';
+import { exportFileName, widgetToCsv } from '../core/export.js';
 import { fillsHeight, fillsWidth } from '../core/grid.js';
 import { sortFromOptions } from '../core/options.js';
 import type { DashboardWidget } from '../core/resolve.js';
 import type { SelectionTarget, WidgetSelection } from '../core/select.js';
+import { downloadExportFile, type ExportFile } from './download.js';
 import { WidgetContent } from './renderers.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
@@ -274,6 +276,18 @@ export interface ResolvedWidgetCardProps {
   readonly onToggleMinimized?: () => void;
   /** See `WidgetCardProps.onView`. */
   readonly onView?: () => void;
+  /**
+   * Adds a "Download CSV" button to cards that have rows to export: a TABLE,
+   * BAR_LIST or GRAPH that has loaded. Off unless `'csv'` is listed.
+   */
+  readonly exportFormats?: readonly 'csv'[];
+  /**
+   * Receives the generated file instead of the browser downloading it: save
+   * it yourself, log it, or fetch every row from your server first.
+   */
+  readonly onExport?: (file: ExportFile) => void;
+  /** Called with a readable message when an export fails. */
+  readonly onExportError?: (message: string) => void;
   readonly onRetry?: () => void;
   /**
    * Makes the widget's table rows, bars, alert items or chart positions
@@ -292,14 +306,82 @@ export interface ResolvedWidgetCardProps {
 export function ResolvedWidgetCard({
   widget,
   onSelect,
+  exportFormats,
+  onExport,
+  onExportError,
+  actions,
   ...props
 }: ResolvedWidgetCardProps): ReactNode {
   const { definition } = widget;
+  const { labels } = useWidgetSettings();
+  const slot = useSlotClassName();
+  const title: string = widgetTitle(widget);
+  const canExportCsv: boolean =
+    exportFormats?.includes('csv') === true &&
+    widget.status === 'ok' &&
+    (widget.data.kind === 'TABLE' ||
+      widget.data.kind === 'BAR_LIST' ||
+      widget.data.kind === 'GRAPH');
+  const exportCsv = (): void => {
+    if (widget.status !== 'ok') return;
+    const csv = widgetToCsv(widget.data);
+    if (!csv.ok) {
+      onExportError?.(csv.error);
+      return;
+    }
+    const file: ExportFile = {
+      widgetKey: definition.key,
+      title: definition.title,
+      format: 'csv',
+      fileName: exportFileName(definition.title, 'csv'),
+      mimeType: 'text/csv;charset=utf-8',
+      text: csv.value,
+    };
+    if (onExport !== undefined) {
+      onExport(file);
+      return;
+    }
+    const failure: string | null = downloadExportFile(file);
+    if (failure !== null) onExportError?.(failure);
+  };
+  const cardActions: ReactNode =
+    canExportCsv || actions !== undefined ? (
+      <>
+        {canExportCsv && (
+          <button
+            type="button"
+            className={slot('button', 'dwt-button', 'dwt-icon-button')}
+            aria-label={labels.downloadCsv(title)}
+            title={labels.downloadCsv(title)}
+            onClick={exportCsv}
+          >
+            <svg
+              viewBox="0 0 16 16"
+              width="16"
+              height="16"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M8 2v8m0 0L5 7m3 3 3-3M3 13h10"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        )}
+        {actions}
+      </>
+    ) : undefined;
   return (
     <WidgetCard
       {...props}
+      {...(cardActions === undefined ? {} : { actions: cardActions })}
       widgetKey={definition.key}
-      title={widgetTitle(widget)}
+      title={title}
       status={widget.status}
       {...(definition.description === undefined
         ? {}
