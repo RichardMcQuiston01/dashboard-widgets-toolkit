@@ -87,6 +87,7 @@ import {
   type DropPlacement,
 } from '../core/reorder.js';
 import { ResolvedWidgetCard } from './card.js';
+import type { ExportFile } from './download.js';
 import { InlineConfirm } from './confirm.js';
 import { WidgetEditMenu, type EditMenuItem } from './edit-menu.js';
 import { FilterBar } from './filters.js';
@@ -236,6 +237,12 @@ export interface WidgetGridProps {
   readonly onRetry?: (key: string) => void;
   /** See `DashboardProps.onSelect`. */
   readonly onSelect?: (selection: WidgetSelection) => void;
+  /** See `DashboardProps.exportFormats`. */
+  readonly exportFormats?: readonly 'csv'[];
+  /** See `DashboardProps.onExport`. */
+  readonly onExport?: (file: ExportFile) => void;
+  /** See `DashboardProps.onExportError`. */
+  readonly onExportError?: (message: string) => void;
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
 }
@@ -245,6 +252,9 @@ export function WidgetGrid({
   widgets,
   onRetry,
   onSelect,
+  exportFormats,
+  onExport,
+  onExportError,
   headingLevel,
   className,
 }: WidgetGridProps): ReactNode {
@@ -274,6 +284,9 @@ export function WidgetGrid({
           {...spanProps(spans, widget.definition.key)}
           {...widthProps(twelve, widget.definition)}
           {...(onSelect === undefined ? {} : { onSelect })}
+          {...(exportFormats === undefined ? {} : { exportFormats })}
+          {...(onExport === undefined ? {} : { onExport })}
+          {...(onExportError === undefined ? {} : { onExportError })}
           {...(headingLevel === undefined ? {} : { headingLevel })}
           {...(onRetry === undefined || widget.status !== 'error'
             ? {}
@@ -368,6 +381,20 @@ export interface DashboardProps extends WidgetSettings {
    * page or filter other widgets; the dashboard decides nothing.
    */
   readonly onSelect?: (selection: WidgetSelection) => void;
+  /**
+   * Adds a "Download CSV" button to each table, bar list and chart card that
+   * has loaded (`['csv']`). Off by default. The file holds the same rows as
+   * the card's "View as table"; fields a spreadsheet would run as formulas are
+   * prefixed with a quote.
+   */
+  readonly exportFormats?: readonly 'csv'[];
+  /**
+   * Receives the generated file instead of the browser downloading it, for
+   * example to save it yourself or to fetch every row from your server.
+   */
+  readonly onExport?: (file: ExportFile) => void;
+  /** Called with a readable message when an export fails. */
+  readonly onExportError?: (message: string) => void;
   /**
    * The dashboard-level filters (a date range, a store, a segment). With
    * `onFilterChange` they show as a filter bar above the cards. The choices
@@ -737,6 +764,9 @@ function DashboardInner({
   maxPages,
   onRetry,
   onSelect,
+  exportFormats,
+  onExport,
+  onExportError,
   filters,
   filterValues,
   onFilterChange,
@@ -1684,6 +1714,9 @@ function DashboardInner({
                     ? {}
                     : { onRetry: () => onRetry(key) })}
                   {...(onSelect === undefined ? {} : { onSelect })}
+                  {...(exportFormats === undefined ? {} : { exportFormats })}
+                  {...(onExport === undefined ? {} : { onExport })}
+                  {...(onExportError === undefined ? {} : { onExportError })}
                 />
               );
             })}
