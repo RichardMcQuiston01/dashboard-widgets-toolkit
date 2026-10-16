@@ -1201,3 +1201,65 @@ tr.dwt-selectable:hover > td,
   font-weight: 600;
   letter-spacing: 0.02em;
 }
+
+/* Print ------------------------------------------------------------------ */
+
+@media print {
+  /* Controls make no sense on paper: what is left is the data. */
+  .dwt-card-actions,
+  .dwt-toolbar,
+  .dwt-page-tabs,
+  .dwt-page-nav,
+  .dwt-page-dot,
+  .dwt-page-manage,
+  .dwt-hidden-bar,
+  .dwt-drag-handle,
+  .dwt-edit-menu,
+  .dwt-filters-reset,
+  .dwt-tooltip,
+  .dwt-table-search,
+  .dwt-detail-close,
+  .dwt-detail-controls,
+  .dwt-detail-pager {
+    display: none !important;
+  }
+
+  /* Keep each card on one sheet, and print bar and line colors (browsers drop
+     backgrounds by default, which would blank the bars). */
+  .dwt-card {
+    break-inside: avoid;
+    box-shadow: none;
+    border: 1px solid #8a8a8a;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .dwt-card-title-button {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* Wide tables wrap instead of scrolling. */
+  .dwt-table-wrap {
+    overflow: visible;
+  }
+
+  /* A chart prints with its table twin, so the numbers are on paper too. */
+  .dwt-table-twin > summary {
+    display: none;
+  }
+
+  .dwt-table-twin::details-content {
+    content-visibility: visible;
+    display: block;
+  }
+
+  /* An open detail view prints in full, not clipped to the screen. */
+  .dwt-detail-dialog,
+  .dwt-detail-dialog-body {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    box-shadow: none;
+  }
+}
