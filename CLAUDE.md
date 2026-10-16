@@ -60,7 +60,8 @@ src/
     index.ts            barrel
     settings.tsx        WidgetSettingsProvider: locale, linkTarget, classNames, labels
     card.tsx            WidgetCard, ResolvedWidgetCard, widgetTitle
-    download.ts         ExportFile, downloadExportFile (the one export DOM call)
+    download.ts         ExportFile, downloadExportFile (browser download)
+    chart-export.ts     chartToSvg / svgToPng: a rendered chart as SVG or PNG (DOM, canvas)
     cells.tsx           CellContent: a table cell by its column's field type, custom formatters
     renderers.tsx       one renderer per kind, WidgetContent switch
     charts.tsx          GraphWidget: SVG bar/line, legend, tooltip, table twin
@@ -116,8 +117,8 @@ documented in the code and README, which win if they disagree.
   `normalizeLayout`) and the React page bar, Move to page and page management.
   Not built: swipe, drag onto a page tab, `retain`/`release`.
 - `docs/design/export.md`: CSV for cards and the detail view is built
-  (`export.ts`, `exportFormats`, `onExport`, `onExportDetail`). Planned: chart
-  SVG/PNG download, print stylesheet.
+  (`export.ts`, `exportFormats`, `onExport`, `onExportDetail`) as are chart
+  SVG/PNG (`chart-export.ts`). Planned: print stylesheet.
 - `docs/design/storage-adapters.md`: the adapter contract, wrappers,
   `createLayoutPersistence` and `useStoredLayout` are built, with the stored
   active page and `Dashboard` `backup` / `onBackup`; concrete adapters stay in

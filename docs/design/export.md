@@ -1,6 +1,6 @@
 # Export
 
-Status: CSV for cards and for the detail view is built. Chart download and print are planned.
+Status: CSV (cards, detail view) and chart SVG/PNG are built. The print stylesheet is planned.
 
 ## Built
 
@@ -32,12 +32,18 @@ totalRows })` because the package fetches nothing: the host returns
   page 1 with `pageSize` = `totalRows`; the host must honor it. No callback,
   no button in server mode, so a file never silently holds one page.
 
+- Chart download: `exportFormats` takes `'svg'` and `'png'` for GRAPH cards.
+  `chartToSvg` (browser-only) clones the rendered `<svg>`, copies every
+  element's computed paint (the live chart uses `var(--dwt-*, fallback)`, which a
+  saved file cannot resolve) as inline styles, removes the hit layer and
+  crosshair, redraws the HTML legend inside the SVG (so a two-series chart is
+  readable alone), and sets a background taken from the page so a dark chart is
+  not transparent. `svgToPng` draws it to a canvas at 2x. The `<title>` and
+  `<desc>` stay.
+
 ## Planned
 
-1. **Chart download.** SVG (serialize the chart's `<svg>` with `<title>` and
-   `<desc>`, inline the `--dwt-*` colors so it renders outside the page) and
-   PNG (draw the SVG to a canvas at 2x).
-2. **Print stylesheet.** Hide controls, break between cards, expand
+1. **Print stylesheet.** Hide controls, break between cards, expand
    minimized cards, show each chart's table twin.
 
 Open question: server-mode exports of very large results (streaming, a size

@@ -24,10 +24,14 @@ export {
   type DetailChangeReason,
   type WidgetGridProps,
 } from './dashboard.js';
+export { chartToSvg, svgToPng } from './chart-export.js';
 export {
   downloadExportFile,
+  type BinaryExportFile,
   type DetailExportRequest,
   type ExportFile,
+  type ExportFormat,
+  type TextExportFile,
 } from './download.js';
 export {
   WidgetDetail,

@@ -6,16 +6,32 @@ import { exportFileName } from '../core/export.js';
  * text (see `widgetToCsv`); this is the one place that touches the DOM.
  */
 
-/** A file the dashboard has generated for the viewer. */
-export interface ExportFile {
+/** Fields every generated file has. */
+interface ExportFileBase {
   readonly widgetKey: string;
   /** The widget's title as shown. */
   readonly title: string;
-  readonly format: 'csv';
   readonly fileName: string;
   readonly mimeType: string;
+}
+
+/** A CSV or SVG file: text. */
+export interface TextExportFile extends ExportFileBase {
+  readonly format: 'csv' | 'svg';
   readonly text: string;
 }
+
+/** A PNG file: bytes. */
+export interface BinaryExportFile extends ExportFileBase {
+  readonly format: 'png';
+  readonly blob: Blob;
+}
+
+/** A file the dashboard has generated for the viewer. */
+export type ExportFile = TextExportFile | BinaryExportFile;
+
+/** The formats `exportFormats` accepts. CSV: tables, bar lists, charts; SVG and PNG: charts. */
+export type ExportFormat = ExportFile['format'];
 
 /** What the detail view asks your server for when server mode has more rows than the page. */
 export interface DetailExportRequest {
@@ -49,7 +65,7 @@ export function csvExportFile(
   widgetKey: string,
   title: string,
   text: string
-): ExportFile {
+): TextExportFile {
   return {
     widgetKey,
     title,
@@ -57,6 +73,38 @@ export function csvExportFile(
     fileName: exportFileName(title, 'csv'),
     mimeType: 'text/csv;charset=utf-8',
     text,
+  };
+}
+
+/** An SVG `ExportFile` for a chart. */
+export function svgExportFile(
+  widgetKey: string,
+  title: string,
+  text: string
+): TextExportFile {
+  return {
+    widgetKey,
+    title,
+    format: 'svg',
+    fileName: exportFileName(title, 'svg'),
+    mimeType: 'image/svg+xml;charset=utf-8',
+    text,
+  };
+}
+
+/** A PNG `ExportFile` for a chart. */
+export function pngExportFile(
+  widgetKey: string,
+  title: string,
+  blob: Blob
+): BinaryExportFile {
+  return {
+    widgetKey,
+    title,
+    format: 'png',
+    fileName: exportFileName(title, 'png'),
+    mimeType: 'image/png',
+    blob,
   };
 }
 
@@ -73,7 +121,11 @@ export function downloadExportFile(file: ExportFile): string | null {
   }
   let url: string | undefined;
   try {
-    url = URL.createObjectURL(new Blob([file.text], { type: file.mimeType }));
+    url = URL.createObjectURL(
+      file.format === 'png'
+        ? file.blob
+        : new Blob([file.text], { type: file.mimeType })
+    );
     const link: HTMLAnchorElement = document.createElement('a');
     link.href = url;
     link.download = file.fileName;

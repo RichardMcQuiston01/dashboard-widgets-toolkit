@@ -9,6 +9,7 @@ import {
   WidgetDetail,
   WidgetGrid,
   WidgetSettingsProvider,
+  type ExportFormat,
 } from '../../src/react/index.js';
 
 const widgets: DashboardWidget[] = [
@@ -102,5 +103,39 @@ void describe('detail view Download CSV', () => {
       detailHtml({ formats: ['csv'], server: true, all: true }),
       /Download Orders as CSV/
     );
+  });
+});
+
+void describe('chart SVG and PNG buttons', () => {
+  const chart: DashboardWidget = {
+    definition: defineWidget({ key: 'rev', title: 'Revenue', kind: 'GRAPH' }),
+    status: 'ok',
+    data: {
+      kind: 'GRAPH',
+      chartType: 'bar',
+      valueFormat: 'number',
+      series: [{ name: 'A', points: [{ label: 'Jan', value: 1 }] }],
+    },
+  };
+
+  function chartHtml(formats: readonly ExportFormat[]): string {
+    return renderToStaticMarkup(
+      <WidgetSettingsProvider locale="en-US">
+        <WidgetGrid widgets={[chart, ...widgets]} exportFormats={formats} />
+      </WidgetSettingsProvider>
+    );
+  }
+
+  void it('adds them only to charts, and only when listed', () => {
+    const markup: string = chartHtml(['svg', 'png']);
+    assert.match(markup, /aria-label="Download Revenue as SVG"/);
+    assert.match(markup, /aria-label="Download Revenue as PNG"/);
+    assert.doesNotMatch(markup, /Download Revenue as CSV/);
+    assert.doesNotMatch(markup, /Download Orders as (SVG|PNG)/);
+    assert.doesNotMatch(chartHtml(['csv']), /as (SVG|PNG)/);
+  });
+
+  void it('puts CSV on charts too', () => {
+    assert.match(chartHtml(['csv']), /Download Revenue as CSV/);
   });
 });
