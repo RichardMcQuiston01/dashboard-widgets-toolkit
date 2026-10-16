@@ -2,10 +2,20 @@ import { useId, type CSSProperties, type ReactNode } from 'react';
 
 import type { WidgetFill, WidgetSize } from '../core/definition.js';
 import { resolveTableControls } from '../core/detail.js';
+import { widgetToCsv } from '../core/export.js';
 import { fillsHeight, fillsWidth } from '../core/grid.js';
 import { sortFromOptions } from '../core/options.js';
 import type { DashboardWidget } from '../core/resolve.js';
 import type { SelectionTarget, WidgetSelection } from '../core/select.js';
+import { chartToSvg, svgToPng } from './chart-export.js';
+import {
+  csvExportFile,
+  deliverExportFile,
+  pngExportFile,
+  svgExportFile,
+  type ExportFile,
+  type ExportFormat,
+} from './download.js';
 import { WidgetContent } from './renderers.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
@@ -274,6 +284,18 @@ export interface ResolvedWidgetCardProps {
   readonly onToggleMinimized?: () => void;
   /** See `WidgetCardProps.onView`. */
   readonly onView?: () => void;
+  /**
+   * Adds download buttons to a card that has loaded: `'csv'` for a TABLE,
+   * BAR_LIST or GRAPH, `'svg'` and `'png'` for a GRAPH. Off unless listed.
+   */
+  readonly exportFormats?: readonly ExportFormat[];
+  /**
+   * Receives the generated file instead of the browser downloading it: save
+   * it yourself, log it, or fetch every row from your server first.
+   */
+  readonly onExport?: (file: ExportFile) => void;
+  /** Called with a readable message when an export fails. */
+  readonly onExportError?: (message: string) => void;
   readonly onRetry?: () => void;
   /**
    * Makes the widget's table rows, bars, alert items or chart positions
@@ -292,14 +314,136 @@ export interface ResolvedWidgetCardProps {
 export function ResolvedWidgetCard({
   widget,
   onSelect,
+  exportFormats,
+  onExport,
+  onExportError,
+  actions,
   ...props
 }: ResolvedWidgetCardProps): ReactNode {
   const { definition } = widget;
+  const { labels } = useWidgetSettings();
+  const slot = useSlotClassName();
+  const title: string = widgetTitle(widget);
+  const loaded: boolean = widget.status === 'ok';
+  const kind: string | undefined =
+    widget.status === 'ok' ? widget.data.kind : undefined;
+  const canExportCsv: boolean =
+    exportFormats?.includes('csv') === true &&
+    loaded &&
+    (kind === 'TABLE' || kind === 'BAR_LIST' || kind === 'GRAPH');
+  const canExportSvg: boolean =
+    exportFormats?.includes('svg') === true && kind === 'GRAPH';
+  const canExportPng: boolean =
+    exportFormats?.includes('png') === true && kind === 'GRAPH';
+  const exportCsv = (): void => {
+    if (widget.status !== 'ok') return;
+    const csv = widgetToCsv(widget.data);
+    if (!csv.ok) {
+      onExportError?.(csv.error);
+      return;
+    }
+    const failure: string | null = deliverExportFile(
+      csvExportFile(definition.key, definition.title, csv.value),
+      onExport
+    );
+    if (failure !== null) onExportError?.(failure);
+  };
+  const exportChart = async (
+    button: HTMLElement,
+    format: 'svg' | 'png'
+  ): Promise<void> => {
+    const figure: Element | null | undefined = button
+      .closest('section')
+      ?.querySelector('figure.dwt-chart');
+    if (figure === null || figure === undefined) {
+      onExportError?.(
+        `Cannot export "${definition.title}": its chart is not on the page.`
+      );
+      return;
+    }
+    const drawn = chartToSvg(figure);
+    if (!drawn.ok) {
+      onExportError?.(drawn.error);
+      return;
+    }
+    let file: ExportFile;
+    if (format === 'svg') {
+      file = svgExportFile(definition.key, definition.title, drawn.value.svg);
+    } else {
+      const png = await svgToPng(drawn.value);
+      if (!png.ok) {
+        onExportError?.(png.error);
+        return;
+      }
+      file = pngExportFile(definition.key, definition.title, png.value);
+    }
+    const failure: string | null = deliverExportFile(file, onExport);
+    if (failure !== null) onExportError?.(failure);
+  };
+  const cardActions: ReactNode =
+    canExportCsv || canExportSvg || canExportPng || actions !== undefined ? (
+      <>
+        {canExportCsv && (
+          <button
+            type="button"
+            className={slot('button', 'dwt-button', 'dwt-icon-button')}
+            aria-label={labels.downloadCsv(title)}
+            title={labels.downloadCsv(title)}
+            onClick={exportCsv}
+          >
+            <svg
+              viewBox="0 0 16 16"
+              width="16"
+              height="16"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M8 2v8m0 0L5 7m3 3 3-3M3 13h10"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        )}
+        {canExportSvg && (
+          <button
+            type="button"
+            className={slot('button', 'dwt-button', 'dwt-icon-button')}
+            aria-label={labels.downloadSvg(title)}
+            title={labels.downloadSvg(title)}
+            onClick={(event) => void exportChart(event.currentTarget, 'svg')}
+          >
+            <span aria-hidden="true" className="dwt-export-format">
+              SVG
+            </span>
+          </button>
+        )}
+        {canExportPng && (
+          <button
+            type="button"
+            className={slot('button', 'dwt-button', 'dwt-icon-button')}
+            aria-label={labels.downloadPng(title)}
+            title={labels.downloadPng(title)}
+            onClick={(event) => void exportChart(event.currentTarget, 'png')}
+          >
+            <span aria-hidden="true" className="dwt-export-format">
+              PNG
+            </span>
+          </button>
+        )}
+        {actions}
+      </>
+    ) : undefined;
   return (
     <WidgetCard
       {...props}
+      {...(cardActions === undefined ? {} : { actions: cardActions })}
       widgetKey={definition.key}
-      title={widgetTitle(widget)}
+      title={title}
       status={widget.status}
       {...(definition.description === undefined
         ? {}

@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## 0.26.0
+
+### Minor Changes
+
+- b09b3df: CSV export from the detail view. `exportFormats={['csv']}` now also adds a
+  Download CSV button to the detail dialog and `WidgetDetail`: client mode exports
+  every row the search, filters and sort select (new core `queryToCsv`), and
+  server mode asks the host through the new `onExportDetail` (on `Dashboard`) or
+  `onExportAll` (on `WidgetDetail`), then builds the file from the `DetailData` it
+  returns. New types `DetailExportRequest`.
+- 38425a2: Print stylesheet. `styles.css` now has an `@media print` block: card buttons,
+  the toolbar, page tabs, drag handles and the filter reset are hidden, cards stay
+  whole on a sheet, bar and line colors print, charts print with their table twin
+  open (Chromium 131+) and an open detail view prints in full.
+- 24ebf30: CSV export. `Dashboard` and `WidgetGrid` take `exportFormats={['csv']}` to add a
+  Download button to loaded table, bar list and chart cards, with `onExport` and
+  `onExportError` to handle the file yourself. The core adds `widgetToCsv`,
+  `detailToCsv` and `exportFileName` (RFC 4180 quoting, `cells: 'value'`, custom
+  delimiter, byte order mark, and a leading quote on text a spreadsheet would run
+  as a formula). New label `downloadCsv`.
+- b9d214b: Chart download. `exportFormats` accepts `'svg'` and `'png'`, adding buttons to
+  chart cards that save a standalone picture with its legend, title and
+  description, painted as on screen (dark themes export dark). The PNG is drawn at
+  2x. `chartToSvg` and `svgToPng` are exported for custom buttons, `ExportFile`
+  becomes `TextExportFile` (csv, svg) or `BinaryExportFile` (png), and there are
+  new labels `downloadSvg` and `downloadPng`.
+
 ## 0.25.0
 
 ### Minor Changes

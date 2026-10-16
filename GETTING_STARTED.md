@@ -783,6 +783,17 @@ function SalesDashboard() {
 - `validateDashboardFilters(filters)` checks a list ahead of time, and
   `resolveFilterValues(filters, chosen)` gives the values a provider will see.
 
+#### Printing
+
+`styles.css` includes an `@media print` block, so printing the page (or "Save as
+PDF") gives a clean report with no setup: card buttons, the Customize toolbar,
+page tabs, drag handles and the filter reset are hidden; each card stays on one
+sheet; bar and line colors print (`print-color-adjust: exact`); a chart prints
+with its table twin open (browsers with `::details-content`, Chromium 131+); and
+an open detail view prints in full. Only the active page prints, and minimized
+cards stay minimized, since both are the viewer's choices. Control the paper
+size and margins with your own `@page` rule.
+
 ### Alternate views
 
 A widget can offer other ways to show its data. Declare `views`; each is built

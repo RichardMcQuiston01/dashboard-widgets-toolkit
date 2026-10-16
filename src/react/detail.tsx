@@ -24,7 +24,15 @@ import {
 } from '../core/detail.js';
 import type { WidgetDefinition } from '../core/definition.js';
 import type { OptionValues } from '../core/options.js';
+import { detailToCsv, queryToCsv } from '../core/export.js';
 import { CellContent } from './cells.js';
+import {
+  csvExportFile,
+  deliverExportFile,
+  type DetailExportRequest,
+  type ExportFile,
+  type ExportFormat,
+} from './download.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
 /**
@@ -66,6 +74,21 @@ export interface WidgetDetailProps {
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   /** Id of the heading, so a dialog can label itself with it. */
   readonly headingId?: string;
+  /**
+   * Adds a "Download CSV" button (`['csv']`). In client mode the file holds
+   * every row the search, filters and sort select, not only the page shown.
+   * In server mode the button needs `onExportAll`, because the page on screen
+   * is all this component has.
+   */
+  readonly exportFormats?: readonly ExportFormat[];
+  /** Server mode: gets all rows matching the query. See `DashboardProps.onExportDetail`. */
+  readonly onExportAll?: (
+    request: DetailExportRequest
+  ) => DetailData | undefined | Promise<DetailData | undefined>;
+  /** Receives the file instead of the browser downloading it. */
+  readonly onExport?: (file: ExportFile) => void;
+  /** Called with a readable message when an export fails. */
+  readonly onExportError?: (message: string) => void;
   readonly className?: string;
 }
 
@@ -193,6 +216,10 @@ export function WidgetDetail({
   busy = false,
   headingLevel = 2,
   headingId,
+  exportFormats,
+  onExportAll,
+  onExport,
+  onExportError,
   className,
   widgetKey = '',
 }: WidgetDetailProps): ReactNode {
@@ -216,6 +243,54 @@ export function WidgetDetail({
 
   function change(patch: Partial<DetailQuery>): void {
     onQueryChange({ ...query, ...patch, page: patch.page ?? 1 });
+  }
+
+  const [exporting, setExporting] = useState<boolean>(false);
+  const canExport: boolean =
+    exportFormats?.includes('csv') === true &&
+    (mode === 'client' || onExportAll !== undefined);
+
+  function finishExport(text: string): void {
+    const failure: string | null = deliverExportFile(
+      csvExportFile(widgetKey, title, text),
+      onExport
+    );
+    if (failure !== null) onExportError?.(failure);
+  }
+
+  async function exportCsv(): Promise<void> {
+    if (data === undefined) return;
+    if (mode === 'client') {
+      const csv = queryToCsv(
+        data,
+        query,
+        localeTag === undefined ? {} : { locale: localeTag }
+      );
+      if (csv.ok) finishExport(csv.value);
+      else onExportError?.(csv.error);
+      return;
+    }
+    if (onExportAll === undefined || page === undefined) return;
+    setExporting(true);
+    try {
+      const all: DetailData | undefined = await onExportAll({
+        widgetKey,
+        title,
+        query: { ...query, page: 1, pageSize: Math.max(1, page.totalRows) },
+        totalRows: page.totalRows,
+      });
+      // Undefined: the host saved the file itself.
+      if (all === undefined) return;
+      const csv = detailToCsv(all);
+      if (csv.ok) finishExport(csv.value);
+      else onExportError?.(csv.error);
+    } catch (cause) {
+      onExportError?.(
+        `Could not export "${title}": ${cause instanceof Error ? cause.message : String(cause)}`
+      );
+    } finally {
+      setExporting(false);
+    }
   }
 
   const inputDebounceMs: number =
@@ -274,6 +349,16 @@ export function WidgetDetail({
                 />
               </label>
             ))}
+          {canExport && (
+            <button
+              type="button"
+              className={slot('button', 'dwt-button', 'dwt-detail-export')}
+              disabled={exporting || page.totalRows === 0}
+              onClick={() => void exportCsv()}
+            >
+              {labels.downloadCsv(title)}
+            </button>
+          )}
         </div>
         <p
           className="dwt-detail-summary"
