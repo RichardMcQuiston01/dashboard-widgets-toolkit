@@ -2,12 +2,16 @@ import { useId, type CSSProperties, type ReactNode } from 'react';
 
 import type { WidgetFill, WidgetSize } from '../core/definition.js';
 import { resolveTableControls } from '../core/detail.js';
-import { exportFileName, widgetToCsv } from '../core/export.js';
+import { widgetToCsv } from '../core/export.js';
 import { fillsHeight, fillsWidth } from '../core/grid.js';
 import { sortFromOptions } from '../core/options.js';
 import type { DashboardWidget } from '../core/resolve.js';
 import type { SelectionTarget, WidgetSelection } from '../core/select.js';
-import { downloadExportFile, type ExportFile } from './download.js';
+import {
+  csvExportFile,
+  deliverExportFile,
+  type ExportFile,
+} from './download.js';
 import { WidgetContent } from './renderers.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
@@ -329,19 +333,10 @@ export function ResolvedWidgetCard({
       onExportError?.(csv.error);
       return;
     }
-    const file: ExportFile = {
-      widgetKey: definition.key,
-      title: definition.title,
-      format: 'csv',
-      fileName: exportFileName(definition.title, 'csv'),
-      mimeType: 'text/csv;charset=utf-8',
-      text: csv.value,
-    };
-    if (onExport !== undefined) {
-      onExport(file);
-      return;
-    }
-    const failure: string | null = downloadExportFile(file);
+    const failure: string | null = deliverExportFile(
+      csvExportFile(definition.key, definition.title, csv.value),
+      onExport
+    );
     if (failure !== null) onExportError?.(failure);
   };
   const cardActions: ReactNode =

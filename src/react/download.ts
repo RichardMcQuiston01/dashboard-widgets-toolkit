@@ -1,3 +1,6 @@
+import type { DetailQuery } from '../core/detail.js';
+import { exportFileName } from '../core/export.js';
+
 /**
  * Hands a generated file to the browser as a download. The package builds the
  * text (see `widgetToCsv`); this is the one place that touches the DOM.
@@ -12,6 +15,49 @@ export interface ExportFile {
   readonly fileName: string;
   readonly mimeType: string;
   readonly text: string;
+}
+
+/** What the detail view asks your server for when server mode has more rows than the page. */
+export interface DetailExportRequest {
+  readonly widgetKey: string;
+  readonly title: string;
+  /** The viewer's search, filters and sort, from page 1, `pageSize` = `totalRows`. */
+  readonly query: DetailQuery;
+  /** Rows matching the query across all pages. */
+  readonly totalRows: number;
+}
+
+/**
+ * Gives a generated file to `onExport` when it is set, else to the browser.
+ * Returns an error message, or null when it went through.
+ */
+export function deliverExportFile(
+  file: ExportFile,
+  onExport: ((file: ExportFile) => void) | undefined
+): string | null {
+  if (onExport === undefined) return downloadExportFile(file);
+  try {
+    onExport(file);
+    return null;
+  } catch (cause) {
+    return `Could not export ${file.fileName}: ${cause instanceof Error ? cause.message : String(cause)}`;
+  }
+}
+
+/** A CSV `ExportFile` for a widget. */
+export function csvExportFile(
+  widgetKey: string,
+  title: string,
+  text: string
+): ExportFile {
+  return {
+    widgetKey,
+    title,
+    format: 'csv',
+    fileName: exportFileName(title, 'csv'),
+    mimeType: 'text/csv;charset=utf-8',
+    text,
+  };
 }
 
 /**
