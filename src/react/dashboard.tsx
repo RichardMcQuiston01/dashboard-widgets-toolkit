@@ -87,7 +87,7 @@ import {
   type DropPlacement,
 } from '../core/reorder.js';
 import { ResolvedWidgetCard } from './card.js';
-import type { ExportFile } from './download.js';
+import type { DetailExportRequest, ExportFile } from './download.js';
 import { InlineConfirm } from './confirm.js';
 import { WidgetEditMenu, type EditMenuItem } from './edit-menu.js';
 import { FilterBar } from './filters.js';
@@ -396,6 +396,18 @@ export interface DashboardProps extends WidgetSettings {
   /** Called with a readable message when an export fails. */
   readonly onExportError?: (message: string) => void;
   /**
+   * Server-mode detail views hold one page, so their Download CSV button
+   * (shown when `exportFormats` has `'csv'`) asks you for every row matching
+   * the viewer's search, filters and sort: fetch them (the request's `query`
+   * has page 1 and `pageSize` = `totalRows`) and return them as `DetailData`
+   * for the package to turn into a file, or save the file yourself and return
+   * nothing. Without it, server-mode detail views have no export button.
+   * Client-mode detail views export all matching rows without it.
+   */
+  readonly onExportDetail?: (
+    request: DetailExportRequest
+  ) => DetailData | undefined | Promise<DetailData | undefined>;
+  /**
    * The dashboard-level filters (a date range, a store, a segment). With
    * `onFilterChange` they show as a filter bar above the cards. The choices
    * belong to you: keep them in state (`useDashboardFilters`), the URL or
@@ -473,12 +485,24 @@ function DetailHost({
   onQueryChange,
   loadDetail,
   onClose,
+  exportFormats,
+  onExport,
+  onExportError,
+  onExportDetail,
 }: {
   readonly widget: DashboardWidget;
   readonly query: DetailQuery;
   readonly onQueryChange: (query: DetailQuery) => void;
   readonly loadDetail: DetailLoader | undefined;
   readonly onClose: () => void;
+  readonly exportFormats: readonly 'csv'[] | undefined;
+  readonly onExport: ((file: ExportFile) => void) | undefined;
+  readonly onExportError: ((message: string) => void) | undefined;
+  readonly onExportDetail:
+    | ((
+        request: DetailExportRequest
+      ) => DetailData | undefined | Promise<DetailData | undefined>)
+    | undefined;
 }): ReactNode {
   const { locale } = useWidgetSettings();
   const { definition } = widget;
@@ -538,6 +562,12 @@ function DetailHost({
         onRetry={reload}
         mode={mode}
         busy={state.refreshing === true}
+        {...(exportFormats === undefined ? {} : { exportFormats })}
+        {...(onExport === undefined ? {} : { onExport })}
+        {...(onExportError === undefined ? {} : { onExportError })}
+        {...(onExportDetail === undefined
+          ? {}
+          : { onExportAll: onExportDetail })}
       />
     </WidgetDetailDialog>
   );
@@ -767,6 +797,7 @@ function DashboardInner({
   exportFormats,
   onExport,
   onExportError,
+  onExportDetail,
   filters,
   filterValues,
   onFilterChange,
@@ -1787,6 +1818,10 @@ function DashboardInner({
             }
             loadDetail={loadDetail}
             onClose={() => changeDetail(null, 'close')}
+            exportFormats={exportFormats}
+            onExport={onExport}
+            onExportError={onExportError}
+            onExportDetail={onExportDetail}
           />
         )}
     </div>

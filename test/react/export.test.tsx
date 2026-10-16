@@ -5,7 +5,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { defineWidget } from '../../src/core/definition.js';
 import type { DashboardWidget } from '../../src/core/resolve.js';
-import { WidgetGrid, WidgetSettingsProvider } from '../../src/react/index.js';
+import {
+  WidgetDetail,
+  WidgetGrid,
+  WidgetSettingsProvider,
+} from '../../src/react/index.js';
 
 const widgets: DashboardWidget[] = [
   {
@@ -50,5 +54,53 @@ void describe('Download CSV button', () => {
     assert.match(markup, /aria-label="Download Orders as CSV"/);
     assert.doesNotMatch(markup, /Download Note as CSV/);
     assert.doesNotMatch(markup, /Download Slow as CSV/);
+  });
+});
+
+void describe('detail view Download CSV', () => {
+  const data = {
+    columns: [{ key: 'a', label: 'Name' }],
+    rows: [[{ text: 'Ann' }]],
+  };
+  const query = { page: 1, pageSize: 25 };
+
+  function detailHtml(props: Record<string, unknown>): string {
+    return renderToStaticMarkup(
+      <WidgetSettingsProvider locale="en-US">
+        <WidgetDetail
+          title="Orders"
+          data={{
+            ...data,
+            ...(props['server'] === true ? { totalRows: 1 } : {}),
+          }}
+          query={query}
+          onQueryChange={() => undefined}
+          {...(props['server'] === true ? { mode: 'server' as const } : {})}
+          {...(props['formats'] === undefined
+            ? {}
+            : { exportFormats: props['formats'] as readonly 'csv'[] })}
+          {...(props['all'] === true ? { onExportAll: () => data } : {})}
+        />
+      </WidgetSettingsProvider>
+    );
+  }
+
+  void it('is off unless exportFormats lists csv', () => {
+    assert.doesNotMatch(detailHtml({}), /Download Orders as CSV/);
+  });
+
+  void it('shows in client mode', () => {
+    assert.match(detailHtml({ formats: ['csv'] }), /Download Orders as CSV/);
+  });
+
+  void it('needs onExportAll in server mode', () => {
+    assert.doesNotMatch(
+      detailHtml({ formats: ['csv'], server: true }),
+      /Download Orders as CSV/
+    );
+    assert.match(
+      detailHtml({ formats: ['csv'], server: true, all: true }),
+      /Download Orders as CSV/
+    );
   });
 });

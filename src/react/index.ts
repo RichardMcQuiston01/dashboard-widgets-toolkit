@@ -24,7 +24,11 @@ export {
   type DetailChangeReason,
   type WidgetGridProps,
 } from './dashboard.js';
-export { downloadExportFile, type ExportFile } from './download.js';
+export {
+  downloadExportFile,
+  type DetailExportRequest,
+  type ExportFile,
+} from './download.js';
 export {
   WidgetDetail,
   WidgetDetailDialog,

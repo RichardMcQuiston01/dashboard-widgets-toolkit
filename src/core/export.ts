@@ -5,8 +5,13 @@
  * response. See docs/design/export.md.
  */
 
-import type { DetailCell, DetailColumn, DetailData } from './detail.js';
-import { deriveDetailData, tableDetailData } from './detail.js';
+import type {
+  DetailCell,
+  DetailColumn,
+  DetailData,
+  DetailQuery,
+} from './detail.js';
+import { deriveDetailData, queryRows, tableDetailData } from './detail.js';
 import type { WidgetData } from './payload.js';
 import { err, ok, type Result } from './result.js';
 
@@ -95,6 +100,30 @@ export function detailToCsv(
   }
   const body: string = lines.join(newline) + newline;
   return ok(options.byteOrderMark === true ? BYTE_ORDER_MARK + body : body);
+}
+
+/**
+ * The rows of client-mode detail data that match `query` (search, column
+ * filters and sort; the page and page size are ignored) as CSV, so the file
+ * holds everything the viewer's filters select, not just the page on screen.
+ * `locale` orders text the way the detail view does.
+ */
+export function queryToCsv(
+  data: DetailData,
+  query: DetailQuery,
+  options: CsvOptions & { readonly locale?: string } = {}
+): Result<string> {
+  const { locale, ...csvOptions } = options;
+  const everything = queryRows(
+    data,
+    { ...query, page: 1, pageSize: Math.max(1, data.rows.length) },
+    locale
+  );
+  if (!everything.ok) return everything;
+  return detailToCsv(
+    { columns: data.columns, rows: everything.value.rows },
+    csvOptions
+  );
 }
 
 /**

@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   detailToCsv,
   exportFileName,
+  queryToCsv,
   widgetToCsv,
 } from '../../src/core/export.js';
 import type { DetailData } from '../../src/core/detail.js';
@@ -148,5 +149,40 @@ void describe('exportFileName', () => {
       'cafe-etc-2026-10-15.svg'
     );
     assert.equal(exportFileName('***', 'png'), 'export.png');
+  });
+});
+
+void describe('queryToCsv', () => {
+  const data: DetailData = {
+    columns: [
+      { key: 'name', label: 'Name', filterable: true },
+      { key: 'total', label: 'Total', numeric: true },
+    ],
+    rows: [
+      [{ text: 'Cy' }, { text: '$3', value: 3 }],
+      [{ text: 'Ann' }, { text: '$10', value: 10 }],
+      [{ text: 'Bo' }, { text: '$2', value: 2 }],
+      [{ text: 'Anna' }, { text: '$7', value: 7 }],
+    ],
+  };
+
+  void it('exports every row the filters select, ignoring the page', () => {
+    const result = queryToCsv(data, {
+      search: 'ann',
+      sort: { column: 'total', direction: 'desc' },
+      page: 2,
+      pageSize: 1,
+    });
+    assert.equal(csvOf(result), 'Name,Total\r\nAnn,$10\r\nAnna,$7\r\n');
+  });
+
+  void it('names a missing column', () => {
+    const result = queryToCsv(data, {
+      sort: { column: 'nope', direction: 'asc' },
+      page: 1,
+      pageSize: 25,
+    });
+    assert.equal(result.ok, false);
+    assert.match(result.ok ? '' : result.error, /sort column "nope"/);
   });
 });
