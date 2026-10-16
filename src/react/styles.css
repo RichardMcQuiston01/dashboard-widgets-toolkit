@@ -1195,3 +1195,9 @@ tr.dwt-selectable:hover > td,
 .dwt-chart--selectable .dwt-hit-layer rect {
   cursor: pointer;
 }
+
+.dwt-export-format {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}

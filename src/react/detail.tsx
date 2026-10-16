@@ -31,6 +31,7 @@ import {
   deliverExportFile,
   type DetailExportRequest,
   type ExportFile,
+  type ExportFormat,
 } from './download.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
@@ -79,7 +80,7 @@ export interface WidgetDetailProps {
    * In server mode the button needs `onExportAll`, because the page on screen
    * is all this component has.
    */
-  readonly exportFormats?: readonly 'csv'[];
+  readonly exportFormats?: readonly ExportFormat[];
   /** Server mode: gets all rows matching the query. See `DashboardProps.onExportDetail`. */
   readonly onExportAll?: (
     request: DetailExportRequest

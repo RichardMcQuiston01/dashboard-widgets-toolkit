@@ -87,7 +87,11 @@ import {
   type DropPlacement,
 } from '../core/reorder.js';
 import { ResolvedWidgetCard } from './card.js';
-import type { DetailExportRequest, ExportFile } from './download.js';
+import type {
+  DetailExportRequest,
+  ExportFile,
+  ExportFormat,
+} from './download.js';
 import { InlineConfirm } from './confirm.js';
 import { WidgetEditMenu, type EditMenuItem } from './edit-menu.js';
 import { FilterBar } from './filters.js';
@@ -238,7 +242,7 @@ export interface WidgetGridProps {
   /** See `DashboardProps.onSelect`. */
   readonly onSelect?: (selection: WidgetSelection) => void;
   /** See `DashboardProps.exportFormats`. */
-  readonly exportFormats?: readonly 'csv'[];
+  readonly exportFormats?: readonly ExportFormat[];
   /** See `DashboardProps.onExport`. */
   readonly onExport?: (file: ExportFile) => void;
   /** See `DashboardProps.onExportError`. */
@@ -382,12 +386,14 @@ export interface DashboardProps extends WidgetSettings {
    */
   readonly onSelect?: (selection: WidgetSelection) => void;
   /**
-   * Adds a "Download CSV" button to each table, bar list and chart card that
-   * has loaded (`['csv']`). Off by default. The file holds the same rows as
-   * the card's "View as table"; fields a spreadsheet would run as formulas are
-   * prefixed with a quote.
+   * Adds download buttons to loaded cards. Off by default; list the formats
+   * you want. `'csv'`: tables, bar lists and charts (the same rows as "View as
+   * table"; text a spreadsheet would run as a formula is prefixed with a
+   * quote) and the detail view. `'svg'` and `'png'`: charts, as a standalone
+   * picture with its legend, title and description, painted as shown on
+   * screen (so a dark theme exports dark).
    */
-  readonly exportFormats?: readonly 'csv'[];
+  readonly exportFormats?: readonly ExportFormat[];
   /**
    * Receives the generated file instead of the browser downloading it, for
    * example to save it yourself or to fetch every row from your server.
@@ -495,7 +501,7 @@ function DetailHost({
   readonly onQueryChange: (query: DetailQuery) => void;
   readonly loadDetail: DetailLoader | undefined;
   readonly onClose: () => void;
-  readonly exportFormats: readonly 'csv'[] | undefined;
+  readonly exportFormats: readonly ExportFormat[] | undefined;
   readonly onExport: ((file: ExportFile) => void) | undefined;
   readonly onExportError: ((message: string) => void) | undefined;
   readonly onExportDetail:
