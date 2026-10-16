@@ -116,9 +116,11 @@ documented in the code and README, which win if they disagree.
   lazy loading by page). Built: the core (`pages.ts`, `placeRows`,
   `normalizeLayout`) and the React page bar, Move to page and page management.
   Not built: swipe, drag onto a page tab, `retain`/`release`.
-- `docs/design/export.md`: CSV for cards and the detail view is built
-  (`export.ts`, `exportFormats`, `onExport`, `onExportDetail`) as are chart
-  SVG/PNG (`chart-export.ts`). Planned: print stylesheet.
+- `docs/design/export.md`: export is built: CSV for cards and the detail view
+  (`export.ts`, `exportFormats`, `onExport`, `onExportDetail`), chart SVG/PNG
+  (`chart-export.ts`) and the print stylesheet (`@media print` in `styles.css`,
+  guarded by `test/react/print.test.ts`). Nothing planned except the open
+  questions in the doc.
 - `docs/design/storage-adapters.md`: the adapter contract, wrappers,
   `createLayoutPersistence` and `useStoredLayout` are built, with the stored
   active page and `Dashboard` `backup` / `onBackup`; concrete adapters stay in

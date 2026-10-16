@@ -1,6 +1,6 @@
 # Export
 
-Status: CSV (cards, detail view) and chart SVG/PNG are built. The print stylesheet is planned.
+Status: built (CSV, chart SVG/PNG, print stylesheet).
 
 ## Built
 
@@ -41,10 +41,19 @@ totalRows })` because the package fetches nothing: the host returns
   not transparent. `svgToPng` draws it to a canvas at 2x. The `<title>` and
   `<desc>` stay.
 
-## Planned
+- Print: an `@media print` block in `styles.css`. It hides controls (card
+  actions, toolbar, page tabs, drag handles, filter reset, tooltips, detail
+  search and pager), keeps cards whole (`break-inside: avoid`), forces bar and
+  line colors to print, opens each chart's table twin through
+  `::details-content` (Chromium 131+; elsewhere the chart alone prints), and
+  lets an open detail view print in full. A test checks every class the block
+  names is rendered by a component, so a rename cannot silently break it.
+  Decisions: only the active page prints (the other pages are not in the DOM),
+  and minimized cards stay minimized (the viewer chose that). Paper size and
+  margins are the host's `@page` rule.
 
-1. **Print stylesheet.** Hide controls, break between cards, expand
-   minimized cards, show each chart's table twin.
+## Open questions
 
-Open question: server-mode exports of very large results (streaming, a size
-cap). Today the host decides.
+- Server-mode exports of very large results (streaming, a size cap). Today the
+  host decides.
+- Printing every page of a paged dashboard (needs all pages rendered).

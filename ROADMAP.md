@@ -59,6 +59,10 @@
   `onFilterChange`) whose values reach every provider as `options.filters`, with
   filter-aware cache keys and reloads only for the widgets that use a changed
   filter (0.25.0).
+- Export: CSV for table, bar list and chart cards and for the detail view
+  (`exportFormats`, `widgetToCsv`, `queryToCsv`, `onExportDetail`), SVG and PNG
+  download for charts (`chartToSvg`, `svgToPng`) and a print stylesheet
+  (unreleased).
 - Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
   and `data-dwt-default-title` on cards (0.21.0).
 
@@ -68,12 +72,9 @@
 
 Listed in the order they are planned. None needs data fetching in the package.
 
-1. **Export.** CSV for any table and the detail view (all rows in server mode,
-   through the provider), an SVG or PNG download for charts, and a print
-   stylesheet.
-2. **Freshness.** A per-card "Updated 2 min ago" and a refresh button, and the
+1. **Freshness.** A per-card "Updated 2 min ago" and a refresh button, and the
    last good data kept on screen with an error badge when a reload fails.
-3. **Detail view, the rest.** Page-size choice and column visibility,
+2. **Detail view, the rest.** Page-size choice and column visibility,
    server-mode detail caching by query, and a detail view for each
    provider-supplied view. Server mode and URL deep links are built. See
    [docs/design/detail-view.md](./docs/design/detail-view.md).
