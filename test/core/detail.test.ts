@@ -4,6 +4,8 @@ import { describe, it } from 'node:test';
 import {
   defaultDetailQuery,
   deriveDetailData,
+  hideColumns,
+  providerQuery,
   parseDetailQuery,
   clampServerQuery,
   parseDetailLink,
@@ -235,13 +237,21 @@ void describe('detail option on definitions', () => {
       title: 'X',
       pageSize: 25,
       mode: 'client',
+      pageSizes: [],
+      columnVisibility: false,
     });
     assert.deepEqual(
       resolveDetailOptions({
         ...base,
         detail: { title: 'All X', pageSize: 50, mode: 'server' },
       }),
-      { title: 'All X', pageSize: 50, mode: 'server' }
+      {
+        title: 'All X',
+        pageSize: 50,
+        mode: 'server',
+        pageSizes: [],
+        columnVisibility: false,
+      }
     );
   });
 
@@ -538,7 +548,7 @@ void describe('detail deep links', () => {
     } as const;
     const parsed = parseDetailLink(`?${serializeDetailLink(link)}`, defs);
     assert.ok(parsed.ok);
-    assert.deepEqual(parsed.value, link);
+    assert.deepEqual(parsed.value, { ...link, defaultPageSize: 10 });
     const clone = parseDetailLink('widget=orders%231', defs);
     assert.ok(clone.ok);
     assert.equal(clone.value?.query.pageSize, 25);
@@ -620,6 +630,147 @@ void describe('detail deep links', () => {
         columns
       ),
       { page: 1, pageSize: 10 }
+    );
+  });
+});
+
+void describe('page size choice and column visibility', () => {
+  void it('resolves pageSizes sorted, with the default size included', () => {
+    const options = resolveDetailOptions({
+      title: 'T',
+      detail: { pageSize: 25, pageSizes: [100, 10], columnVisibility: true },
+    });
+    assert.deepEqual(options?.pageSizes, [10, 25, 100]);
+    assert.equal(options?.columnVisibility, true);
+  });
+
+  void it('has no choice for fewer than two sizes', () => {
+    assert.deepEqual(
+      resolveDetailOptions({ title: 'T', detail: { pageSizes: [10] } })
+        ?.pageSizes,
+      []
+    );
+    assert.equal(
+      resolveDetailOptions({ title: 'T', detail: true })?.columnVisibility,
+      false
+    );
+  });
+
+  void it('validates pageSizes and columnVisibility', () => {
+    const base = { key: 'a', title: 'A', kind: 'TABLE' };
+    const bad = validateWidgetDefinition({
+      ...base,
+      detail: { pageSizes: [10, 0, 'x'], columnVisibility: 'yes' },
+    });
+    assert.equal(bad.ok, false);
+    if (!bad.ok) {
+      assert.match(bad.error, /detail\.pageSizes\[1\] must be a whole number/);
+      assert.match(bad.error, /detail\.pageSizes\[2\]/);
+      assert.match(bad.error, /detail\.columnVisibility must be true or false/);
+    }
+    assert.equal(
+      validateWidgetDefinition({
+        ...base,
+        detail: { pageSizes: [10, 50], columnVisibility: true },
+      }).ok,
+      true
+    );
+  });
+
+  void it('round-trips size and hide through the query string', () => {
+    const query: DetailQuery = {
+      page: 2,
+      pageSize: 50,
+      hidden: ['note', 'a,b'],
+    };
+    const text = serializeDetailQuery(query, 25);
+    assert.match(text, /size=50/);
+    const parsed = parseDetailQuery(text, 25);
+    assert.ok(parsed.ok);
+    assert.deepEqual(parsed.value, query);
+  });
+
+  void it('leaves size out at the default and when none is given', () => {
+    assert.equal(serializeDetailQuery({ page: 1, pageSize: 25 }, 25), '');
+    assert.equal(serializeDetailQuery({ page: 1, pageSize: 50 }), '');
+  });
+
+  void it('rejects a malformed or unoffered size, naming it', () => {
+    const bad = parseDetailQuery('size=0');
+    assert.ok(!bad.ok);
+    assert.match(bad.error, /size must be a whole number from 1 to 200/);
+    const unoffered = parseDetailQuery('size=7', 25, undefined, {
+      pageSizes: [10, 25],
+    });
+    assert.ok(!unoffered.ok);
+    assert.match(unoffered.error, /size 7 is not one of the page sizes/);
+  });
+
+  void it('ignores size and hide a widget does not offer', () => {
+    const parsed = parseDetailQuery('size=50&hide=note', 25, undefined, {
+      pageSizes: [],
+      columnVisibility: false,
+    });
+    assert.ok(parsed.ok);
+    assert.equal(parsed.value.pageSize, 25);
+    assert.equal(parsed.value.hidden, undefined);
+  });
+
+  void it('checks hide against known columns', () => {
+    const parsed = parseDetailQuery('hide=nope', 25, data);
+    assert.ok(!parsed.ok);
+    assert.match(parsed.error, /hide column "nope" does not exist/);
+  });
+
+  void it('carries size and hide through deep links', () => {
+    const defs = [
+      {
+        key: 'top',
+        title: 'Top',
+        detail: { pageSize: 10, pageSizes: [10, 50], columnVisibility: true },
+      },
+    ];
+    const link = parseDetailLink('widget=top&size=50&hide=note', defs);
+    assert.ok(link.ok && link.value !== undefined);
+    assert.equal(link.value.query.pageSize, 50);
+    assert.deepEqual(link.value.query.hidden, ['note']);
+    assert.equal(
+      serializeDetailLink(link.value),
+      'widget=top&size=50&hide=note'
+    );
+    assert.equal(withDetailLink('tab=a&size=3&hide=x', null), 'tab=a');
+    const refused = parseDetailLink('widget=top&size=7', defs);
+    assert.ok(!refused.ok);
+  });
+
+  void it('sanitizes unknown or all-hiding hidden lists', () => {
+    const cleaned = sanitizeDetailQuery(
+      { page: 1, pageSize: 25, hidden: ['note', 'zzz'] },
+      data.columns
+    );
+    assert.deepEqual(cleaned.hidden, ['note']);
+    const all = sanitizeDetailQuery(
+      { page: 1, pageSize: 25, hidden: ['name', 'sold', 'note'] },
+      data.columns
+    );
+    assert.equal(all.hidden, undefined);
+  });
+
+  void it('hides columns in every row and leaves queries unaffected', () => {
+    const hidden = hideColumns(data, ['sold']);
+    assert.deepEqual(
+      hidden.columns.map((column) => column.key),
+      ['name', 'note']
+    );
+    assert.equal(hidden.rows[0]?.length, 2);
+    assert.equal(hideColumns(data, undefined), data);
+    assert.deepEqual(
+      names({ page: 1, pageSize: 25, hidden: ['name'] }),
+      names({ page: 1, pageSize: 25 })
+    );
+    assert.equal(
+      providerQuery({ page: 1, pageSize: 5, hidden: ['a'] }).hidden,
+      undefined
     );
   });
 });

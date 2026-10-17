@@ -3,8 +3,9 @@
 - **Status:** Core (0.4.0), client-mode React (0.4.0, 0.5.0) and server mode
   (`mode: 'server'`, `totalRows`, debounced inputs, busy state, last-page
   clamp) are built. URL deep links (`detail`, `onDetailChange`, `parseDetailLink`,
-  `serializeDetailLink`, `withDetailLink`) are built too. Page-size choice and column
-  visibility are still planned.
+  `serializeDetailLink`, `withDetailLink`) are built too, and so are the page-size
+  choice (`detail.pageSizes`, `size` in the URL) and column visibility
+  (`detail.columnVisibility`, `DetailQuery.hidden`, `hide` in the URL).
 - **Date:** 2026-10-06
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.3.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
@@ -168,7 +169,12 @@ Pure, tested functions in `src/core/detail.ts`:
 - Filter inputs have visible labels; a polite live region announces
   "Showing 1-25 of 312 results" after each change (debounced).
 - Pagination is a labelled `<nav>` with Previous/Next and a page indicator.
-  Page size is fixed by the definition (no selector in v1).
+  Page size comes from the definition; `detail.pageSizes` (two or more) adds
+  a "Rows per page" select, and `detail.columnVisibility` a "Columns" menu
+  (a native `<details>` of checkboxes; the last visible column stays). The
+  choices live in the query (`pageSize`, `hidden`) and the URL (`size`, `hide`),
+  not in the saved layout. Hidden columns are display only: search, filters and
+  sort still use them, a server provider is not sent them, CSV leaves them out.
 - Dialog: labelled by the title, focus moves to the dialog heading on open
   and returns to the View button on close; Esc closes; the page behind is
   inert. On narrow screens the dialog is full-screen.

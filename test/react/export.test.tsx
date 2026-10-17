@@ -139,3 +139,57 @@ void describe('chart SVG and PNG buttons', () => {
     assert.match(chartHtml(['csv']), /Download Revenue as CSV/);
   });
 });
+
+void describe('detail view page size and columns menu', () => {
+  const data = {
+    columns: [
+      { key: 'a', label: 'Name' },
+      { key: 'b', label: 'Qty' },
+    ],
+    rows: [[{ text: 'Ann' }, { text: '5' }]],
+  };
+
+  function html(props: Record<string, unknown>, hidden?: string[]): string {
+    return renderToStaticMarkup(
+      <WidgetSettingsProvider locale="en-US">
+        <WidgetDetail
+          title="Orders"
+          data={data}
+          query={{
+            page: 1,
+            pageSize: 25,
+            ...(hidden === undefined ? {} : { hidden }),
+          }}
+          onQueryChange={() => undefined}
+          {...props}
+        />
+      </WidgetSettingsProvider>
+    );
+  }
+
+  void it('shows nothing extra by default', () => {
+    const out = html({});
+    assert.doesNotMatch(out, /Rows per page/);
+    assert.doesNotMatch(out, /Columns/);
+  });
+
+  void it('shows a select with the current size selected', () => {
+    const out = html({ pageSizes: [10, 25, 100] });
+    assert.match(out, /Rows per page/);
+    assert.match(out, /<option value="25" selected="">25<\/option>/);
+    assert.doesNotMatch(html({ pageSizes: [25] }), /Rows per page/);
+  });
+
+  void it('lists columns and hides the ones in query.hidden', () => {
+    const out = html({ columnVisibility: true }, ['b']);
+    assert.match(out, /<summary>Columns<\/summary>/);
+    assert.match(out, /<th[^>]*>.*Name/s);
+    assert.doesNotMatch(out, /<th[^>]*>(?:(?!<\/th>).)*Qty/s);
+    assert.doesNotMatch(out, /<td[^>]*>5<\/td>|>5</);
+  });
+
+  void it('keeps the last visible column checked and disabled', () => {
+    const out = html({ columnVisibility: true }, ['b']);
+    assert.match(out, /disabled="" checked=""/);
+  });
+});

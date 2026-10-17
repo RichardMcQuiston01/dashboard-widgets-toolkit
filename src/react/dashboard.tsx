@@ -591,6 +591,10 @@ function DetailHost({
         onRetry={reload}
         mode={mode}
         busy={state.refreshing === true}
+        {...(options === undefined || options.pageSizes.length < 2
+          ? {}
+          : { pageSizes: options.pageSizes })}
+        columnVisibility={options?.columnVisibility === true}
         {...(exportFormats === undefined ? {} : { exportFormats })}
         {...(onExport === undefined ? {} : { onExport })}
         {...(onExportError === undefined ? {} : { onExportError })}
@@ -1754,7 +1758,12 @@ function DashboardInner({
                         onView: () =>
                           onOpenDetail === undefined
                             ? changeDetail(
-                                { key, query: initialDetailQuery(widget) },
+                                {
+                                  key,
+                                  query: initialDetailQuery(widget),
+                                  defaultPageSize:
+                                    initialDetailQuery(widget).pageSize,
+                                },
                                 'open'
                               )
                             : onOpenDetail(key),
@@ -1849,7 +1858,16 @@ function DashboardInner({
             widget={byKey.get(openDetail.key) as DashboardWidget}
             query={openDetail.query}
             onQueryChange={(query) =>
-              changeDetail({ key: openDetail.key, query }, 'query')
+              changeDetail(
+                {
+                  key: openDetail.key,
+                  query,
+                  ...(openDetail.defaultPageSize === undefined
+                    ? {}
+                    : { defaultPageSize: openDetail.defaultPageSize }),
+                },
+                'query'
+              )
             }
             loadDetail={loadDetail}
             onClose={() => changeDetail(null, 'close')}
