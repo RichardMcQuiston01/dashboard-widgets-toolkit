@@ -20,6 +20,8 @@ It gives you:
 - Controls for viewers, all saved in the layout: an edit mode, pages of widgets, and an Options dialog for each widget's title, width, view and options. A viewer can also duplicate a widget into a clone with its own settings.
 - Dashboard-level filters (a date range, a store, a segment) chosen once in a filter bar and passed to every provider, with option-aware cache keys and reloads only for the widgets that use a changed filter.
 - Locks that keep chosen widgets in place, a detail view with search, sort and paging, and CSS-variable theming with a `WidgetTheme` wrapper, contrast and color-vision checks, and presets.
+- Export: CSV for tables, bar lists, charts and the detail view, SVG and PNG download for charts (`exportFormats`), and a print stylesheet.
+- Freshness: an "Updated 2 minutes ago" line and a refresh button on each card (`freshness`, `onRefresh`), and a failed refresh keeps the last good data with a badge.
 - Storage helpers (an adapter contract and a `useStoredLayout` hook) so you can keep layouts in localStorage, a database or a server.
 
 You bring your own data. The package never fetches or stores anything. You register a provider for each widget, such as a database query, a web request, or a computed value. You also save each viewer's layout wherever you like. Payloads are plain JavaScript Object Notation (JSON), so a server can resolve widgets and a browser can check and draw them.
@@ -150,6 +152,8 @@ A `TABLE` cell's optional `value` (a string or number) is what the card's table 
   - [Lock and edit mode](./docs/design/lock-and-edit-mode.md)
   - [Widget options, views, and clones](./docs/design/widget-options-views-clones.md)
   - [Widget pages](./docs/design/widget-pages.md)
+  - [Export](./docs/design/export.md)
+  - [Freshness](./docs/design/freshness.md)
   - [Storage adapters](./docs/design/storage-adapters.md)
   - [Theming](./docs/design/theming.md)
 

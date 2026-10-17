@@ -9,6 +9,7 @@ export type DashboardClassSlot =
   | 'hiddenBar'
   | 'toolbar'
   | 'filters'
+  | 'freshness'
   | 'pageBar'
   | 'grid'
   | 'card'
@@ -164,6 +165,17 @@ export interface DashboardLabels {
   readonly opensInNewTab: string;
   /** Added to a chart's description when its positions are selectable (`onSelect`). */
   readonly chartSelectHint: string;
+  /** "Updated 2 minutes ago": `age` is already worded ("2 minutes ago"). */
+  readonly updatedAgo: (age: string) => string;
+  /** The age when under a minute. */
+  readonly justNow: string;
+  /** Shown instead of `updatedAgo` when the latest refresh failed. */
+  readonly refreshFailed: (age: string) => string;
+  /** Hidden text for screen readers beside the failed-refresh badge. */
+  readonly refreshFailedHint: string;
+  /** The card's refresh button, and its name while a refresh runs. */
+  readonly refreshWidget: (title: string) => string;
+  readonly refreshing: (title: string) => string;
   /** The card's View button, opening the detail view. */
   readonly view: (title: string) => string;
   /** The card's Download CSV button (`exportFormats`). */
@@ -292,6 +304,12 @@ export const DEFAULT_LABELS: DashboardLabels = {
   opensInNewTab: '(opens in a new tab)',
   chartSelectHint: 'Press Enter to select the highlighted position.',
   view: (title) => `View ${title}`,
+  updatedAgo: (age) => `Updated ${age}`,
+  justNow: 'just now',
+  refreshFailed: (age) => `Couldn't refresh. Showing data from ${age}`,
+  refreshFailedHint: 'The latest refresh failed.',
+  refreshWidget: (title) => `Refresh ${title}`,
+  refreshing: (title) => `Refreshing ${title}`,
   downloadCsv: (title) => `Download ${title} as CSV`,
   downloadSvg: (title) => `Download ${title} as SVG`,
   downloadPng: (title) => `Download ${title} as PNG`,

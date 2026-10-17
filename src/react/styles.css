@@ -1202,6 +1202,51 @@ tr.dwt-selectable:hover > td,
   letter-spacing: 0.02em;
 }
 
+/* Freshness: the age line under a card and the refresh button. */
+
+:where(.dwt-freshness) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--dwt-text-secondary);
+}
+
+:where(.dwt-freshness-error) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--dwt-text);
+  border: 1.5px solid var(--dwt-bad);
+  border-radius: 50%;
+}
+
+:where(.dwt-refresh[data-busy='true']) {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+:where(.dwt-refresh[data-busy='true'] svg) {
+  animation: dwt-spin 1s linear infinite;
+}
+
+@keyframes dwt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.dwt-refresh[data-busy='true'] svg) {
+    animation: none;
+  }
+}
+
 /* Print ------------------------------------------------------------------ */
 
 @media print {

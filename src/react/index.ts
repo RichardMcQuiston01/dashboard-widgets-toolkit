@@ -26,6 +26,11 @@ export {
 } from './dashboard.js';
 export { chartToSvg, svgToPng } from './chart-export.js';
 export {
+  FreshnessLine,
+  RefreshButton,
+  type FreshnessLineProps,
+} from './freshness.js';
+export {
   downloadExportFile,
   type BinaryExportFile,
   type DetailExportRequest,

@@ -8,8 +8,8 @@ Status: built (CSV, chart SVG/PNG, print stylesheet).
   `detailToCsv(detailData, options)` (core, pure strings, `Result<string>`).
 - `queryToCsv(data, query, options)`: client-mode detail data filtered and sorted by the viewer's query, every matching row (page ignored).
 - `exportFileName(title, extension, date?)`: a safe file name.
-- `Dashboard` / `WidgetGrid` `exportFormats={['csv']}`: a Download button on
-  loaded cards that have rows. `onExport(file)` replaces the browser download;
+- `Dashboard` / `WidgetGrid` `exportFormats` (`'csv'`, `'svg'`, `'png'`): download buttons on
+  loaded cards that have something to export. `onExport(file)` replaces the browser download;
   `onExportError(message)` reports failures. `downloadExportFile` is the one
   DOM call (an object URL and a temporary link).
 
@@ -25,8 +25,7 @@ Decisions:
   value behind a formatted cell.
 
 - Detail view: the same `exportFormats` adds a button. Client mode exports all
-  matching rows. Server mode calls `onExportDetail({ widgetKey, title, query,
-totalRows })` because the package fetches nothing: the host returns
+  matching rows. Server mode calls `onExportDetail({ widgetKey, title, query, totalRows })` because the package fetches nothing: the host returns
   `DetailData` (the package builds the CSV) or saves the file itself and
   returns nothing. `query` carries the viewer's search, filters and sort at
   page 1 with `pageSize` = `totalRows`; the host must honor it. No callback,
