@@ -13,6 +13,7 @@ export * from './filters.js';
 export * from './duplicate.js';
 export * from './export.js';
 export * from './format.js';
+export * from './freshness.js';
 export * from './grid.js';
 export * from './layout.js';
 export * from './loader.js';
