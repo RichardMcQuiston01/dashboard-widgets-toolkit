@@ -44,6 +44,7 @@ src/
     clones.ts           layout.clones: parse, cleanClones, withClones (materialize)
     duplicate.ts        duplicateWidget, deleteClone, nextCloneKey
     export.ts           widgetToCsv / detailToCsv / queryToCsv / exportFileName: pure CSV text
+    freshness.ts        formatAge / ageOf / msUntilAgeChanges: "2 minutes ago"
     storage.ts          re-exports the adapter contract and wrappers from
                         @richardmcquiston01/storage-adapters; createLayoutPersistence
                         (keys, backup, active page, repair) on its createPersistence
@@ -62,6 +63,7 @@ src/
     card.tsx            WidgetCard, ResolvedWidgetCard, widgetTitle
     download.ts         ExportFile, downloadExportFile (browser download)
     chart-export.ts     chartToSvg / svgToPng: a rendered chart as SVG or PNG (DOM, canvas)
+    freshness.tsx       FreshnessLine ("Updated ..." + failed-refresh badge), RefreshButton
     cells.tsx           CellContent: a table cell by its column's field type, custom formatters
     renderers.tsx       one renderer per kind, WidgetContent switch
     charts.tsx          GraphWidget: SVG bar/line, legend, tooltip, table twin
@@ -121,6 +123,9 @@ documented in the code and README, which win if they disagree.
   (`chart-export.ts`) and the print stylesheet (`@media print` in `styles.css`,
   guarded by `test/react/print.test.ts`). Nothing planned except the open
   questions in the doc.
+- `docs/design/freshness.md`: built: the age line and refresh button (`freshness`,
+  `onRefresh`), `OkWidget.refreshError` (a failed refresh keeps the last good
+  data) and `formatAge`. Nothing planned except the open questions in the doc.
 - `docs/design/storage-adapters.md`: the adapter contract, wrappers,
   `createLayoutPersistence` and `useStoredLayout` are built, with the stored
   active page and `Dashboard` `backup` / `onBackup`; concrete adapters stay in

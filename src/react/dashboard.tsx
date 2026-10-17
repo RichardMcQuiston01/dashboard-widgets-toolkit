@@ -247,6 +247,10 @@ export interface WidgetGridProps {
   readonly onExport?: (file: ExportFile) => void;
   /** See `DashboardProps.onExportError`. */
   readonly onExportError?: (message: string) => void;
+  /** See `DashboardProps.freshness`. */
+  readonly freshness?: boolean;
+  /** See `DashboardProps.onRefresh`. */
+  readonly onRefresh?: (key: string) => void;
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly className?: string;
 }
@@ -259,6 +263,8 @@ export function WidgetGrid({
   exportFormats,
   onExport,
   onExportError,
+  freshness,
+  onRefresh,
   headingLevel,
   className,
 }: WidgetGridProps): ReactNode {
@@ -291,6 +297,10 @@ export function WidgetGrid({
           {...(exportFormats === undefined ? {} : { exportFormats })}
           {...(onExport === undefined ? {} : { onExport })}
           {...(onExportError === undefined ? {} : { onExportError })}
+          {...(freshness === undefined ? {} : { freshness })}
+          {...(onRefresh === undefined
+            ? {}
+            : { onRefresh: () => onRefresh(widget.definition.key) })}
           {...(headingLevel === undefined ? {} : { headingLevel })}
           {...(onRetry === undefined || widget.status !== 'error'
             ? {}
@@ -401,6 +411,19 @@ export interface DashboardProps extends WidgetSettings {
   readonly onExport?: (file: ExportFile) => void;
   /** Called with a readable message when an export fails. */
   readonly onExportError?: (message: string) => void;
+  /**
+   * Shows "Updated 2 minutes ago" under each loaded card, and a badge when the
+   * latest refresh failed and the card is showing older data (the data a
+   * failed refresh leaves in place; see `OkWidget.refreshError`). Off by
+   * default.
+   */
+  readonly freshness?: boolean;
+  /**
+   * Adds a refresh button to each loaded card; called with the widget's key.
+   * Pass `useWidgets`'s `refresh`. The button is busy while that widget
+   * reloads.
+   */
+  readonly onRefresh?: (key: string) => void;
   /**
    * Server-mode detail views hold one page, so their Download CSV button
    * (shown when `exportFormats` has `'csv'`) asks you for every row matching
@@ -804,6 +827,8 @@ function DashboardInner({
   onExport,
   onExportError,
   onExportDetail,
+  freshness,
+  onRefresh,
   filters,
   filterValues,
   onFilterChange,
@@ -1754,6 +1779,10 @@ function DashboardInner({
                   {...(exportFormats === undefined ? {} : { exportFormats })}
                   {...(onExport === undefined ? {} : { onExport })}
                   {...(onExportError === undefined ? {} : { onExportError })}
+                  {...(freshness === undefined ? {} : { freshness })}
+                  {...(onRefresh === undefined
+                    ? {}
+                    : { onRefresh: () => onRefresh(key) })}
                 />
               );
             })}

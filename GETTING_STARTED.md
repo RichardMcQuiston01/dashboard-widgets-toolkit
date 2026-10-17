@@ -783,6 +783,70 @@ function SalesDashboard() {
 - `validateDashboardFilters(filters)` checks a list ahead of time, and
   `resolveFilterValues(filters, chosen)` gives the values a provider will see.
 
+### Exporting: CSV, SVG and PNG
+
+Turn on download buttons on loaded cards by listing the formats you want:
+
+```tsx
+<Dashboard widgets={widgets} exportFormats={['csv', 'svg', 'png']} />
+```
+
+`'csv'` applies to tables, bar lists and charts and to the detail view; `'svg'`
+and `'png'` to charts. The CSV file holds the same rows as the card's "View as
+table" (a table's footer is left out; a chart has the x label and one column per
+series), is named after the title (`recent-orders.csv`), and prefixes a quote to
+text a spreadsheet would run as a formula (`=...`, `+...`, `-...`, `@...`; plain
+numbers like `-5` are left alone). A chart exports as a standalone picture: the
+legend (redrawn inside the image), the `<title>` and `<desc>`, a background, and
+the colors as painted on screen, so a dark theme exports dark. The PNG is drawn
+at 2x for sharp text.
+
+To handle the file yourself (save it on a server, or fetch every row first), pass
+`onExport={(file) => ...}`; `file` is a text file (`csv`, `svg`: `text`) or a PNG
+(`blob`). `onExportError` receives a readable message when a download fails.
+
+The detail view gets a **Download CSV** button too. In client mode the file holds
+every row the viewer's search, filters and sort select, not only the page on
+screen. A server-mode detail view holds one page, so give `Dashboard`
+`onExportDetail` to fetch the rest:
+
+```tsx
+<Dashboard
+  exportFormats={['csv']}
+  onExportDetail={async ({ widgetKey, query, totalRows }) => {
+    // query: the viewer's search, filters and sort, page 1, pageSize = totalRows.
+    const all = await loadAllRows(widgetKey, query);
+    return all; // DetailData: the package builds the file. Return nothing if you saved it yourself.
+  }}
+/>
+```
+
+Without `onExportDetail`, server-mode detail views have no export button (client
+mode is unaffected). `queryToCsv(data, query)` does the same filtering for your
+own code.
+
+The same text is available without React, for a server response or a script:
+
+```ts
+import {
+  widgetToCsv,
+  detailToCsv,
+  exportFileName,
+} from '@richardmcquiston01/dashboard-widgets-toolkit';
+
+const csv = widgetToCsv(widget.data, {
+  cells: 'value',
+  delimiter: ';',
+  byteOrderMark: true,
+});
+if (!csv.ok) throw new Error(csv.error);
+```
+
+`cells: 'value'` exports the sort values (1234 instead of "$1,234.00") so a
+spreadsheet can calculate. For your own chart buttons, `chartToSvg(figureElement)`
+and `svgToPng(result)` are exported. See
+[docs/design/export.md](./docs/design/export.md).
+
 #### Printing
 
 `styles.css` includes an `@media print` block, so printing the page (or "Save as
@@ -793,6 +857,42 @@ with its table twin open (browsers with `::details-content`, Chromium 131+); and
 an open detail view prints in full. Only the active page prints, and minimized
 cards stay minimized, since both are the viewer's choices. Control the paper
 size and margins with your own `@page` rule.
+
+### Freshness: "Updated 2 minutes ago", refresh and failed reloads
+
+Show how old each card's data is, and let viewers refresh a card:
+
+```tsx
+const { widgets, refresh } = useWidgets(definitions, providers, context, {
+  refreshMs: 60_000, // optional polling
+});
+
+<Dashboard widgets={widgets} freshness onRefresh={refresh} />;
+```
+
+- `freshness` shows "Updated 2 minutes ago" under each loaded card, from the
+  widget's `updatedAt` (the time its provider answered, or when a cache stored
+  it). The words stay current by themselves: one timer per card fires only when
+  the text changes. The exact time is in the tooltip and the `<time>` element.
+- `onRefresh` adds a refresh button to each loaded card (pass `useWidgets`'s
+  `refresh`). It is busy while the widget reloads. Without `freshness` you still
+  get the button, and the other way round.
+- **A failed refresh keeps the last good data.** A reload that fails (the
+  button, `refreshMs` polling or `refresh()`) no longer turns a card that has
+  data into an error card: the data stays and the widget carries `refreshError`
+  (which names the widget and what failed). With `freshness` the line then reads
+  "Couldn't refresh. Showing data from 5 minutes ago" with a badge (the error in
+  its tooltip). Press refresh to retry; success clears it. A first load that
+  fails, or a reload after a filter, option or view change (the old data answers
+  a different question), still shows the error card.
+- While a refresh runs the widget is marked `stale: true` (this was already so
+  for cached data and filter changes).
+
+The age words come from `formatAge(updatedAt, now, { locale, justNow })` in the
+core, which you can use anywhere (`ageOf` and `msUntilAgeChanges` too). Labels:
+`updatedAgo`, `justNow`, `refreshFailed`, `refreshFailedHint`, `refreshWidget`,
+`refreshing`; class slot `freshness`. See
+[docs/design/freshness.md](./docs/design/freshness.md).
 
 ### Alternate views
 

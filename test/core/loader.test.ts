@@ -215,6 +215,91 @@ void describe('createWidgetLoader', () => {
     loader.dispose();
   });
 
+  void it('refresh marks the data stale and a failed refresh keeps it with refreshError', async () => {
+    let calls = 0;
+    const providers: WidgetProviders = {
+      slow: async () => {
+        calls += 1;
+        await sleep(10);
+        if (calls === 2) throw new Error('503');
+        return text(`v${calls}`);
+      },
+      fast: () => text('x'),
+    };
+    const loader = createWidgetLoader({ definitions, providers, context: {} });
+    loader.loadAll();
+    await sleep(30);
+    const first = loader.getSnapshot()[0];
+    assert.ok(first?.status === 'ok' && first.stale !== true);
+    assert.equal(first.refreshError, undefined);
+    const firstUpdatedAt: number | undefined = first.updatedAt;
+    assert.equal(typeof firstUpdatedAt, 'number');
+
+    loader.refresh('slow');
+    const during = loader.getSnapshot()[0];
+    assert.ok(during?.status === 'ok' && during.stale === true);
+    await sleep(30);
+    const failed = loader.getSnapshot()[0];
+    assert.ok(failed?.status === 'ok' && failed.data.kind === 'TEXT');
+    assert.equal(failed.data.value, 'v1', 'the last good data stays');
+    assert.equal(failed.stale, undefined);
+    assert.equal(failed.updatedAt, firstUpdatedAt, 'it is still the old data');
+    assert.match(
+      failed.refreshError ?? '',
+      /Widget "slow": provider failed: 503/
+    );
+
+    loader.refresh('slow');
+    const retrying = loader.getSnapshot()[0];
+    assert.ok(retrying?.status === 'ok' && retrying.stale === true);
+    assert.equal(
+      retrying.refreshError,
+      undefined,
+      'the retry clears the error'
+    );
+    await sleep(30);
+    const recovered = loader.getSnapshot()[0];
+    assert.ok(recovered?.status === 'ok' && recovered.data.kind === 'TEXT');
+    assert.equal(recovered.data.value, 'v3');
+    assert.equal(recovered.refreshError, undefined);
+    assert.equal(recovered.stale, undefined);
+    loader.dispose();
+  });
+
+  void it('a failed reload after an option change still shows the error card', async () => {
+    const choosable: WidgetDefinition = defineWidget({
+      key: 'pick',
+      title: 'Pick',
+      kind: 'TEXT',
+      options: [
+        {
+          key: 'flag',
+          type: 'boolean',
+          label: 'Flag',
+          default: false,
+        },
+      ],
+    });
+    const providers: WidgetProviders = {
+      pick: (_context, _definition, { options }) => {
+        if (options['flag'] === true) throw new Error('503');
+        return text('base');
+      },
+    };
+    const loader = createWidgetLoader({
+      definitions: [choosable],
+      providers,
+      context: {},
+    });
+    loader.loadAll();
+    await sleep(20);
+    loader.setOptions('pick', { flag: true });
+    await sleep(20);
+    // Different inputs: the old data does not answer this question.
+    assert.equal(loader.getSnapshot()[0]?.status, 'error');
+    loader.dispose();
+  });
+
   void it('refresh keeps visible data, but sends an error back to loading', async () => {
     let fail = true;
     const providers: WidgetProviders = {

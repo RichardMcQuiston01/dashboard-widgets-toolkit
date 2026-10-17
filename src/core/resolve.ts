@@ -93,8 +93,17 @@ export interface OkWidget {
   readonly data: WidgetData;
   /** When the data was produced (epoch ms), set when a provider resolved it. */
   readonly updatedAt?: number;
-  /** True while cached data is shown and a fresh load is still running. */
+  /**
+   * True while this data is shown and a newer load is still running: cached
+   * data, a refresh, or a reload after a filter or option change.
+   */
   readonly stale?: boolean;
+  /**
+   * Set when the latest refresh failed and the widget keeps showing its last
+   * good data (`updatedAt` says how old it is). Names the widget and what
+   * failed. A successful reload clears it.
+   */
+  readonly refreshError?: string;
   /** The widget's resolved option values; present when it declares options. */
   readonly options?: OptionValues;
   /**

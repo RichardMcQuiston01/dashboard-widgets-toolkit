@@ -8,6 +8,7 @@ import { sortFromOptions } from '../core/options.js';
 import type { DashboardWidget } from '../core/resolve.js';
 import type { SelectionTarget, WidgetSelection } from '../core/select.js';
 import { chartToSvg, svgToPng } from './chart-export.js';
+import { FreshnessLine, RefreshButton } from './freshness.js';
 import {
   csvExportFile,
   deliverExportFile,
@@ -296,6 +297,16 @@ export interface ResolvedWidgetCardProps {
   readonly onExport?: (file: ExportFile) => void;
   /** Called with a readable message when an export fails. */
   readonly onExportError?: (message: string) => void;
+  /**
+   * Shows "Updated 2 minutes ago" under a loaded card (from `updatedAt`), and
+   * when the latest refresh failed, that it is showing older data.
+   */
+  readonly freshness?: boolean;
+  /**
+   * Adds a refresh button to a loaded card. Pass `useWidgets`'s `refresh`
+   * for this card's key. The button is busy while the widget is `stale`.
+   */
+  readonly onRefresh?: () => void;
   readonly onRetry?: () => void;
   /**
    * Makes the widget's table rows, bars, alert items or chart positions
@@ -317,6 +328,8 @@ export function ResolvedWidgetCard({
   exportFormats,
   onExport,
   onExportError,
+  freshness,
+  onRefresh,
   actions,
   ...props
 }: ResolvedWidgetCardProps): ReactNode {
@@ -380,9 +393,33 @@ export function ResolvedWidgetCard({
     const failure: string | null = deliverExportFile(file, onExport);
     if (failure !== null) onExportError?.(failure);
   };
+  const refreshable: boolean =
+    onRefresh !== undefined && widget.status === 'ok';
+  const cardFooter: ReactNode =
+    freshness === true &&
+    widget.status === 'ok' &&
+    widget.updatedAt !== undefined ? (
+      <FreshnessLine
+        updatedAt={widget.updatedAt}
+        {...(widget.refreshError === undefined
+          ? {}
+          : { refreshError: widget.refreshError })}
+      />
+    ) : undefined;
   const cardActions: ReactNode =
-    canExportCsv || canExportSvg || canExportPng || actions !== undefined ? (
+    canExportCsv ||
+    canExportSvg ||
+    canExportPng ||
+    refreshable ||
+    actions !== undefined ? (
       <>
+        {refreshable && onRefresh !== undefined && (
+          <RefreshButton
+            title={title}
+            busy={widget.status === 'ok' && widget.stale === true}
+            onRefresh={onRefresh}
+          />
+        )}
         {canExportCsv && (
           <button
             type="button"
@@ -442,6 +479,7 @@ export function ResolvedWidgetCard({
     <WidgetCard
       {...props}
       {...(cardActions === undefined ? {} : { actions: cardActions })}
+      {...(cardFooter === undefined ? {} : { footer: cardFooter })}
       widgetKey={definition.key}
       title={title}
       status={widget.status}

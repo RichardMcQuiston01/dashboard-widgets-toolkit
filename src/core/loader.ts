@@ -58,8 +58,10 @@ export interface WidgetLoader {
   loadAll(): void;
   /**
    * Reloads started widgets (or just `key`). The previous call is aborted and
-   * its result ignored. Visible data stays until the new data arrives; an
-   * `error` widget goes back to `loading`. With `skipInFlight`, widgets that
+   * its result ignored. Visible data stays (marked `stale`) until the new data
+   * arrives, and if the reload fails it stays for good with `refreshError` set,
+   * so a flaky provider never blanks a card that has data. An `error` widget
+   * goes back to `loading`. With `skipInFlight`, widgets that
    * are still loading are left alone (what polling wants: a provider slower
    * than the interval would otherwise be restarted forever and never finish).
    */
@@ -178,7 +180,8 @@ export function createWidgetLoader<C extends WidgetContext>(
 
   async function run(
     definition: WidgetDefinition,
-    readCache: boolean
+    readCache: boolean,
+    keepDataOnError = false
   ): Promise<void> {
     const key: string = definition.key;
     const generation: number = (generations.get(key) ?? 0) + 1;
@@ -230,6 +233,17 @@ export function createWidgetLoader<C extends WidgetContext>(
     });
     if (!isCurrent()) return;
     inFlight.delete(key);
+    if (result.status === 'error' && keepDataOnError) {
+      // A refresh failed: keep the last good data on screen and say so.
+      const kept: DashboardWidget | undefined = snapshot.find(
+        (widget) => widget.definition.key === key
+      );
+      if (kept?.status === 'ok') {
+        const { stale: _stale, ...rest } = kept;
+        replace(key, { ...rest, refreshError: result.error });
+        return;
+      }
+    }
     if (result.status === 'ok') unapplied.set(key, result);
     else unapplied.delete(key);
     replace(
@@ -238,9 +252,13 @@ export function createWidgetLoader<C extends WidgetContext>(
     );
   }
 
-  function start(definition: WidgetDefinition, readCache: boolean): void {
+  function start(
+    definition: WidgetDefinition,
+    readCache: boolean,
+    keepDataOnError = false
+  ): void {
     started.add(definition.key);
-    void run(definition, readCache);
+    void run(definition, readCache, keepDataOnError);
   }
 
   function definitionFor(key: string): WidgetDefinition | undefined {
@@ -272,7 +290,14 @@ export function createWidgetLoader<C extends WidgetContext>(
       if (current?.status === 'error') {
         replace(target, { definition, status: 'loading' });
       }
-      start(definition, false);
+      let keepDataOnError = false;
+      if (current?.status === 'ok') {
+        // The data stays, marked as being replaced; a failed reload keeps it.
+        const { refreshError: _previous, ...rest } = current;
+        replace(target, { ...rest, stale: true });
+        keepDataOnError = true;
+      }
+      start(definition, false, keepDataOnError);
     }
   }
 
