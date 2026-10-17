@@ -428,7 +428,7 @@ useEffect(() => {
 />;
 ```
 
-- `detail` is `{ key, query }` or `null` (closed); leave it out and `Dashboard`
+- `detail` is `{ key, query, defaultPageSize? }` or `null` (closed); leave it out and `Dashboard`
   keeps the state itself (`defaultDetail` sets the initial one).
   `onDetailChange(next, reason)` has `reason` `'open'`, `'query'` or `'close'`.
 - `parseDetailLink(queryString, definitions)` is ok with `undefined` when there
@@ -445,7 +445,13 @@ link)` puts them into a query string that has your own parameters (`tab=...`),
 - In server mode a deep link loads the right page on open; client mode sorts,
   filters and pages the loaded rows to match.
 
-Page-size choice and column visibility are planned; see
+**Rows per page and columns.** `detail: { pageSize: 25, pageSizes: [10, 25, 100],
+columnVisibility: true }` adds a "Rows per page" select and a "Columns" menu to
+the detail view. The viewer's choices are in the query (`pageSize`, `hidden`),
+so they are in the deep link too (`size=100`, `hide=note`; `size` is left out
+when it is the widget's own). Hidden columns are display only: search, filters
+and sort still use them, a server-mode loader is not sent `hidden`, and the CSV
+download leaves them out. Neither choice is saved in the layout. See
 [docs/design/detail-view.md](./docs/design/detail-view.md).
 
 ### Searchable, sortable tables in the card

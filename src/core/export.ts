@@ -11,7 +11,12 @@ import type {
   DetailData,
   DetailQuery,
 } from './detail.js';
-import { deriveDetailData, queryRows, tableDetailData } from './detail.js';
+import {
+  deriveDetailData,
+  hideColumns,
+  queryRows,
+  tableDetailData,
+} from './detail.js';
 import type { WidgetData } from './payload.js';
 import { err, ok, type Result } from './result.js';
 
@@ -106,7 +111,7 @@ export function detailToCsv(
  * The rows of client-mode detail data that match `query` (search, column
  * filters and sort; the page and page size are ignored) as CSV, so the file
  * holds everything the viewer's filters select, not just the page on screen.
- * `locale` orders text the way the detail view does.
+ * Columns in `query.hidden` are left out. `locale` orders text the way the detail view does.
  */
 export function queryToCsv(
   data: DetailData,
@@ -121,7 +126,10 @@ export function queryToCsv(
   );
   if (!everything.ok) return everything;
   return detailToCsv(
-    { columns: data.columns, rows: everything.value.rows },
+    hideColumns(
+      { columns: data.columns, rows: everything.value.rows },
+      query.hidden
+    ),
     csvOptions
   );
 }

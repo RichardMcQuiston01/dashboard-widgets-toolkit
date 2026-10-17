@@ -186,6 +186,10 @@ export interface DashboardLabels {
   readonly close: string;
   readonly search: string;
   readonly filterBy: (column: string) => string;
+  /** The detail view's page-size select (`detail.pageSizes`). */
+  readonly rowsPerPage: string;
+  /** The detail view's column menu (`detail.columnVisibility`). */
+  readonly columnsMenu: string;
   readonly sortBy: (column: string) => string;
   readonly noResults: string;
   /** e.g. "Showing 1–25 of 312 results". */
@@ -316,6 +320,8 @@ export const DEFAULT_LABELS: DashboardLabels = {
   close: 'Close',
   search: 'Search',
   filterBy: (column) => `Filter ${column}`,
+  rowsPerPage: 'Rows per page',
+  columnsMenu: 'Columns',
   sortBy: (column) => `Sort by ${column}`,
   noResults: 'No matching results.',
   showingRows: (from, to, total) => `Showing ${from}–${to} of ${total} results`,

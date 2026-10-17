@@ -186,3 +186,20 @@ void describe('queryToCsv', () => {
     assert.match(result.ok ? '' : result.error, /sort column "nope"/);
   });
 });
+
+void describe('queryToCsv with hidden columns', () => {
+  void it('leaves hidden columns out of the file', () => {
+    const csv = queryToCsv(
+      {
+        columns: [
+          { key: 'a', label: 'A' },
+          { key: 'b', label: 'B' },
+        ],
+        rows: [[{ text: '1' }, { text: '2' }]],
+      },
+      { page: 1, pageSize: 25, hidden: ['a'] }
+    );
+    assert.ok(csv.ok);
+    assert.equal(csv.value, 'B\r\n2\r\n');
+  });
+});
