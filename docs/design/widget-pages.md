@@ -283,7 +283,7 @@ Indicative; after edit mode (0.9.0) and the options dialog (0.11.0), before clon
 | ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | 0.10.0  | **Built.** Core: `pages` in the layout, helpers, `placeRows`/`fitCount`, `normalizeLayout`, definition `page`                                                 |
 | 2     | 0.10.0  | **Built.** React: page bar (tabs and dots, hidden for one page), `activePage`, lazy loading by page, Move to page select, edit-mode Add/Rename/Reorder/Delete |
-| 3     | later   | **Swipe built.** Drag onto a page tab, adjacent prefetch tuning, `retain`/`release` still planned                                                             |
+| 3     | later   | **Swipe and drag onto a page tab built.** Adjacent prefetch tuning and `retain`/`release` still planned                                                       |
 
 Tests (`test/core`): round trips with and without `pages` and byte-identical old
 JSON; `pageLayout`/`withPageLayout`; `placeRows` including the 7-wide example and flexible growth that never adds a row;
