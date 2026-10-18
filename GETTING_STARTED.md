@@ -1354,10 +1354,57 @@ page in view. With one page (or none) there is no page bar.
 - **Tabs and dots.** Tabs are a real `tablist` (arrow keys, Home and End move and
   select; names read "Page 2 of 3: Sales"). Under 640px they collapse to dots
   with Previous and Next buttons. Page changes are announced.
+- **Swipe.** On a touch screen, swiping left or right on the page changes page
+  (left is the next page, as on a phone's home screen; right-to-left layouts
+  flip). It never starts on a button, link, field, drag handle or a table that
+  scrolls sideways, it does not wrap past the first or last page, and a mostly
+  vertical movement is a scroll. The page bar stays the baseline: nothing
+  depends on the gesture. `swipeDirection` and `adjacentPageKey` (core) and
+  `usePageSwipe` (React) are exported if you build your own page container.
+- **Drag onto a tab.** With `draggable`, drag a card by its handle onto another
+  page's tab (or dot) to move it there: the tab is outlined while the card is
+  over it, solid when the page can take the card and dashed when the drop would
+  be refused (no room, or the widget is pinned), and releasing runs the same
+  move as the Arrange menu's "Move to page", with the same refusal message. The
+  view stays on the current page. A lone widget on a paged dashboard gets a
+  handle too, so a page can be emptied this way. The Move to page menu stays as
+  the single-pointer alternative. `tabAtPoint` (core) and the `tabsRef` / `tabFor`
+  / `onDropOnTab` options of `usePointerReorder` are exported for your own page bar.
 - **Lazy loading by page.** Only the page in view is rendered, so with
   `useWidgets(..., { loadWhen: 'visible' })` (and `gridRef` around the
   dashboard) widgets on other pages load the first time their page is shown, and
   keep their data when the viewer comes back.
+- **Releasing far-away pages.** A page keeps its data after the viewer leaves it,
+  which is what makes going back instant but also means a long-lived dashboard
+  with many pages only grows. `release(keys)` from `useWidgets` (with
+  `loadWhen: 'visible'`) drops the payloads of widgets you name: they show as
+  loading and load again the next time their card appears, from your `cache`
+  first when you pass one, so a returning viewer sees the old numbers at once
+  (marked stale) and fresh ones a moment later. `farPageWidgetKeys(definitions,
+layout, activeKey, keep)` names the widgets on pages more than `keep` pages
+  (default 1, the neighbours) from the page in view:
+
+  ```tsx
+  const { widgets, release, gridRef } = useWidgets(
+    definitions,
+    providers,
+    ctx,
+    {
+      loadWhen: 'visible',
+      cache,
+    }
+  );
+  useEffect(() => {
+    release(farPageWidgetKeys(definitions, layout, pageKey, 1));
+  }, [pageKey, layout, release]);
+  // <div ref={gridRef}><Dashboard widgets={widgets} activePage={pageKey} .../></div>
+  ```
+
+  A widget whose card is on screen is never released, option and view choices
+  survive a release, and with `loadWhen: 'mount'` `release` does nothing (those
+  widgets were promised up front). `loader.release(keys)` is the same on the
+  core loader.
+
 - **Editing.** With `onLayoutChange`, editing shows **Add page**, Rename, Move
   left/right and Delete (a trash icon; it asks first) for the page in view. Add
   page asks for a name first, and Escape or ✕ drops the new page again. The

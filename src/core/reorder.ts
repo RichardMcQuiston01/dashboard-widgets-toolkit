@@ -131,6 +131,40 @@ export function listPosition<T extends LayoutItem>(
   return index === -1 ? undefined : { position: index + 1, total: keys.length };
 }
 
+/** A page tab's rectangle in viewport coordinates. */
+export interface TabBox {
+  readonly key: string;
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** Pixels around a tab that still count as being over it. */
+export const TAB_DROP_SLOP_PX = 8;
+
+/**
+ * The page tab under a dragged card's pointer: the one the point is inside,
+ * or within `slopPx` of (tabs are small targets), the nearest winning and the
+ * first in `boxes` order a tie. Undefined when the pointer is over none.
+ */
+export function tabAtPoint(
+  boxes: readonly TabBox[],
+  point: DragPoint,
+  slopPx: number = TAB_DROP_SLOP_PX
+): string | undefined {
+  let best: TabBox | undefined;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const box of boxes) {
+    const distance: number = distanceTo(box, point);
+    if (distance <= slopPx && distance < bestDistance) {
+      best = box;
+      bestDistance = distance;
+    }
+  }
+  return best?.key;
+}
+
 /** Pixels from the viewport edge where auto-scroll starts. */
 export const AUTO_SCROLL_EDGE_PX = 64;
 /** Fastest auto-scroll, in pixels per frame. */

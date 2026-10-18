@@ -9,6 +9,7 @@ import {
   dropTargetKey,
   listPosition,
   reorderOnto,
+  tabAtPoint,
   type CardBox,
 } from '../../src/core/reorder.js';
 
@@ -127,5 +128,33 @@ void describe('autoScrollStep', () => {
 
   void it('does nothing for a degenerate viewport', () => {
     assert.equal(autoScrollStep(0, 0), 0);
+  });
+});
+
+void describe('tabAtPoint', () => {
+  const tabs = [
+    { key: 'one', left: 0, top: 0, width: 80, height: 32 },
+    { key: 'two', left: 90, top: 0, width: 80, height: 32 },
+  ];
+
+  void it('finds the tab the point is inside', () => {
+    assert.equal(tabAtPoint(tabs, { x: 40, y: 16 }), 'one');
+    assert.equal(tabAtPoint(tabs, { x: 120, y: 16 }), 'two');
+  });
+
+  void it('forgives a little slop around a small tab', () => {
+    assert.equal(tabAtPoint(tabs, { x: 40, y: 38 }), 'one');
+    assert.equal(tabAtPoint(tabs, { x: 40, y: 41 }), undefined);
+    assert.equal(tabAtPoint(tabs, { x: 40, y: 41 }, 12), 'one');
+  });
+
+  void it('picks the nearer tab in the gap between two', () => {
+    assert.equal(tabAtPoint(tabs, { x: 83, y: 16 }), 'one');
+    assert.equal(tabAtPoint(tabs, { x: 88, y: 16 }), 'two');
+  });
+
+  void it('finds nothing away from the tabs, or with no tabs', () => {
+    assert.equal(tabAtPoint(tabs, { x: 300, y: 300 }), undefined);
+    assert.equal(tabAtPoint([], { x: 1, y: 1 }), undefined);
   });
 });

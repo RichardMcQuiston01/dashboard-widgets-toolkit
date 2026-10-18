@@ -68,6 +68,7 @@ import {
 import type { WidgetSelection } from '../core/select.js';
 import type { WidgetThemeStyles } from '../core/theme.js';
 import type { WidgetData } from '../core/payload.js';
+import { adjacentPageKey } from '../core/swipe.js';
 import { applyView, BASE_VIEW_KEY, loadViewKey } from '../core/views.js';
 import {
   clampServerQuery,
@@ -98,6 +99,7 @@ import { WidgetEditMenu, type EditMenuItem } from './edit-menu.js';
 import { FilterBar } from './filters.js';
 import { WidgetOptionsDialog } from './options-dialog.js';
 import { WidgetTheme } from './theme.js';
+import { usePageSwipe, type PageSwipeProps } from './use-page-swipe.js';
 import { usePointerReorder } from './use-reorder.js';
 import {
   WidgetDetail,
@@ -121,11 +123,13 @@ function PagePanel({
   paged,
   id,
   labelledBy,
+  swipe,
   children,
 }: {
   readonly paged: boolean;
   readonly id: string;
   readonly labelledBy: string;
+  readonly swipe: PageSwipeProps;
   readonly children: ReactNode;
 }): ReactNode {
   if (!paged) return <>{children}</>;
@@ -135,6 +139,7 @@ function PagePanel({
       id={id}
       aria-labelledby={labelledBy}
       className="dwt-page-panel"
+      {...swipe}
     >
       {children}
     </div>
@@ -630,7 +635,14 @@ function PageTabs({
   panelId,
   announcement,
   onSelect,
+  tablistRef,
+  dropKey,
+  dropRefused = false,
 }: {
+  readonly tablistRef?: RefObject<HTMLDivElement | null>;
+  /** The tab a dragged card is over, and whether dropping there is refused. */
+  readonly dropKey?: string;
+  readonly dropRefused?: boolean;
   readonly pages: readonly LayoutPage[];
   readonly activeKey: string;
   readonly idPrefix: string;
@@ -687,7 +699,12 @@ function PageTabs({
       >
         <span aria-hidden="true">‹</span>
       </button>
-      <div role="tablist" aria-label={labels.pageBar} className="dwt-page-tabs">
+      <div
+        ref={tablistRef}
+        role="tablist"
+        aria-label={labels.pageBar}
+        className="dwt-page-tabs"
+      >
         {pages.map((page, index) => {
           const selected: boolean = page.key === activeKey;
           return (
@@ -709,7 +726,13 @@ function PageTabs({
               )}
               title={page.title}
               tabIndex={selected ? 0 : -1}
-              className={slot('button', 'dwt-page-tab')}
+              data-page-key={page.key}
+              className={slot(
+                'button',
+                'dwt-page-tab',
+                dropKey === page.key &&
+                  (dropRefused ? 'dwt-page-tab--refused' : 'dwt-page-tab--drop')
+              )}
               onClick={() => onSelect(page.key)}
               onKeyDown={(event) => onKeyDown(event, index)}
             >
@@ -999,6 +1022,7 @@ function DashboardInner({
   }
   const [optionsKey, setOptionsKey] = useState<string | undefined>(undefined);
   const gridRef = useRef<HTMLDivElement>(null);
+  const pageTabsRef = useRef<HTMLDivElement>(null);
   const dragEnabled: boolean = draggable && controlsShown;
   const [dragAnnouncement, setDragAnnouncement] = useState<string>('');
   if (!dragEnabled && grab !== undefined) setGrab(undefined);
@@ -1028,9 +1052,32 @@ function DashboardInner({
         );
       }
     },
+    tabsRef: pageTabsRef,
+    tabFor: (dragged, pageKey) =>
+      !paged || pageKey === activeKey
+        ? undefined
+        : moveWidgetToPage(definitions, layout, dragged, pageKey, roomOptions)
+              .ok
+          ? 'allowed'
+          : 'refused',
+    // The same move as the Arrange menu's "Move to page", with its refusal
+    // message when the page has no room or the widget is locked.
+    onDropOnTab: (dragged, pageKey): void => moveWidgetAction(dragged, pageKey),
     onStateChange: (event, key): void => {
       if (event === 'cancel')
         setDragAnnouncement(labels.dragCancelled(titleOf(key)));
+    },
+  });
+  // Swipe left or right on a touch screen to change page; never mid-drag.
+  const pageSwipe: PageSwipeProps = usePageSwipe({
+    enabled: paged && drag === undefined,
+    onSwipe: (direction) => {
+      const next: string | undefined = adjacentPageKey(
+        pages,
+        activeKey,
+        direction
+      );
+      if (next !== undefined) selectPage(next);
     },
   });
   // Moving a card in the DOM can drop its focus; give it back to the handle.
@@ -1384,6 +1431,10 @@ function DashboardInner({
           panelId={panelId}
           announcement={pageAnnouncement}
           onSelect={selectPage}
+          tablistRef={pageTabsRef}
+          {...(drag?.tabKey === undefined
+            ? {}
+            : { dropKey: drag.tabKey, dropRefused: drag.tabRefused === true })}
         />
       )}
       {controlsShown && (
@@ -1491,6 +1542,7 @@ function DashboardInner({
       )}
       <PagePanel
         paged={paged}
+        swipe={pageSwipe}
         id={panelId}
         labelledBy={`${instanceId}-tab-${pages.findIndex((p) => p.key === activeKey)}`}
       >
@@ -1652,8 +1704,10 @@ function DashboardInner({
                       },
                     ]),
               ];
+              // A lone widget has nothing to reorder, but on a paged dashboard
+              // it can still be dragged onto another page's tab.
               const dragHandle: boolean =
-                dragEnabled && !lock.move && shown.length > 1;
+                dragEnabled && !lock.move && (shown.length > 1 || paged);
               const actions: ReactNode = controlsShown ? (
                 <>
                   {dragHandle && (

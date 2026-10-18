@@ -1068,6 +1068,53 @@ void describe('WidgetGrid and Dashboard', () => {
       assert.match(markup, /aria-controls="([^"]+)"/);
     });
 
+    void it('marks each tab with its page key, for dropping a card on it', () => {
+      const markup = render();
+      assert.match(markup, /role="tab"[^>]*data-page-key="p1"/);
+      assert.match(markup, /role="tab"[^>]*data-page-key="p2"/);
+    });
+
+    void it('a lone widget on a paged dashboard still gets a drag handle', () => {
+      const lone = renderToStaticMarkup(
+        <Dashboard
+          widgets={pageWidgets}
+          layout={{
+            ...twoPages,
+            pages: [
+              {
+                key: 'p1',
+                title: 'Sales',
+                order: ['a'],
+                hidden: [],
+                minimized: [],
+              },
+              {
+                key: 'p2',
+                title: 'Stock',
+                order: ['b', 'c'],
+                hidden: [],
+                minimized: [],
+              },
+            ],
+          }}
+          onLayoutChange={() => undefined}
+          draggable
+        />
+      );
+      assert.match(lone, /aria-label="Reorder Alpha"/);
+      // Without pages a lone widget has nothing to reorder, so no handle.
+      assert.doesNotMatch(
+        renderToStaticMarkup(
+          <Dashboard
+            widgets={pageWidgets.slice(0, 1)}
+            onLayoutChange={() => undefined}
+            draggable
+          />
+        ),
+        /dwt-drag-handle/
+      );
+    });
+
     void it('renders only the page in view', () => {
       const first = render();
       assert.match(first, /Alpha<\/h2>/);

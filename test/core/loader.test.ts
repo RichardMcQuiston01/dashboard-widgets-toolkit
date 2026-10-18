@@ -554,3 +554,140 @@ void describe('createWidgetLoader', () => {
     });
   });
 });
+
+void describe('release', () => {
+  void it('drops the payload and loads again on the next load', async () => {
+    let calls = 0;
+    const loader = createWidgetLoader({
+      definitions,
+      providers: {
+        slow: () => text(`call ${++calls}`),
+        fast: () => text('x'),
+      },
+      context: {},
+    });
+    loader.load('slow');
+    loader.load('fast');
+    await sleep(10);
+    assert.equal(statusOf(loader.getSnapshot()), 'slow:ok fast:ok');
+    loader.release(['slow']);
+    assert.equal(statusOf(loader.getSnapshot()), 'slow:loading fast:ok');
+    // load() does nothing for a started widget, but a released one starts again.
+    loader.load('fast');
+    loader.load('slow');
+    await sleep(10);
+    const slow = loader.getSnapshot()[0];
+    assert.ok(slow?.status === 'ok' && slow.data.kind === 'TEXT');
+    assert.equal(slow.data.value, 'call 2');
+    assert.equal(calls, 2);
+    loader.dispose();
+  });
+
+  void it('aborts a load in flight and ignores its late result', async () => {
+    let aborted = false;
+    const loader = createWidgetLoader({
+      definitions,
+      providers: {
+        slow: async (_c, _d, { signal }) => {
+          signal.addEventListener('abort', () => (aborted = true));
+          await sleep(30);
+          return text('late');
+        },
+        fast: () => text('x'),
+      },
+      context: {},
+    });
+    loader.load('slow');
+    await sleep(5);
+    loader.release(['slow']);
+    await sleep(60);
+    assert.equal(aborted, true);
+    assert.equal(statusOf(loader.getSnapshot()), 'slow:loading fast:loading');
+    loader.dispose();
+  });
+
+  void it('ignores unknown and never-started keys and does not notify', () => {
+    const loader = createWidgetLoader({
+      definitions,
+      providers: { slow: () => text('a'), fast: () => text('b') },
+      context: {},
+    });
+    let notified = 0;
+    loader.subscribe(() => (notified += 1));
+    loader.release(['slow', 'nope']);
+    assert.equal(notified, 0);
+    loader.dispose();
+  });
+
+  void it('brings a released widget back from the cache as stale', async () => {
+    const cache = new MemoryCache();
+    let calls = 0;
+    const loader = createWidgetLoader({
+      definitions,
+      providers: {
+        slow: async () => {
+          calls += 1;
+          await sleep(calls === 1 ? 0 : 40);
+          return text(`call ${calls}`);
+        },
+        fast: () => text('x'),
+      },
+      context: {},
+      cache,
+    });
+    loader.load('slow');
+    await sleep(20);
+    loader.release(['slow']);
+    assert.equal(statusOf(loader.getSnapshot()), 'slow:loading fast:loading');
+    loader.load('slow');
+    await sleep(15);
+    const back = loader.getSnapshot()[0];
+    assert.ok(back?.status === 'ok' && back.data.kind === 'TEXT');
+    assert.equal(back.data.value, 'call 1');
+    assert.equal(back.stale, true);
+    await sleep(60);
+    const fresh = loader.getSnapshot()[0];
+    assert.ok(fresh?.status === 'ok' && fresh.data.kind === 'TEXT');
+    assert.equal(fresh.data.value, 'call 2');
+    loader.dispose();
+  });
+
+  void it('keeps the option choices of a released widget', async () => {
+    const seen: unknown[] = [];
+    const withOption = defineWidget({
+      key: 'opt',
+      title: 'Opt',
+      kind: 'TEXT',
+      options: [
+        {
+          key: 'mode',
+          type: 'choice',
+          label: 'Mode',
+          choices: [
+            { value: 'a', label: 'A' },
+            { value: 'b', label: 'B' },
+          ],
+          default: 'a',
+        },
+      ],
+    });
+    const loader = createWidgetLoader({
+      definitions: [withOption],
+      providers: {
+        opt: (_c, _d, { options }) => {
+          seen.push(options['mode']);
+          return text('x');
+        },
+      },
+      context: {},
+    });
+    loader.setOptions('opt', { mode: 'b' });
+    loader.load('opt');
+    await sleep(10);
+    loader.release(['opt']);
+    loader.load('opt');
+    await sleep(10);
+    assert.deepEqual(seen, ['b', 'b']);
+    loader.dispose();
+  });
+});
