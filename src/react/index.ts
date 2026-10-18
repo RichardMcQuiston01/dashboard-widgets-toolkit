@@ -66,6 +66,11 @@ export {
   type UsePointerReorderOptions,
   type UsePointerReorderResult,
 } from './use-reorder.js';
+export {
+  usePageSwipe,
+  type PageSwipeProps,
+  type UsePageSwipeOptions,
+} from './use-page-swipe.js';
 export { WidgetTheme, type WidgetThemeProps } from './theme.js';
 export { DEFAULT_SERIES_COLORS, seriesColor } from './palette.js';
 export { Thumbnail, WidgetLink } from './primitives.js';
