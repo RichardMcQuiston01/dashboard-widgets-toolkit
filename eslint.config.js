@@ -64,7 +64,7 @@ export default tseslint.config(
   },
   {
     // The core is runtime-neutral: no DOM either, and no React.
-    files: ['src/index.ts', 'src/core/**/*.ts'],
+    files: ['src/index.ts', 'src/core/**/*.ts', 'src/builder/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',

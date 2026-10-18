@@ -11,7 +11,7 @@
  * `dispose()` to cancel everything.
  */
 
-import type { WidgetDefinition } from './definition.js';
+import { providerKeyOf, type WidgetDefinition } from './definition.js';
 import {
   optionsCacheSuffix,
   sameOptionValues,
@@ -230,7 +230,7 @@ export function createWidgetLoader<C extends WidgetContext>(
     }
     if (!isCurrent()) return;
 
-    const providerKey: string = definition.sourceKey ?? key;
+    const providerKey: string = providerKeyOf(definition);
     const provider = Object.prototype.hasOwnProperty.call(
       providers,
       providerKey

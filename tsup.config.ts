@@ -8,6 +8,7 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     core: 'src/core/index.ts',
+    builder: 'src/builder/index.ts',
     react: 'src/react/index.ts',
   },
   format: ['esm', 'cjs'],

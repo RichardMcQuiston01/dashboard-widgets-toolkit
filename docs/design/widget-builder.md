@@ -1,10 +1,10 @@
 # Design: the Widget Builder
 
-- **Status:** Proposed. Nothing is built. Section 12 lists the decisions that
-  are the maintainer's to make, each with a recommendation; the phasing in
-  section 11 assumes the recommendations.
+- **Status:** Phase 1 (headless, 0.30.0) is built, with every recommendation in
+  section 12 accepted by the maintainer. Phases 2 (React building blocks, demo
+  tab) and 3 (viewer-created widgets) are not built.
 - **Date:** 2026-10-18
-- **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.29.x
+- **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.30.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
 
 ## 1. Summary
@@ -260,17 +260,18 @@ interface WidgetDefinition {
 }
 ```
 
-A helper `providerKeyOf(definition)` returns `sourceKey ?? source ?? key`, and
-`loader.ts`, `resolve.ts` (the provider lookup and `cacheKeyFor`) and
-`duplicate.ts` use it instead of reading `sourceKey ?? key` inline. Cache keys
-follow the provider key plus option values, so two builder widgets on one source
-with the same options share a cache entry, which is correct. A definition
-without `source` behaves exactly as today. Because a clone of a builder widget
-sets `sourceKey` to the _widget's_ key, `providerKeyOf` must follow the chain
-once (`clone -> builder widget -> source`): clones keep working, and
-`cleanClones` is unchanged.
+A helper `providerKeyOf(definition)` returns `source ?? sourceKey ?? key`, and
+`loader.ts` and `resolve.ts` (the provider lookup and `cacheKeyFor`) use it
+instead of reading `sourceKey ?? key` inline. `duplicate.ts` is unchanged: it
+uses `sourceKey` to find the original _definition_ (for its lock), not the
+provider. Cache keys follow the provider key plus option values, so two builder
+widgets on one source with the same options share a cache entry, which is
+correct. A definition without `source` behaves exactly as today. A clone copies
+its original's fields (`withClones`), so a clone of a builder widget carries
+`source` as well as `sourceKey`; putting `source` first in the chain means it
+still loads from the source with no lookup, and `cleanClones` is unchanged.
 
-`validateWidgetDefinition` checks `source` is a string. Whether the source is
+`validateWidgetDefinition` checks `source` is a non-empty string. Whether the source is
 registered is the consumer's check (`parseDefinitions` does it).
 
 ## 8. How it fits
@@ -339,6 +340,24 @@ round trips including key order; `parseDefinitions` skipping with reasons;
 `providerKeyOf` including the clone-of-builder chain; unchanged behaviour for
 definitions without `source`. The dual ESM/CJS build must keep working for the
 new entry, and the core must not import from `./builder`.
+
+Notes on how phase 1 was built, where it adds to the sketch above:
+
+- `defineSource` throws for an invalid description (a programmer error found
+  at module load); `validateSourceDescription` returns a `Result`.
+- `checkAgainstSource` also bounds what a stored definition may say: key
+  (`WIDGET_KEY_PATTERN`, 1 to 64 characters), title (80) and description (500).
+  Options must narrow their template: same type, bounds and choices inside it,
+  the same `apply`, and a default the template accepts. A restricted
+  `source.filters` requires the widget to list `filters` (an absent list means
+  "all").
+- `updateWidget` changes only `PATCHABLE_FIELDS`; `key`, `kind`, `source`,
+  `options` and `views` are refused by name. `validatePatch` reports each field
+  apart and a cross-field problem under the empty key.
+- `availableViews` keys are stable (`bars-<label>-<value>`, `bar-chart-<label>`,
+  `line-chart-<label>`, `table`, or the source's own view key).
+- `parseDefinitions` skips a repeated key (the first is kept) as well as rows
+  that fail; the envelope version must equal `DEFINITIONS_VERSION`.
 
 ## 12. Decisions and open questions
 

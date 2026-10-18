@@ -7,6 +7,7 @@
 
 import {
   isWidgetVisibleTo,
+  providerKeyOf,
   sortDefinitions,
   type WidgetDefinition,
 } from './definition.js';
@@ -303,7 +304,7 @@ export function cacheKeyFor(
   // loaded whenever their option values match.
   const base: string =
     options.cacheKey === undefined
-      ? (definition.sourceKey ?? definition.key)
+      ? providerKeyOf(definition)
       : options.cacheKey(definition);
   // A view the provider supplies is cached apart from the base payload.
   const view: string = loadViewKey(
@@ -548,9 +549,9 @@ export async function resolveWidgets<C extends WidgetContext>(
         definition,
         Object.prototype.hasOwnProperty.call(
           providers,
-          definition.sourceKey ?? definition.key
+          providerKeyOf(definition)
         )
-          ? providers[definition.sourceKey ?? definition.key]
+          ? providers[providerKeyOf(definition)]
           : undefined,
         context,
         options
