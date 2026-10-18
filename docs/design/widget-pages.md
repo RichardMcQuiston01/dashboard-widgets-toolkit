@@ -2,8 +2,7 @@
 
 - **Status:** Built: the core (0.10.0) and the React page bar, Move to page and
   page management (0.10.0 to 0.11.2), and swipe between pages on touch screens
-  (`swipe.ts`, `usePageSwipe`). Not built: drag onto a page tab and
-  `retain`/`release`. Decisions 1 to 6 of section 12 come from the maintainer; the
+  (`swipe.ts`, `usePageSwipe`), and drag onto a page tab. Not built: `retain`/`release`. Decisions 1 to 6 of section 12 come from the maintainer; the
   rest were taken as proposed.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
@@ -165,8 +164,13 @@ empty columns (see the options design). Growth never changes the count of rows:
   free") and "New page…" at the end. The widget goes to the end of the
   target page. This is the single-pointer, keyboard-friendly way and is always
   available.
-- **Drag onto a page tab** is added when drag and drop ships; the select remains
-  as the WCAG 2.5.7 alternative.
+- **Drag onto a page tab** is built: with `draggable`, a card dragged over
+  another page's tab (or dot) outlines it, solid when the move is allowed and
+  dashed when it would be refused, and releasing runs `moveWidgetToPage` through
+  the same action as the select (so the refusal message appears too). The tab
+  under the pointer wins over the cards beneath it, with 8px of slop around the
+  small tabs (`tabAtPoint`). The view stays on the current page. The select
+  remains as the WCAG 2.5.7 alternative.
 - **Locks.** A widget locked against moving always shows on its **home page**
   (`definition.page`, else the first page), whatever a saved layout says, and
   moving it to another page is refused. A pinned slot stays pinned on that page.

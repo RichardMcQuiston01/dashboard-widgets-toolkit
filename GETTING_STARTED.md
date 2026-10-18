@@ -1361,6 +1361,15 @@ page in view. With one page (or none) there is no page bar.
   vertical movement is a scroll. The page bar stays the baseline: nothing
   depends on the gesture. `swipeDirection` and `adjacentPageKey` (core) and
   `usePageSwipe` (React) are exported if you build your own page container.
+- **Drag onto a tab.** With `draggable`, drag a card by its handle onto another
+  page's tab (or dot) to move it there: the tab is outlined while the card is
+  over it, solid when the page can take the card and dashed when the drop would
+  be refused (no room, or the widget is pinned), and releasing runs the same
+  move as the Arrange menu's "Move to page", with the same refusal message. The
+  view stays on the current page. A lone widget on a paged dashboard gets a
+  handle too, so a page can be emptied this way. The Move to page menu stays as
+  the single-pointer alternative. `tabAtPoint` (core) and the `tabsRef` / `tabFor`
+  / `onDropOnTab` options of `usePointerReorder` are exported for your own page bar.
 - **Lazy loading by page.** Only the page in view is rendered, so with
   `useWidgets(..., { loadWhen: 'visible' })` (and `gridRef` around the
   dashboard) widgets on other pages load the first time their page is shown, and
