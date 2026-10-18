@@ -9,7 +9,9 @@ import {
 } from 'react';
 
 import {
+  createDetailPageCache,
   defaultDetailQuery,
+  detailQuerySignature,
   hideColumns,
   providerQuery,
   queryRows,
@@ -20,6 +22,7 @@ import {
   type DetailColumn,
   type DetailData,
   type DetailMode,
+  type DetailPageCache,
   type DetailProviderOptions,
   type DetailPage,
   type DetailQuery,
@@ -684,9 +687,15 @@ export function useDetailData(
   const isServer: boolean = server !== undefined;
   const queryRef = useRef<DetailQuery>(server?.query ?? defaultDetailQuery());
   queryRef.current = server?.query ?? queryRef.current;
+  // Server-mode pages already loaded for this open detail view. What they
+  // answer depends on everything but the query, so any of those changing
+  // (including a retry) starts a fresh cache.
+  const pageCache = useRef<{
+    scope: readonly unknown[];
+    pages: DetailPageCache;
+  } | null>(null);
   const querySignature: string = useMemo(
-    () =>
-      server === undefined ? '' : JSON.stringify(providerQuery(server.query)),
+    () => (server === undefined ? '' : detailQuerySignature(server.query)),
     [server]
   );
 
@@ -696,10 +705,33 @@ export function useDetailData(
     const query: DetailQuery = isServer
       ? providerQuery(queryRef.current)
       : defaultDetailQuery();
+    const scope: readonly unknown[] = [
+      load,
+      definition,
+      optionValues,
+      filterValues,
+      view,
+      attempt,
+    ];
+    if (
+      pageCache.current === null ||
+      pageCache.current.scope.some((part, index) => part !== scope[index])
+    ) {
+      pageCache.current = { scope, pages: createDetailPageCache() };
+    }
+    const pages: DetailPageCache = pageCache.current.pages;
+    // An earlier answer for this very query shows at once (busy, while the
+    // provider is asked again); otherwise the previous page stays until the
+    // new one arrives.
+    const remembered: DetailData | undefined = isServer
+      ? pages.get(query)
+      : undefined;
     setState((previous) =>
-      isServer && previous.data !== undefined
-        ? { status: 'ok', data: previous.data, refreshing: true }
-        : { status: 'loading' }
+      remembered !== undefined
+        ? { status: 'ok', data: remembered, refreshing: true }
+        : isServer && previous.data !== undefined
+          ? { status: 'ok', data: previous.data, refreshing: true }
+          : { status: 'loading' }
     );
     Promise.resolve()
       .then(() =>
@@ -730,6 +762,7 @@ export function useDetailData(
           `Widget "${definition.key}" detail`,
           isServer ? { mode: 'server', pageSize: query.pageSize } : {}
         );
+        if (checked.ok && isServer) pages.set(query, checked.value);
         setState(
           checked.ok
             ? { status: 'ok', data: checked.value }
