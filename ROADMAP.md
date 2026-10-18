@@ -70,6 +70,9 @@
   visibility (`detail.columnVisibility`), a detail view that follows provider
   views (`options.view`) with a derived table for charts, and a server-mode page
   cache by query (0.28.0).
+- Pages, the rest: swipe between pages on touch screens (`usePageSwipe`), drag a
+  widget onto a page tab, and `release` of far-away pages' payloads
+  (`loader.release`, `farPageWidgetKeys`) (0.29.0).
 - Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
   and `data-dwt-default-title` on cards (0.21.0).
 
@@ -83,9 +86,8 @@ Nothing is queued here right now: the planned work is under [Next](#next).
 
 ## Next
 
-- **Pages, the rest.** Swipe between pages, drag a widget onto a page tab (the
-  `draggable` reordering works within a page), and
-  payload release (`retain`/`release`) for far-away pages. See
+- **Pages, adjacent prefetch.** `loadWhen: 'adjacent'`: also load the next and
+  previous pages once the page in view has finished, so a swipe lands on data. See
   [docs/design/widget-pages.md](./docs/design/widget-pages.md).
 - **Widget Builder**, headless functions in a `./builder` subpath that create and
   edit a definition as JSON, with data-source descriptions; viewer-created widgets

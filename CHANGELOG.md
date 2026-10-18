@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 0.29.0
+
+### Minor Changes
+
+- 690c121: Swipe between pages on touch screens.
+  
+  On a paged `Dashboard`, swiping left or right on the page shows the next or previous page (right-to-left layouts flip). It never starts on a button, link, field, drag handle or a table that scrolls sideways, does not wrap past the ends, and treats a mostly vertical movement as a scroll; the page bar is unchanged. New exports: `swipeDirection`, `adjacentPageKey` and the swipe constants (core), and `usePageSwipe` (React) for your own page container.
+- 9b80885: Release the payloads of far-away pages.
+  
+  A page keeps its data after the viewer leaves it, so a long-lived dashboard with many pages only grows. `release(keys)` on `useWidgets` (and `loader.release(keys)` on the core loader) now drops the payloads of the widgets you name: a load in flight is aborted and its late result ignored, the card goes back to `loading`, option and view choices are kept, and it loads again the next time its card appears, from your `cache` first when you pass one. `farPageWidgetKeys(definitions, layout, activeKey, keep = 1)` names the widgets on pages more than `keep` pages from the page in view. With `loadWhen: 'mount'`, `useWidgets().release` does nothing, and a widget whose card is on screen is never released. Nothing is released automatically.
+- 9b295e3: Drag a widget onto a page tab.
+  
+  With `draggable` on a paged `Dashboard`, dragging a card over another page's tab (or dot) outlines it, solid when the page can take the card and dashed when the drop would be refused, and releasing moves the card there: the same move, and the same refusal message, as the Arrange menu's "Move to page". A lone widget on a paged dashboard now gets a drag handle too, so a page can be emptied this way. New exports: `tabAtPoint` and `TAB_DROP_SLOP_PX` (core), and the `tabsRef`, `tabFor` and `onDropOnTab` options of `usePointerReorder` (React) for your own page bar.
+
 ## 0.28.0
 
 ### Minor Changes
