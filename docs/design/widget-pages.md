@@ -1,9 +1,12 @@
 # Design: widget pages
 
-- **Status:** Built: the core (0.10.0) and the React page bar, Move to page and
-  page management (0.10.0 to 0.11.2), and swipe between pages on touch screens
-  (`swipe.ts`, `usePageSwipe`), and drag onto a page tab. Not built: `retain`/`release`. Decisions 1 to 6 of section 12 come from the maintainer; the
-  rest were taken as proposed.
+- **Status:** Built: the core (0.10.0), the React page bar, Move to page and page
+  management (0.10.0 to 0.11.2), swipe between pages on touch screens
+  (`swipe.ts`, `usePageSwipe`), drag onto a page tab, and `release` of far-away
+  pages' payloads (`loader.release`, `useWidgets().release`,
+  `farPageWidgetKeys`). Not built: adjacent prefetch tuning (`loadWhen: 'adjacent'`).
+  Decisions 1 to 6 of section 12 come from the maintainer; the rest were taken as
+  proposed.
 - **Date:** 2026-10-09
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.7.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
@@ -241,8 +244,19 @@ options below stay design ideas for later:
 Pages already visited keep their payloads under the loader's existing cache and
 refresh rules, so going back is instant and stale data is refreshed per the
 widget's `refresh` setting. Widgets on pages never visited cost nothing. The
-loader gains `retain(keys)`/`release(keys)` so a long-lived dashboard can drop
-the payloads of pages the viewer left far behind (open question 15).
+loader gains `release(keys)` so a long-lived dashboard can drop the payloads of
+pages the viewer left far behind (built, open question 16). Only `release` was
+built: `retain` would only have undone it, and a widget you do not release is
+retained. `release` aborts a load in flight and ignores its late result, drops
+the payload and puts the card back to `loading` as if it had never started
+(option and view choices stay); the next `load(key)` starts it again, from the
+`WidgetCache` first when there is one. `useWidgets().release` does nothing for
+`loadWhen: 'mount'` (nothing would load the widget again) and never releases a
+card that is on screen. `farPageWidgetKeys(definitions, layout, activeKey,
+keep = 1)` names what to release: the widgets on pages more than `keep` pages
+from the one in view. It is the consumer's call when to release (nothing is
+dropped automatically), so a dashboard that wants every visited page kept pays
+nothing.
 
 ## 8. Layers and defaults
 
@@ -283,7 +297,7 @@ Indicative; after edit mode (0.9.0) and the options dialog (0.11.0), before clon
 | ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | 0.10.0  | **Built.** Core: `pages` in the layout, helpers, `placeRows`/`fitCount`, `normalizeLayout`, definition `page`                                                 |
 | 2     | 0.10.0  | **Built.** React: page bar (tabs and dots, hidden for one page), `activePage`, lazy loading by page, Move to page select, edit-mode Add/Rename/Reorder/Delete |
-| 3     | later   | **Swipe and drag onto a page tab built.** Adjacent prefetch tuning and `retain`/`release` still planned                                                       |
+| 3     | 0.29.0  | **Swipe, drag onto a page tab and `release` built.** Adjacent prefetch tuning (`loadWhen: 'adjacent'`) still planned                                          |
 
 Tests (`test/core`): round trips with and without `pages` and byte-identical old
 JSON; `pageLayout`/`withPageLayout`; `placeRows` including the 7-wide example and flexible growth that never adds a row;
@@ -325,5 +339,6 @@ data loads only on first visit.
     viewers can't rename or delete the pages they defined?
 14. **Heights.** Count row heights as well as widths later?
 15. **`maxPages`.** No default limit (proposed), optional prop.
-16. **Memory.** Drop payloads of pages left far behind with `retain`/`release`,
-    or keep everything visited?
+16. **Memory.** Decided: keep everything visited by default, and offer
+    `release(keys)` with `farPageWidgetKeys` for dashboards that want to drop
+    far-away pages (section 7).

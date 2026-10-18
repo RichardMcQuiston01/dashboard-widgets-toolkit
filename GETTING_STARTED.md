@@ -1374,6 +1374,37 @@ page in view. With one page (or none) there is no page bar.
   `useWidgets(..., { loadWhen: 'visible' })` (and `gridRef` around the
   dashboard) widgets on other pages load the first time their page is shown, and
   keep their data when the viewer comes back.
+- **Releasing far-away pages.** A page keeps its data after the viewer leaves it,
+  which is what makes going back instant but also means a long-lived dashboard
+  with many pages only grows. `release(keys)` from `useWidgets` (with
+  `loadWhen: 'visible'`) drops the payloads of widgets you name: they show as
+  loading and load again the next time their card appears, from your `cache`
+  first when you pass one, so a returning viewer sees the old numbers at once
+  (marked stale) and fresh ones a moment later. `farPageWidgetKeys(definitions,
+layout, activeKey, keep)` names the widgets on pages more than `keep` pages
+  (default 1, the neighbours) from the page in view:
+
+  ```tsx
+  const { widgets, release, gridRef } = useWidgets(
+    definitions,
+    providers,
+    ctx,
+    {
+      loadWhen: 'visible',
+      cache,
+    }
+  );
+  useEffect(() => {
+    release(farPageWidgetKeys(definitions, layout, pageKey, 1));
+  }, [pageKey, layout, release]);
+  // <div ref={gridRef}><Dashboard widgets={widgets} activePage={pageKey} .../></div>
+  ```
+
+  A widget whose card is on screen is never released, option and view choices
+  survive a release, and with `loadWhen: 'mount'` `release` does nothing (those
+  widgets were promised up front). `loader.release(keys)` is the same on the
+  core loader.
+
 - **Editing.** With `onLayoutChange`, editing shows **Add page**, Rename, Move
   left/right and Delete (a trash icon; it asks first) for the page in view. Add
   page asks for a name first, and Escape or ✕ drops the new page again. The

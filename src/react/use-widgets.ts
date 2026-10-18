@@ -74,6 +74,15 @@ export interface UseWidgetsResult {
     key: string,
     chosen: Readonly<Record<string, unknown>>
   ) => void;
+  /**
+   * Drops the payloads of the widgets in `keys` (a paged dashboard's far-away
+   * pages: see `farPageWidgetKeys`). They show as loading and load again the next
+   * time their card appears, from the `cache` first when there is one. Only for
+   * `loadWhen: 'visible'`, which is what loads them again (with `'mount'` this
+   * does nothing, since every widget was promised to load up front), and a
+   * widget whose card is on screen is never released.
+   */
+  readonly release: (keys: readonly string[]) => void;
   /** Choose the dashboard filter values; same effect as `filterValues`. */
   readonly setFilterValues: (chosen: Readonly<Record<string, unknown>>) => void;
   /** Choose a widget's view; same effect as `viewValues`. */
@@ -327,5 +336,32 @@ export function useWidgets<C extends WidgetContext>(
     loaderRef.current?.refresh(key);
   }, []);
 
-  return { widgets, refresh, setOptions, setFilterValues, setView, gridRef };
+  const release = useCallback(
+    (keys: readonly string[]): void => {
+      if (
+        loadWhen !== 'visible' ||
+        typeof IntersectionObserver === 'undefined'
+      ) {
+        return;
+      }
+      const grid: HTMLDivElement | null = gridRef.current;
+      const gone: string[] = keys.filter(
+        (key) =>
+          grid === null ||
+          grid.querySelector(`[data-widget-key="${CSS.escape(key)}"]`) === null
+      );
+      loaderRef.current?.release(gone);
+    },
+    [loadWhen]
+  );
+
+  return {
+    widgets,
+    refresh,
+    release,
+    setOptions,
+    setFilterValues,
+    setView,
+    gridRef,
+  };
 }
