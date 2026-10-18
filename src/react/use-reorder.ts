@@ -10,8 +10,10 @@ import {
 import {
   autoScrollStep,
   dropTargetKey,
+  tabAtPoint,
   type CardBox,
   type DropPlacement,
+  type TabBox,
 } from '../core/reorder.js';
 
 /** Pixels the pointer must travel before a press on a handle becomes a drag. */
@@ -27,7 +29,14 @@ export interface PointerDragState {
   /** The card it would drop onto, and where the indicator goes. */
   readonly targetKey?: string;
   readonly placement?: DropPlacement;
+  /** The page tab under the pointer, when the drop would move it to that page. */
+  readonly tabKey?: string;
+  /** True when that move would be refused (the drop reports why). */
+  readonly tabRefused?: boolean;
 }
+
+/** Whether a card may be dropped onto a page tab. */
+export type TabDropStatus = 'allowed' | 'refused';
 
 export interface UsePointerReorderOptions {
   readonly enabled: boolean;
@@ -43,6 +52,22 @@ export interface UsePointerReorderOptions {
   ) => DropPlacement | undefined;
   /** Called on release over an allowed target. */
   readonly onDrop: (draggedKey: string, targetKey: string) => void;
+  /**
+   * The element that contains the page tabs (`[data-page-key]` children), so a
+   * card can be dropped onto another page's tab. Needs `tabFor`.
+   */
+  readonly tabsRef?: RefObject<HTMLElement | null>;
+  /**
+   * Whether `draggedKey` may drop onto the tab of `pageKey`: `'allowed'`,
+   * `'refused'` (the drop still happens, so `onDropOnTab` can say why), or
+   * undefined when that tab is not a target (the page already showing).
+   */
+  readonly tabFor?: (
+    draggedKey: string,
+    pageKey: string
+  ) => TabDropStatus | undefined;
+  /** Called on release over a page tab that `tabFor` named a target. */
+  readonly onDropOnTab?: (draggedKey: string, pageKey: string) => void;
   /** Called when a drag starts moving, ends, or is cancelled. */
   readonly onStateChange?: (
     event: 'start' | 'drop' | 'cancel',
@@ -74,6 +99,8 @@ interface Session {
   origin: CardBox | undefined;
   /** The allowed drop target for the pointer's last position. */
   targetKey: string | undefined;
+  /** The page tab under the pointer's last position, if it is a target. */
+  tabKey: string | undefined;
   x: number;
   y: number;
 }
@@ -87,6 +114,16 @@ function boxOf(element: Element, key: string): CardBox {
     width: rect.width,
     height: rect.height,
   };
+}
+
+/** Every page tab in the bar. */
+function tabBoxes(bar: HTMLElement): TabBox[] {
+  const boxes: TabBox[] = [];
+  bar.querySelectorAll<HTMLElement>('[data-page-key]').forEach((tab) => {
+    const key: string | undefined = tab.dataset['pageKey'];
+    if (key !== undefined) boxes.push(boxOf(tab, key));
+  });
+  return boxes;
 }
 
 /** Every card in the grid, in document order. */
@@ -111,13 +148,22 @@ export function usePointerReorder({
   gridRef,
   placementFor,
   onDrop,
+  tabsRef,
+  tabFor,
+  onDropOnTab,
   onStateChange,
 }: UsePointerReorderOptions): UsePointerReorderResult {
   const [drag, setDrag] = useState<PointerDragState | undefined>(undefined);
   const session = useRef<Session | undefined>(undefined);
   const frame = useRef<number | undefined>(undefined);
-  const latest = useRef({ placementFor, onDrop, onStateChange });
-  latest.current = { placementFor, onDrop, onStateChange };
+  const latest = useRef({
+    placementFor,
+    onDrop,
+    tabFor,
+    onDropOnTab,
+    onStateChange,
+  });
+  latest.current = { placementFor, onDrop, tabFor, onDropOnTab, onStateChange };
 
   const stopScrolling = useCallback((): void => {
     if (frame.current !== undefined) cancelAnimationFrame(frame.current);
@@ -129,6 +175,31 @@ export function usePointerReorder({
     const current: Session | undefined = session.current;
     const grid: HTMLElement | null = gridRef.current;
     if (current === undefined || !current.active || grid === null) return;
+    const dy: number =
+      current.y - current.startY + (window.scrollY - current.startScrollY);
+    // A page tab under the pointer wins over the cards beneath it.
+    const bar: HTMLElement | null | undefined = tabsRef?.current;
+    if (bar != null && latest.current.tabFor !== undefined) {
+      const hit: string | undefined = tabAtPoint(tabBoxes(bar), {
+        x: current.x,
+        y: current.y,
+      });
+      const status: TabDropStatus | undefined =
+        hit === undefined ? undefined : latest.current.tabFor(current.key, hit);
+      if (hit !== undefined && status !== undefined) {
+        current.tabKey = hit;
+        current.targetKey = undefined;
+        setDrag({
+          key: current.key,
+          dx: current.x - current.startX,
+          dy,
+          tabKey: hit,
+          tabRefused: status === 'refused',
+        });
+        return;
+      }
+    }
+    current.tabKey = undefined;
     const boxes: CardBox[] = cardBoxes(grid);
     const target: string | undefined = dropTargetKey(
       boxes,
@@ -145,12 +216,12 @@ export function usePointerReorder({
     setDrag({
       key: current.key,
       dx: current.x - current.startX,
-      dy: current.y - current.startY + (window.scrollY - current.startScrollY),
+      dy,
       ...(placement === undefined || target === undefined
         ? {}
         : { targetKey: target, placement }),
     });
-  }, [gridRef]);
+  }, [gridRef, tabsRef]);
 
   const finish = useCallback(
     (outcome: 'drop' | 'cancel'): void => {
@@ -160,7 +231,10 @@ export function usePointerReorder({
       if (current === undefined) return;
       if (!current.active) return;
       setDrag(undefined);
-      if (outcome === 'drop' && current.targetKey !== undefined) {
+      if (outcome === 'drop' && current.tabKey !== undefined) {
+        latest.current.onDropOnTab?.(current.key, current.tabKey);
+        latest.current.onStateChange?.('drop', current.key);
+      } else if (outcome === 'drop' && current.targetKey !== undefined) {
         latest.current.onDrop(current.key, current.targetKey);
         latest.current.onStateChange?.('drop', current.key);
       } else {
@@ -221,6 +295,7 @@ export function usePointerReorder({
           active: false,
           origin: undefined,
           targetKey: undefined,
+          tabKey: undefined,
           x: event.clientX,
           y: event.clientY,
         };

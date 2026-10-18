@@ -120,8 +120,9 @@ documented in the code and README, which win if they disagree.
   about 4 rows, moving widgets between pages, page bar hidden for one page,
   lazy loading by page). Built: the core (`pages.ts`, `placeRows`,
   `normalizeLayout`) and the React page bar, Move to page and page management.
-  Swipe between pages is built (`swipe.ts`, `use-page-swipe.ts`). Not built: drag
-  onto a page tab, `retain`/`release`.
+  Swipe between pages (`swipe.ts`, `use-page-swipe.ts`) and drag onto a page tab
+  (`tabAtPoint`, `tabsRef`/`tabFor` on `usePointerReorder`) are built. Not built:
+  `retain`/`release`.
 - `docs/design/export.md`: export is built: CSV for cards and the detail view
   (`export.ts`, `exportFormats`, `onExport`, `onExportDetail`), chart SVG/PNG
   (`chart-export.ts`) and the print stylesheet (`@media print` in `styles.css`,

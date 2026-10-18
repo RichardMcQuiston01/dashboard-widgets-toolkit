@@ -1169,6 +1169,19 @@
   box-shadow: 4px 0 0 0 var(--dwt-drop-indicator, var(--dwt-focus));
 }
 
+/* A card dragged over a page tab: solid when the page can take it, dashed
+   (a second channel besides color) when the drop would be refused. */
+:where(.dwt-page-tab--drop) {
+  outline: 2px solid var(--dwt-drop-indicator, var(--dwt-focus));
+  outline-offset: 0;
+  color: var(--dwt-text);
+}
+
+:where(.dwt-page-tab--refused) {
+  outline: 2px dashed var(--dwt-text-secondary);
+  outline-offset: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :where(.dwt-card--dragging) {
     box-shadow: 0 0 0 2px var(--dwt-drop-indicator, var(--dwt-focus));

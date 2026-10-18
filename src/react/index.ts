@@ -63,6 +63,7 @@ export {
   DRAG_START_DISTANCE_PX,
   usePointerReorder,
   type PointerDragState,
+  type TabDropStatus,
   type UsePointerReorderOptions,
   type UsePointerReorderResult,
 } from './use-reorder.js';
