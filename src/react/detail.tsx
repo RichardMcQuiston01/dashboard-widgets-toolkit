@@ -28,6 +28,7 @@ import {
 import type { WidgetDefinition } from '../core/definition.js';
 import type { OptionValues } from '../core/options.js';
 import { detailToCsv, queryToCsv } from '../core/export.js';
+import { BASE_VIEW_KEY } from '../core/views.js';
 import { CellContent } from './cells.js';
 import {
   csvExportFile,
@@ -659,8 +660,9 @@ export interface ServerDetailOptions {
  * instead. `reload` runs it again. Keep `load` and `fallback` referentially
  * stable (`useCallback` / `useMemo`): a new value restarts the load.
  * `optionValues` (the widget's resolved options) go to the loader as
- * `options.options`, and `filterValues` (the dashboard filters the widget
- * uses) as `options.filters`.
+ * `options.options`, `filterValues` (the dashboard filters the widget uses) as
+ * `options.filters`, and `view` (the view the card loads: `base` or a view the
+ * provider supplies; a change reloads) as `options.view`.
  *
  * Pass `server` for `detail.mode: 'server'`: the loader receives the current
  * `query` and must return one page plus `totalRows`; each query change aborts
@@ -674,7 +676,8 @@ export function useDetailData(
   fallback?: DetailData,
   optionValues: OptionValues = NO_OPTION_VALUES,
   server?: ServerDetailOptions,
-  filterValues: OptionValues = NO_OPTION_VALUES
+  filterValues: OptionValues = NO_OPTION_VALUES,
+  view: string = BASE_VIEW_KEY
 ): { readonly state: DetailLoadState; readonly reload: () => void } {
   const [state, setState] = useState<DetailLoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
@@ -706,6 +709,7 @@ export function useDetailData(
               signal: controller.signal,
               options: optionValues,
               filters: filterValues,
+              view,
               query,
             })
       )
@@ -749,6 +753,7 @@ export function useDetailData(
     definition,
     optionValues,
     filterValues,
+    view,
     attempt,
     isServer,
     querySignature,

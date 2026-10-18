@@ -118,8 +118,12 @@ export interface DetailQuery {
   readonly hidden?: readonly string[];
 }
 
-/** What a detail provider receives beyond the usual arguments. */
-export interface DetailProviderOptions extends Omit<ProviderOptions, 'view'> {
+/**
+ * What a detail provider receives beyond the usual arguments. `view` is the
+ * view the card loads (`base`, or the key of a view the provider supplies), so
+ * a widget with several views can return the rows behind the one on screen.
+ */
+export interface DetailProviderOptions extends ProviderOptions {
   readonly query: DetailQuery;
 }
 
@@ -954,8 +958,9 @@ export function tableDetailData(data: TableWidgetData): DetailData {
 /**
  * The detail data for a widget whose card payload is already complete, so a
  * detail view needs no provider: a TABLE without a `footer` (a footer means
- * rows were left out) and a BAR_LIST. Returns undefined for everything else
- * (alert lists, gauges, KPIs, text and charts): those need a detail provider.
+ * rows were left out), a BAR_LIST and a GRAPH (the x label and one column per
+ * series, values formatted as on the chart). Returns undefined for everything
+ * else (alert lists, gauges, KPIs and text): those need a detail provider.
  */
 export function deriveDetailData(
   data: WidgetData,
@@ -976,6 +981,37 @@ export function deriveDetailData(
           text: item.display ?? formatValue(item.value, 'number', { locale }),
           value: item.value,
         },
+      ]),
+    };
+  }
+  if (data.kind === 'GRAPH') {
+    const first = data.series[0];
+    if (first === undefined) return undefined;
+    const currency =
+      data.currency === undefined ? {} : { currency: data.currency };
+    return {
+      columns: [
+        { key: 'x', label: data.xLabel ?? 'Label' },
+        ...data.series.map((series, index) => ({
+          key: `s${index}`,
+          label: series.name,
+          numeric: true,
+        })),
+      ],
+      rows: first.points.map((point, pointIndex) => [
+        { text: point.label },
+        ...data.series.map((series) => {
+          const value: number | undefined = series.points[pointIndex]?.value;
+          return value === undefined
+            ? { text: '' }
+            : {
+                text: formatValue(value, data.valueFormat, {
+                  locale,
+                  ...currency,
+                }),
+                value,
+              };
+        }),
       ]),
     };
   }

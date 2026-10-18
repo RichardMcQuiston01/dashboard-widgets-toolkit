@@ -327,6 +327,49 @@ void describe('deriveDetailData', () => {
     assert.equal(derived?.rows[1]?.[1]?.text, '3 orders');
   });
 
+  void it('turns a GRAPH into the x label and one column per series', () => {
+    const derived = deriveDetailData(
+      {
+        kind: 'GRAPH',
+        chartType: 'bar',
+        valueFormat: 'currency',
+        xLabel: 'Month',
+        series: [
+          {
+            name: 'Revenue',
+            points: [
+              { label: 'Jan', value: 1200 },
+              { label: 'Feb', value: 900 },
+            ],
+          },
+          { name: 'Refunds', points: [{ label: 'Jan', value: 10 }] },
+        ],
+      },
+      'en-US'
+    );
+    assert.deepEqual(
+      derived?.columns.map((column) => column.label),
+      ['Month', 'Revenue', 'Refunds']
+    );
+    assert.equal(derived?.rows[0]?.[1]?.text, '$1,200.00');
+    assert.equal(derived?.rows[0]?.[1]?.value, 1200);
+    // A series shorter than the first leaves an empty cell, not a crash.
+    assert.equal(derived?.rows[1]?.[2]?.text, '');
+    assert.ok(derived !== undefined && validateDetailData(derived, 't').ok);
+  });
+
+  void it('has nothing for a GRAPH without series', () => {
+    assert.equal(
+      deriveDetailData({
+        kind: 'GRAPH',
+        chartType: 'line',
+        valueFormat: 'number',
+        series: [],
+      }),
+      undefined
+    );
+  });
+
   void it('has nothing for kinds that need a provider', () => {
     assert.equal(
       deriveDetailData({ kind: 'TEXT', label: 'a', value: 'b' }),

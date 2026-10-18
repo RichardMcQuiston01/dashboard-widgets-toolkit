@@ -327,11 +327,17 @@ Where the data comes from:
   `text` and an optional `value` used for sorting and filtering. It is called
   for every widget that sets `detail`, so branch on `definition.key`.
 - Return `undefined` for a widget you have no extra data for. A TABLE with no
-  `footer` and a BAR_LIST then show their own card data; for any other widget
+  `footer`, a BAR_LIST and a chart (the same table as "View as table") then
+  show their own card data; for any other widget
   (or a TABLE with a footer, whose card holds only some of the rows) the
   dialog reports that there is no detail data.
-- Without `loadDetail`, a TABLE with no `footer` and a BAR_LIST show their own
-  card data and other widgets get no View button.
+- Without `loadDetail`, a TABLE with no `footer`, a BAR_LIST and a chart show
+  their own card data and other widgets get no View button.
+- A widget with `views` gets `options.view` in `loadDetail`: `base`, or the key
+  of the view the provider supplies that the card is showing (converted views
+  load the base). Return the rows behind that view, or `undefined` to use the
+  card's own data when it is complete (a provider view of a chart or a bar list
+  needs no loader).
 - `onOpenDetail={(key) => navigate(...)}` replaces the built-in dialog so you
   can open your own page.
 - The pieces are exported for your own layout: `WidgetDetail` (controlled by
