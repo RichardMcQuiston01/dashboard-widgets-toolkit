@@ -107,6 +107,23 @@ export interface WidgetDefinition {
    * data comes from that widget's provider. Authors never set it.
    */
   readonly sourceKey?: string;
+  /**
+   * The registered source (provider) that feeds this widget when it is not the
+   * widget's own key. Set by the Widget Builder (`./builder`); unrelated to
+   * `sourceKey`, which marks a clone. A clone of a builder widget keeps it.
+   */
+  readonly source?: string;
+}
+
+/**
+ * The key of the provider that supplies a widget's data: its `source` (a
+ * builder widget, or a clone of one, which copies it), else the widget it was
+ * cloned from (`sourceKey`), else its own `key`.
+ */
+export function providerKeyOf(
+  definition: Pick<WidgetDefinition, 'key' | 'sourceKey' | 'source'>
+): string {
+  return definition.source ?? definition.sourceKey ?? definition.key;
 }
 
 /** What a viewer may not do to a locked widget. */

@@ -58,6 +58,13 @@ src/
     compat.ts           Maker Toolkit payload/definition upgrades
     result.ts           Result<T>
     select.ts           WidgetSelection / SelectionTarget: what a viewer picked (onSelect)
+  builder/              subpath ./builder: Widget Builder, runtime-neutral like the core
+    index.ts            barrel
+    source.ts           SourceDescription, defineSource, validateSourceDescription
+    check.ts            checkAgainstSource: a definition vs the source that feeds it
+    edit.ts             newWidget, updateWidget, validatePatch, exposeOption/hideOption,
+                        availableViews/addView/removeView, uniqueWidgetKey
+    store.ts            serialize/parse(Definitions), mergeDefinitions (versioned envelope)
   react/                subpath ./react: browser code, React >= 18 peer
     index.ts            barrel
     settings.tsx        WidgetSettingsProvider: locale, linkTarget, classNames, labels
@@ -83,8 +90,9 @@ src/
     styles.css          optional stylesheet, copied to dist/styles.css
 test/
   core/*.test.ts        node:test + node:assert, run by bun test
+  builder/*.test.ts     the Widget Builder
   react/*.test.tsx      react-dom/server renderToStaticMarkup, no DOM needed
-tsup.config.ts          entries index, core, react; copies styles.css
+tsup.config.ts          entries index, core, builder, react; copies styles.css
 ```
 
 Adding a subpath: add the entry to `tsup.config.ts`, `package.json`
@@ -143,9 +151,10 @@ documented in the code and README, which win if they disagree.
   `WidgetTheme` / `Dashboard` `theme`, `checkTheme` (`color.ts`,
   `theme-check.ts`, `theme-defaults.ts`) and `themePresets` are built. Nothing
   planned except the open questions in the doc.
-- `docs/design/widget-builder.md`: Widget Builder. Proposed, nothing built:
-  headless `./builder` subpath, `SourceDescription`, `WidgetDefinition.source`.
-  Decisions D1-D12 await the maintainer.
+- `docs/design/widget-builder.md`: Widget Builder. Phase 1 is built: the headless
+  `./builder` subpath (`SourceDescription`, `defineSource`, the edit functions,
+  `parseDefinitions`) and `WidgetDefinition.source` / `providerKeyOf`. Not built:
+  the React building blocks and demo tab (phase 2), viewer-created widgets (phase 3).
 
 ## Commands (Bun only)
 
@@ -183,7 +192,7 @@ functions it uses. That's fine: the core has no singletons or classes.
 
 ## Runtime-neutral core, browser React
 
-- `src/core` and `src/index.ts`: `lib` is ES2023 with `types: []` (no DOM, no
+- `src/core`, `src/builder` and `src/index.ts`: `lib` is ES2023 with `types: []` (no DOM, no
   Node). ESLint bans `node:*`, `fs`, `bun`, React imports, and the globals
   `Bun`, `process`, `Buffer`, `require`, `window`, `document`, `fetch` and
   `localStorage`. `Intl` is fine (it's ECMAScript).

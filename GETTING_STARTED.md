@@ -209,7 +209,7 @@ Links open in the same tab unless you set `linkTarget` (for example
 
 ## Examples
 
-| [Layout functions on their own](#layout-functions-on-their-own) | [KPI deltas and formatting](#kpi-deltas-and-formatting) | [Styling with Tailwind (or any classes)](#styling-with-tailwind-or-any-classes) | [Widget width](#widget-width) | [Detail view](#detail-view) | [Searchable, sortable tables in the card](#searchable-sortable-tables-in-the-card) | [Declared options](#declared-options) | [Viewer settings: the Options dialog](#viewer-settings-the-options-dialog) | [Alternate views](#alternate-views) | [Clones](#clones) | [Locked widgets](#locked-widgets) | [Edit mode: Customize and Done](#edit-mode-customize-and-done) | [Storing the layout](#storing-the-layout) | [Pages of widgets (core)](#pages-of-widgets-core) | [Filling space](#filling-space) | [Loading data after the page renders](#loading-data-after-the-page-renders) | [Theming](#theming) | [Changing the text](#changing-the-text) | [Charts](#charts) |
+| [Layout functions on their own](#layout-functions-on-their-own) | [KPI deltas and formatting](#kpi-deltas-and-formatting) | [Styling with Tailwind (or any classes)](#styling-with-tailwind-or-any-classes) | [Widget width](#widget-width) | [Detail view](#detail-view) | [Searchable, sortable tables in the card](#searchable-sortable-tables-in-the-card) | [Declared options](#declared-options) | [Viewer settings: the Options dialog](#viewer-settings-the-options-dialog) | [Alternate views](#alternate-views) | [Clones](#clones) | [Locked widgets](#locked-widgets) | [Edit mode: Customize and Done](#edit-mode-customize-and-done) | [Storing the layout](#storing-the-layout) | [Pages of widgets (core)](#pages-of-widgets-core) | [Filling space](#filling-space) | [Loading data after the page renders](#loading-data-after-the-page-renders) | [Widget Builder](#widget-builder) | [Theming](#theming) | [Changing the text](#changing-the-text) | [Charts](#charts) |
 
 ### Layout functions on their own
 
@@ -1487,6 +1487,126 @@ stops the request. Existing two-argument providers keep working.
 - Not using React? `createWidgetLoader` (core) is the same logic with
   `subscribe`/`getSnapshot`, `load`, `refresh` and `dispose`; `resolveWidget`
   and `resolveWidgets` accept `timeoutMs`, `signal` and `cache` too.
+
+### Widget Builder
+
+The `./builder` subpath lets an administrator (not a developer) make widgets
+from a form. The library ships the headless part: pure functions that create
+and edit a definition as JSON. You build the screen and keep the JSON. **Data
+stays code:** the builder can only combine what you registered and described.
+
+Describe each provider once, next to where you register it:
+
+```ts
+import { defineSource } from '@richardmcquiston01/dashboard-widgets-toolkit/builder';
+
+const productsSource = defineSource({
+  key: 'products', // the key in `providers`
+  label: 'Product sales',
+  kind: 'TABLE', // what the provider returns
+  columns: [
+    { label: 'Product' },
+    { label: 'Sold', numeric: true },
+    { label: 'Revenue', numeric: true },
+  ],
+  options: [
+    {
+      key: 'limit',
+      type: 'number',
+      label: 'Rows',
+      min: 3,
+      max: 20,
+      default: 5,
+    },
+    {
+      key: 'order',
+      type: 'sort',
+      label: 'Order by',
+      apply: 'client',
+      columns: [
+        { key: 'c1', label: 'Sold' },
+        { key: 'c2', label: 'Revenue' },
+      ],
+      default: 'c2:desc',
+    },
+  ],
+  views: [{ key: 'trend', label: 'Trend', kind: 'GRAPH' }], // your own `options.view`
+  detail: { mode: 'client' },
+});
+```
+
+Then each function returns a `Result` with a definition that is always valid:
+
+```ts
+import {
+  addView,
+  availableViews,
+  exposeOption,
+  newWidget,
+  uniqueWidgetKey,
+  updateWidget,
+  validatePatch,
+} from '@richardmcquiston01/dashboard-widgets-toolkit/builder';
+
+const created = newWidget(productsSource, {
+  key: uniqueWidgetKey('best sellers', existingKeys),
+  title: 'Best sellers',
+});
+if (!created.ok) return showError(created.error);
+
+let widget = created.value;
+for (const step of [
+  (w) => exposeOption(productsSource, w, 'order', { default: 'c1:desc' }),
+  (w) => updateWidget(productsSource, w, { width: 6, roles: ['manager'] }),
+  (w) => addView(productsSource, w, availableViews(productsSource, w)[0]!.view),
+]) {
+  const next = step(widget);
+  if (!next.ok) return showError(next.error); // names the widget, field and rule
+  widget = next.value;
+}
+```
+
+- `updateWidget` changes plain fields (`title`, `description`, `roles`, `width`,
+  `locked`, `detail`, `filters`, `defaultView`, ...). `key`, `kind` and `source`
+  are fixed; options and views have their own functions.
+- `validatePatch(source, widget, patch)` returns every problem by field, for
+  showing next to form inputs, without making a definition. Keep the form's own
+  draft state: an empty title is not a definition.
+- `availableViews` lists what the source can serve: its own views and the
+  conversions its `columns` allow (a bar list needs a numeric column).
+- A widget may narrow a source's option (a smaller range, fewer choices, a
+  different default or label), never widen it.
+
+Store `serializeDefinitions(list)` (a `{ version, definitions }` text) in your
+database and read it back on the server:
+
+```ts
+import {
+  mergeDefinitions,
+  parseDefinitions,
+} from '@richardmcquiston01/dashboard-widgets-toolkit/builder';
+
+const parsed = parseDefinitions(storedText, [productsSource /* , ... */]);
+if (!parsed.ok) return showError(parsed.error);
+for (const skipped of parsed.value.skipped) {
+  console.warn(`Widget ${skipped.key} skipped: ${skipped.error}`);
+}
+const { definitions, clashes } = mergeDefinitions(
+  codeDefinitions,
+  parsed.value.definitions
+);
+// pass `definitions` to <Dashboard> as usual
+```
+
+A stored definition names its provider in `source`, so it loads like any other
+widget (clones of it too). A row whose source was removed, or that no longer
+fits its source, is skipped with a reason instead of rendering a broken card;
+a stored widget never replaces a code widget with the same key. Run
+`parseDefinition(s)` on your server before saving and before serving: the
+browser's checks are for the form only, and a definition cannot name a provider
+you did not register.
+
+[Back to Top](#getting-started)
 
 ### Theming
 
