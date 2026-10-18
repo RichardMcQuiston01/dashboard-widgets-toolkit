@@ -1,6 +1,6 @@
 {
   "name": "@richardmcquiston01/dashboard-widgets-toolkit",
-  "version": "0.29.0",
+  "version": "0.30.0",
   "description": "Framework-agnostic dashboard widget toolkit: typed widget definitions and data payloads (KPI, gauge, table, bar list, alert list, chart), user layout (order, hide, minimise), and React renderers. Bring your own data providers.",
   "keywords": [
     "dashboard",
@@ -33,6 +33,9 @@
   "types": "./dist/index.d.ts",
   "typesVersions": {
     "*": {
+      "builder": [
+        "./dist/builder.d.cts"
+      ],
       "core": [
         "./dist/core.d.cts"
       ],
@@ -60,6 +63,16 @@
       "require": {
         "types": "./dist/core.d.cts",
         "default": "./dist/core.cjs"
+      }
+    },
+    "./builder": {
+      "import": {
+        "types": "./dist/builder.d.ts",
+        "default": "./dist/builder.js"
+      },
+      "require": {
+        "types": "./dist/builder.d.cts",
+        "default": "./dist/builder.cjs"
       }
     },
     "./react": {

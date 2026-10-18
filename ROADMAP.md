@@ -73,6 +73,10 @@
 - Pages, the rest: swipe between pages on touch screens (`usePageSwipe`), drag a
   widget onto a page tab, and `release` of far-away pages' payloads
   (`loader.release`, `farPageWidgetKeys`) (0.29.0).
+- Widget Builder, headless: the `./builder` subpath (`defineSource`, `newWidget`,
+  `updateWidget`, `exposeOption`, `availableViews` / `addView`, `validatePatch`,
+  `parseDefinitions`, `mergeDefinitions`) and `WidgetDefinition.source` with
+  `providerKeyOf` (0.30.0).
 - Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
   and `data-dwt-default-title` on cards (0.21.0).
 
@@ -89,10 +93,10 @@ Nothing is queued here right now: the planned work is under [Next](#next).
 - **Pages, adjacent prefetch.** `loadWhen: 'adjacent'`: also load the next and
   previous pages once the page in view has finished, so a swipe lands on data. See
   [docs/design/widget-pages.md](./docs/design/widget-pages.md).
-- **Widget Builder**, headless functions in a `./builder` subpath that create and
-  edit a definition as JSON, with data-source descriptions; viewer-created widgets
-  come after. See
-  [docs/design/widget-options-views-clones.md](./docs/design/widget-options-views-clones.md).
+- **Widget Builder, the rest**: React building blocks (`WidgetOptionsForm`,
+  `WidgetPreview`, `useWidgetDraft`) and a demo admin tab, then viewer-created
+  widgets with per-user allow-lists. The headless functions are built. See
+  [docs/design/widget-builder.md](./docs/design/widget-builder.md).
 - **Vue renderers** (`./vue`) for Maker Toolkit's Shop Dashboard and other
   Vue 3 apps, over the same core and `styles.css` class names.
 - **Data sources and adapters**: payload builders and push (live) sources. See

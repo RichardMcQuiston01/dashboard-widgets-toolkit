@@ -1233,6 +1233,14 @@ export function validateWidgetDefinition(
   if (value['fill'] !== undefined) {
     requireOneOf(value, 'fill', WIDGET_FILLS, '', problems);
   }
+  if (
+    value['source'] !== undefined &&
+    (typeof value['source'] !== 'string' || value['source'].trim() === '')
+  ) {
+    problems.push(
+      `source must be a non-empty provider key, got ${describeType(value['source'])}.`
+    );
+  }
   if (problems.length > 0) {
     return err(formatProblems(subject, problems));
   }
