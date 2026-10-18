@@ -32,6 +32,13 @@ export interface WidgetDetailOptions {
   readonly pageSize?: number;
   /** Default `client`. */
   readonly mode?: DetailMode;
+  /**
+   * Rows-per-page choices (each 1 to 200). Two or more adds a "Rows per page"
+   * select to the detail view; `pageSize` is added to the list when missing.
+   */
+  readonly pageSizes?: readonly number[];
+  /** Adds a "Columns" menu to show and hide columns. Default false. */
+  readonly columnVisibility?: boolean;
 }
 
 /** `WidgetDetailOptions` with every default filled in. */
@@ -39,6 +46,9 @@ export interface ResolvedDetailOptions {
   readonly title: string;
   readonly pageSize: number;
   readonly mode: DetailMode;
+  /** Sorted, unique and including `pageSize`; empty when there is no choice. */
+  readonly pageSizes: readonly number[];
+  readonly columnVisibility: boolean;
 }
 
 /** The `tableControls` setting on a widget definition. `true` means both. */
@@ -100,10 +110,20 @@ export interface DetailQuery {
   /** 1-based. */
   readonly page: number;
   readonly pageSize: number;
+  /**
+   * Keys of columns the viewer hid. Display only: rows are still filtered,
+   * sorted and searched across every column, and a server-mode provider is
+   * not sent this. CSV exports leave these columns out.
+   */
+  readonly hidden?: readonly string[];
 }
 
-/** What a detail provider receives beyond the usual arguments. */
-export interface DetailProviderOptions extends Omit<ProviderOptions, 'view'> {
+/**
+ * What a detail provider receives beyond the usual arguments. `view` is the
+ * view the card loads (`base`, or the key of a view the provider supplies), so
+ * a widget with several views can return the rows behind the one on screen.
+ */
+export interface DetailProviderOptions extends ProviderOptions {
   readonly query: DetailQuery;
 }
 
@@ -139,10 +159,17 @@ export function resolveDetailOptions(
   const detail: boolean | WidgetDetailOptions | undefined = definition.detail;
   if (detail === undefined || detail === false) return undefined;
   const options: WidgetDetailOptions = detail === true ? {} : detail;
+  const pageSize: number = options.pageSize ?? DEFAULT_DETAIL_PAGE_SIZE;
+  const choices: readonly number[] = options.pageSizes ?? [];
   return {
     title: options.title ?? definition.title,
-    pageSize: options.pageSize ?? DEFAULT_DETAIL_PAGE_SIZE,
+    pageSize,
     mode: options.mode ?? 'client',
+    pageSizes:
+      choices.length < 2
+        ? []
+        : [...new Set([...choices, pageSize])].sort((a, b) => a - b),
+    columnVisibility: options.columnVisibility === true,
   };
 }
 
@@ -169,6 +196,106 @@ export function defaultDetailQuery(
   pageSize: number = DEFAULT_DETAIL_PAGE_SIZE
 ): DetailQuery {
   return { page: 1, pageSize };
+}
+
+/** `query` without `hidden`: what a server-mode provider is asked for. */
+export function providerQuery(query: DetailQuery): DetailQuery {
+  const { hidden: _hidden, ...rest } = query;
+  return rest;
+}
+
+/**
+ * What a server-mode provider is asked for, as one comparable string: the
+ * query without `hidden`. Equal signatures get equal answers, so it keys the
+ * page cache and tells the detail view when a query really changed.
+ */
+export function detailQuerySignature(query: DetailQuery): string {
+  const { search, filters, sort, page, pageSize } = providerQuery(query);
+  return JSON.stringify([
+    search ?? '',
+    Object.entries(filters ?? {})
+      .filter(([, text]) => text !== '')
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    sort === undefined ? null : [sort.column, sort.direction],
+    page,
+    pageSize,
+  ]);
+}
+
+/**
+ * Pages a server-mode detail view has already loaded, by query signature, so
+ * paging back or restoring an earlier sort shows its rows at once while the
+ * provider is asked again. In memory only, and the oldest entry goes when
+ * `limit` (default 20) is passed. Plain data in, plain data out: it never
+ * fetches or stores anything outside itself.
+ */
+export interface DetailPageCache {
+  get(query: DetailQuery): DetailData | undefined;
+  set(query: DetailQuery, data: DetailData): void;
+  clear(): void;
+  readonly size: number;
+}
+
+export function createDetailPageCache(limit: number = 20): DetailPageCache {
+  const entries = new Map<string, DetailData>();
+  const capacity: number = Math.max(1, Math.floor(limit));
+  return {
+    get(query: DetailQuery): DetailData | undefined {
+      return entries.get(detailQuerySignature(query));
+    },
+    set(query: DetailQuery, data: DetailData): void {
+      const signature: string = detailQuerySignature(query);
+      // Re-inserting moves it to the newest position.
+      entries.delete(signature);
+      entries.set(signature, data);
+      while (entries.size > capacity) {
+        const oldest: string | undefined = entries.keys().next().value;
+        if (oldest === undefined) break;
+        entries.delete(oldest);
+      }
+    },
+    clear(): void {
+      entries.clear();
+    },
+    get size(): number {
+      return entries.size;
+    },
+  };
+}
+
+/** Indexes of the columns of `data` that `query.hidden` does not hide. */
+export function visibleColumnIndexes(
+  data: Pick<DetailData, 'columns'>,
+  hidden: readonly string[] | undefined
+): number[] {
+  const hiddenKeys = new Set<string>(hidden ?? []);
+  const indexes: number[] = [];
+  for (const [index, column] of data.columns.entries()) {
+    if (!hiddenKeys.has(column.key)) indexes.push(index);
+  }
+  return indexes;
+}
+
+/**
+ * `data` without the columns named in `hidden`, in every row. Returns `data`
+ * itself when nothing is hidden. Unknown keys are ignored.
+ */
+export function hideColumns(
+  data: DetailData,
+  hidden: readonly string[] | undefined
+): DetailData {
+  const indexes: number[] = visibleColumnIndexes(data, hidden);
+  if (indexes.length === data.columns.length) return data;
+  const pick = <T>(items: readonly T[]): T[] =>
+    indexes.flatMap((index) => {
+      const item: T | undefined = items[index];
+      return item === undefined ? [] : [item];
+    });
+  return {
+    ...data,
+    columns: pick(data.columns),
+    rows: data.rows.map((row) => pick(row)),
+  };
 }
 
 /** Lower case with accents removed, so "Café" matches "cafe". */
@@ -334,10 +461,15 @@ const FILTER_PREFIX = 'f.';
 
 /**
  * The query as a URL query string without the leading `?`: `q` (search),
- * `sort` (`column:asc|desc`), `page` and `f.<column>` filters. `pageSize` is
- * not included: the widget definition owns it. Defaults are left out.
+ * `sort` (`column:asc|desc`), `page`, `f.<column>` filters, `hide` (hidden
+ * column keys, comma separated) and `size` (rows per page) when it differs
+ * from `defaultPageSize` (the widget definition's, which is left out).
+ * Defaults are left out.
  */
-export function serializeDetailQuery(query: DetailQuery): string {
+export function serializeDetailQuery(
+  query: DetailQuery,
+  defaultPageSize: number = query.pageSize
+): string {
   const parts: string[] = [];
   const add = (key: string, value: string): void => {
     parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
@@ -352,6 +484,10 @@ export function serializeDetailQuery(query: DetailQuery): string {
     if (text !== '') add(`${FILTER_PREFIX}${column}`, text);
   }
   if (query.page > 1) add('page', String(query.page));
+  if (query.pageSize !== defaultPageSize) add('size', String(query.pageSize));
+  if (query.hidden !== undefined && query.hidden.length > 0) {
+    add('hide', query.hidden.map(encodeURIComponent).join(','));
+  }
   return parts.join('&');
 }
 
@@ -364,8 +500,11 @@ export function serializeDetailQuery(query: DetailQuery): string {
 export function parseDetailQuery(
   queryString: string,
   pageSize: number = DEFAULT_DETAIL_PAGE_SIZE,
-  data?: Pick<DetailData, 'columns'>
+  data?: Pick<DetailData, 'columns'>,
+  allowed: ParseDetailAllowed = {}
 ): Result<DetailQuery> {
+  let size: number = pageSize;
+  let hidden: string[] = [];
   let search: string | undefined;
   let sort: DetailSort | undefined;
   let page = 1;
@@ -415,6 +554,30 @@ export function parseDetailQuery(
         return err(`Detail query: sort column "${column}" does not exist.`);
       }
       sort = { column, direction };
+    } else if (key === 'size') {
+      if (!/^[1-9]\d*$/.test(value) || Number(value) > MAX_DETAIL_PAGE_SIZE) {
+        return err(
+          `Detail query: size must be a whole number from 1 to ${MAX_DETAIL_PAGE_SIZE}, got "${value}".`
+        );
+      }
+      const choices: readonly number[] | undefined = allowed.pageSizes;
+      if (choices === undefined || choices.includes(Number(value))) {
+        size = Number(value);
+      } else if (choices.length > 0) {
+        return err(
+          `Detail query: size ${value} is not one of the page sizes the widget offers (${choices.join(', ')}).`
+        );
+      }
+    } else if (key === 'hide') {
+      if (allowed.columnVisibility === false) continue;
+      hidden = value === '' ? [] : value.split(',').map(decodeKey);
+      const unknown: string | undefined =
+        columnKeys === undefined
+          ? undefined
+          : hidden.find((column) => !columnKeys.has(column));
+      if (unknown !== undefined) {
+        return err(`Detail query: hide column "${unknown}" does not exist.`);
+      }
     } else if (key.startsWith(FILTER_PREFIX)) {
       const column: string = key.slice(FILTER_PREFIX.length);
       if (columnKeys !== undefined && !columnKeys.has(column)) {
@@ -427,9 +590,29 @@ export function parseDetailQuery(
     ...(search === undefined || search === '' ? {} : { search }),
     ...(Object.keys(filters).length === 0 ? {} : { filters }),
     ...(sort === undefined ? {} : { sort }),
+    ...(hidden.length === 0 ? {} : { hidden }),
     page,
-    pageSize,
+    pageSize: size,
   });
+}
+
+/** What a widget allows, so `parseDetailQuery` can refuse the rest. */
+export interface ParseDetailAllowed {
+  /**
+   * The offered page sizes. Undefined accepts any size from 1 to 200; an empty
+   * list ignores `size` (the widget has no page-size choice).
+   */
+  readonly pageSizes?: readonly number[];
+  /** False ignores `hide` (the widget has no column menu). Default true. */
+  readonly columnVisibility?: boolean;
+}
+
+function decodeKey(encoded: string): string {
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return encoded;
+  }
 }
 
 /* Deep links ------------------------------------------------------------- */
@@ -442,6 +625,11 @@ export interface DetailLink {
   /** The widget's key (a clone's key works too). */
   readonly key: string;
   readonly query: DetailQuery;
+  /**
+   * The widget's own page size. `serializeDetailLink` writes `size` only when
+   * `query.pageSize` differs from it; without it, `size` is never written.
+   */
+  readonly defaultPageSize?: number;
 }
 
 /**
@@ -454,7 +642,10 @@ export function serializeDetailLink(
   link: DetailLink | null | undefined
 ): string {
   if (link === null || link === undefined) return '';
-  const query: string = serializeDetailQuery(link.query);
+  const query: string = serializeDetailQuery(
+    link.query,
+    link.defaultPageSize ?? link.query.pageSize
+  );
   const widget = `${encodeURIComponent(DETAIL_LINK_PARAM)}=${encodeURIComponent(link.key)}`;
   return query === '' ? widget : `${widget}&${query}`;
 }
@@ -471,6 +662,8 @@ function isDetailParam(rawKey: string): boolean {
     key === 'q' ||
     key === 'sort' ||
     key === 'page' ||
+    key === 'size' ||
+    key === 'hide' ||
     key.startsWith(FILTER_PREFIX)
   );
 }
@@ -553,13 +746,24 @@ export function parseDetailLink(
       `Detail link: widget "${key}" has no detail view (set detail on its definition).`
     );
   }
-  const query: Result<DetailQuery> = parseDetailQuery(text, options.pageSize);
-  return query.ok ? ok({ key, query: query.value }) : query;
+  const query: Result<DetailQuery> = parseDetailQuery(
+    text,
+    options.pageSize,
+    undefined,
+    {
+      pageSizes: options.pageSizes,
+      columnVisibility: options.columnVisibility,
+    }
+  );
+  return query.ok
+    ? ok({ key, query: query.value, defaultPageSize: options.pageSize })
+    : query;
 }
 
 /**
- * Drops what the loaded data cannot honor: filters on unknown columns and a
- * sort on an unknown or unsortable column. Returns the same object when
+ * Drops what the loaded data cannot honor: filters on unknown columns, a
+ * sort on an unknown or unsortable column, unknown hidden columns, and a
+ * `hidden` list that would hide every column. Returns the same object when
  * nothing needs dropping. For queries that came from a URL.
  */
 export function sanitizeDetailQuery(
@@ -576,10 +780,19 @@ export function sanitizeDetailQuery(
   const sortOk: boolean =
     query.sort === undefined ||
     (sortColumn !== undefined && sortColumn.sortable !== false);
-  if (goodFilters.length === filterKeys.length && sortOk) return query;
-  const { filters: _filters, sort: _sort, ...rest } = query;
+  const hiddenKeys: readonly string[] = query.hidden ?? [];
+  const goodHidden: string[] = hiddenKeys.filter((key) => known.has(key));
+  const hiddenOk: boolean =
+    goodHidden.length === hiddenKeys.length && goodHidden.length < known.size;
+  if (goodFilters.length === filterKeys.length && sortOk && hiddenOk) {
+    return query;
+  }
+  const { filters: _filters, sort: _sort, hidden: _hidden, ...rest } = query;
   return {
     ...rest,
+    ...(goodHidden.length === 0 || goodHidden.length >= known.size
+      ? {}
+      : { hidden: goodHidden }),
     ...(goodFilters.length === 0
       ? {}
       : {
@@ -804,8 +1017,9 @@ export function tableDetailData(data: TableWidgetData): DetailData {
 /**
  * The detail data for a widget whose card payload is already complete, so a
  * detail view needs no provider: a TABLE without a `footer` (a footer means
- * rows were left out) and a BAR_LIST. Returns undefined for everything else
- * (alert lists, gauges, KPIs, text and charts): those need a detail provider.
+ * rows were left out), a BAR_LIST and a GRAPH (the x label and one column per
+ * series, values formatted as on the chart). Returns undefined for everything
+ * else (alert lists, gauges, KPIs and text): those need a detail provider.
  */
 export function deriveDetailData(
   data: WidgetData,
@@ -826,6 +1040,37 @@ export function deriveDetailData(
           text: item.display ?? formatValue(item.value, 'number', { locale }),
           value: item.value,
         },
+      ]),
+    };
+  }
+  if (data.kind === 'GRAPH') {
+    const first = data.series[0];
+    if (first === undefined) return undefined;
+    const currency =
+      data.currency === undefined ? {} : { currency: data.currency };
+    return {
+      columns: [
+        { key: 'x', label: data.xLabel ?? 'Label' },
+        ...data.series.map((series, index) => ({
+          key: `s${index}`,
+          label: series.name,
+          numeric: true,
+        })),
+      ],
+      rows: first.points.map((point, pointIndex) => [
+        { text: point.label },
+        ...data.series.map((series) => {
+          const value: number | undefined = series.points[pointIndex]?.value;
+          return value === undefined
+            ? { text: '' }
+            : {
+                text: formatValue(value, data.valueFormat, {
+                  locale,
+                  ...currency,
+                }),
+                value,
+              };
+        }),
       ]),
     };
   }

@@ -429,6 +429,33 @@ function checkDetailOption(detail: unknown, problems: Problems): void {
   if (detail['mode'] !== undefined) {
     requireOneOf(detail, 'mode', DETAIL_MODES, 'detail', problems);
   }
+  const pageSizes: unknown = detail['pageSizes'];
+  if (pageSizes !== undefined) {
+    if (!Array.isArray(pageSizes)) {
+      problems.push(
+        `detail.pageSizes must be an array of page sizes, got ${describeType(pageSizes)}.`
+      );
+    } else {
+      for (const [index, size] of pageSizes.entries()) {
+        if (!(
+          typeof size === 'number' &&
+          Number.isInteger(size) &&
+          size >= 1 &&
+          size <= MAX_DETAIL_PAGE_SIZE
+        )) {
+          problems.push(
+            `detail.pageSizes[${index}] must be a whole number from 1 to ${MAX_DETAIL_PAGE_SIZE}, got ${typeof size === 'number' ? String(size) : describeType(size)}.`
+          );
+        }
+      }
+    }
+  }
+  const columnVisibility: unknown = detail['columnVisibility'];
+  if (columnVisibility !== undefined && typeof columnVisibility !== 'boolean') {
+    problems.push(
+      `detail.columnVisibility must be true or false, got ${describeType(columnVisibility)}.`
+    );
+  }
 }
 
 /** Checks a definition's `tableControls`: a boolean or `{ search, sort }`. */

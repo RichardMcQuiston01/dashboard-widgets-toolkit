@@ -3,8 +3,9 @@
 - **Status:** Core (0.4.0), client-mode React (0.4.0, 0.5.0) and server mode
   (`mode: 'server'`, `totalRows`, debounced inputs, busy state, last-page
   clamp) are built. URL deep links (`detail`, `onDetailChange`, `parseDetailLink`,
-  `serializeDetailLink`, `withDetailLink`) are built too. Page-size choice and column
-  visibility are still planned.
+  `serializeDetailLink`, `withDetailLink`) are built too, and so are the page-size
+  choice (`detail.pageSizes`, `size` in the URL) and column visibility
+  (`detail.columnVisibility`, `DetailQuery.hidden`, `hide` in the URL).
 - **Date:** 2026-10-06
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.3.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
@@ -168,7 +169,12 @@ Pure, tested functions in `src/core/detail.ts`:
 - Filter inputs have visible labels; a polite live region announces
   "Showing 1-25 of 312 results" after each change (debounced).
 - Pagination is a labelled `<nav>` with Previous/Next and a page indicator.
-  Page size is fixed by the definition (no selector in v1).
+  Page size comes from the definition; `detail.pageSizes` (two or more) adds
+  a "Rows per page" select, and `detail.columnVisibility` a "Columns" menu
+  (a native `<details>` of checkboxes; the last visible column stays). The
+  choices live in the query (`pageSize`, `hidden`) and the URL (`size`, `hide`),
+  not in the saved layout. Hidden columns are display only: search, filters and
+  sort still use them, a server provider is not sent them, CSV leaves them out.
 - Dialog: labelled by the title, focus moves to the dialog heading on open
   and returns to the View button on close; Esc closes; the page behind is
   inert. On narrow screens the dialog is full-screen.
@@ -181,6 +187,18 @@ Pure, tested functions in `src/core/detail.ts`:
 convention let a consumer put the open detail view in the URL. The package
 does not read or write `location`; the consumer passes the query in and
 handles `onQueryChange`.
+
+### 3.7 Server-mode page cache
+
+A server-mode detail view keeps the pages it has loaded, by query signature
+(`detailQuerySignature`: search, filters, sort, page and page size; not
+`hidden`), in memory for as long as the dialog is open
+(`createDetailPageCache`, 20 pages). A query seen before shows its cached rows
+at once, marked busy, and the provider is still asked: stale-while-revalidate,
+so data is never trusted past one round trip. A change to the load's other
+inputs (dashboard filters, options, view) or a retry clears it. The cache
+holds no payloads past the dialog; a long-lived cache is the consumer's own
+(their provider can cache by `query`).
 
 ## 4. Fit with the rest of the toolkit
 
@@ -216,7 +234,7 @@ handles `onQueryChange`.
 | V4  | Add `value` to cells so numbers and dates sort correctly?       | Yes, on `DetailCell`; consider the same on `TableCell`                     |
 | V5  | Title as a button and an eye icon, or the icon only?            | Both; the title is a mouse convenience, the icon is the accessible control |
 | V6  | Which filter UI: one search box, per-column filters, or both?   | Search box plus per-column filters on columns marked `filterable`          |
-| V7  | Should derived details (GRAPH, BAR_LIST) exist at all in v1?    | Yes for BAR_LIST and TABLE without footer; GRAPH later                     |
+| V7  | Should derived details (GRAPH, BAR_LIST) exist at all in v1?    | Yes for BAR_LIST and TABLE without footer; GRAPH shipped later             |
 | V8  | Is the Drafts tab in etsy-dashboard a candidate first consumer? | Likely: it needs a list with a modal per row; confirm                      |
 
 ## 7. Risks

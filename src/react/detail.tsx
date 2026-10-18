@@ -9,14 +9,20 @@ import {
 } from 'react';
 
 import {
+  createDetailPageCache,
   defaultDetailQuery,
+  detailQuerySignature,
+  hideColumns,
+  providerQuery,
   queryRows,
   serverPage,
+  visibleColumnIndexes,
   validateDetailData,
   type DetailCell,
   type DetailColumn,
   type DetailData,
   type DetailMode,
+  type DetailPageCache,
   type DetailProviderOptions,
   type DetailPage,
   type DetailQuery,
@@ -25,6 +31,7 @@ import {
 import type { WidgetDefinition } from '../core/definition.js';
 import type { OptionValues } from '../core/options.js';
 import { detailToCsv, queryToCsv } from '../core/export.js';
+import { BASE_VIEW_KEY } from '../core/views.js';
 import { CellContent } from './cells.js';
 import {
   csvExportFile,
@@ -70,6 +77,13 @@ export interface WidgetDetailProps {
   readonly mode?: DetailMode;
   /** True while a new page is loading: the old rows stay, marked busy. */
   readonly busy?: boolean;
+  /**
+   * Rows-per-page choices. Two or more adds a "Rows per page" select; the
+   * choice goes into `query.pageSize` (and back to page 1's position).
+   */
+  readonly pageSizes?: readonly number[];
+  /** Adds a "Columns" menu; hidden columns go into `query.hidden`. */
+  readonly columnVisibility?: boolean;
   /** Heading level of the title, 2 to 6. Default 2. */
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   /** Id of the heading, so a dialog can label itself with it. */
@@ -214,6 +228,8 @@ export function WidgetDetail({
   onRetry,
   mode = 'client',
   busy = false,
+  pageSizes,
+  columnVisibility = false,
   headingLevel = 2,
   headingId,
   exportFormats,
@@ -276,12 +292,16 @@ export function WidgetDetail({
       const all: DetailData | undefined = await onExportAll({
         widgetKey,
         title,
-        query: { ...query, page: 1, pageSize: Math.max(1, page.totalRows) },
+        query: providerQuery({
+          ...query,
+          page: 1,
+          pageSize: Math.max(1, page.totalRows),
+        }),
         totalRows: page.totalRows,
       });
       // Undefined: the host saved the file itself.
       if (all === undefined) return;
-      const csv = detailToCsv(all);
+      const csv = detailToCsv(hideColumns(all, query.hidden));
       if (csv.ok) finishExport(csv.value);
       else onExportError?.(csv.error);
     } catch (cause) {
@@ -320,6 +340,11 @@ export function WidgetDetail({
     );
   } else if (data !== undefined && page !== undefined) {
     const columns: readonly DetailColumn[] = data.columns;
+    const shownIndexes: readonly number[] = visibleColumnIndexes(
+      data,
+      query.hidden
+    );
+    const choices: readonly number[] = pageSizes ?? [];
     const from: number = (page.page - 1) * query.pageSize + 1;
     const to: number = from + page.rows.length - 1;
     body = (
@@ -349,6 +374,68 @@ export function WidgetDetail({
                 />
               </label>
             ))}
+          {choices.length >= 2 && (
+            <label className="dwt-detail-field">
+              <span>{labels.rowsPerPage}</span>
+              <select
+                value={query.pageSize}
+                onChange={(event) => {
+                  const pageSize: number = Number(event.target.value);
+                  // Keep the first row on screen: the page that holds it.
+                  onQueryChange({
+                    ...query,
+                    pageSize,
+                    page: Math.floor((from - 1) / pageSize) + 1,
+                  });
+                }}
+              >
+                {(choices.includes(query.pageSize)
+                  ? choices
+                  : [...choices, query.pageSize].sort((a, b) => a - b)
+                ).map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {columnVisibility && columns.length > 1 && (
+            <details className="dwt-detail-columns">
+              <summary>{labels.columnsMenu}</summary>
+              <ul>
+                {columns.map((column, index) => {
+                  const shown: boolean = shownIndexes.includes(index);
+                  return (
+                    <li key={column.key}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={shown}
+                          // The last visible column stays: a table needs one.
+                          disabled={shown && shownIndexes.length === 1}
+                          onChange={() => {
+                            const hiddenKeys: string[] = (
+                              query.hidden ?? []
+                            ).filter((key) => key !== column.key);
+                            if (shown) hiddenKeys.push(column.key);
+                            const { hidden: _previous, ...rest } = query;
+                            onQueryChange({
+                              ...rest,
+                              ...(hiddenKeys.length === 0
+                                ? {}
+                                : { hidden: hiddenKeys }),
+                            });
+                          }}
+                        />
+                        {column.label}
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
+          )}
           {canExport && (
             <button
               type="button"
@@ -379,7 +466,9 @@ export function WidgetDetail({
             <caption className="dwt-visually-hidden">{title}</caption>
             <thead>
               <tr>
-                {columns.map((column) => {
+                {shownIndexes.map((columnIndex) => {
+                  const column: DetailColumn | undefined = columns[columnIndex];
+                  if (column === undefined) return null;
                   const sorted: boolean = query.sort?.column === column.key;
                   return (
                     <th
@@ -421,15 +510,18 @@ export function WidgetDetail({
             <tbody>
               {page.rows.map((row, rowIndex) => (
                 <tr key={rowIndex}>
-                  {row.map((cell, cellIndex) => (
-                    <Cell
-                      key={cellIndex}
-                      cell={cell}
-                      column={columns[cellIndex]}
-                      row={row}
-                      widgetKey={widgetKey}
-                    />
-                  ))}
+                  {shownIndexes.map((cellIndex) => {
+                    const cell: DetailCell | undefined = row[cellIndex];
+                    return cell === undefined ? null : (
+                      <Cell
+                        key={cellIndex}
+                        cell={cell}
+                        column={columns[cellIndex]}
+                        row={row}
+                        widgetKey={widgetKey}
+                      />
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -571,8 +663,9 @@ export interface ServerDetailOptions {
  * instead. `reload` runs it again. Keep `load` and `fallback` referentially
  * stable (`useCallback` / `useMemo`): a new value restarts the load.
  * `optionValues` (the widget's resolved options) go to the loader as
- * `options.options`, and `filterValues` (the dashboard filters the widget
- * uses) as `options.filters`.
+ * `options.options`, `filterValues` (the dashboard filters the widget uses) as
+ * `options.filters`, and `view` (the view the card loads: `base` or a view the
+ * provider supplies; a change reloads) as `options.view`.
  *
  * Pass `server` for `detail.mode: 'server'`: the loader receives the current
  * `query` and must return one page plus `totalRows`; each query change aborts
@@ -586,15 +679,23 @@ export function useDetailData(
   fallback?: DetailData,
   optionValues: OptionValues = NO_OPTION_VALUES,
   server?: ServerDetailOptions,
-  filterValues: OptionValues = NO_OPTION_VALUES
+  filterValues: OptionValues = NO_OPTION_VALUES,
+  view: string = BASE_VIEW_KEY
 ): { readonly state: DetailLoadState; readonly reload: () => void } {
   const [state, setState] = useState<DetailLoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const isServer: boolean = server !== undefined;
   const queryRef = useRef<DetailQuery>(server?.query ?? defaultDetailQuery());
   queryRef.current = server?.query ?? queryRef.current;
+  // Server-mode pages already loaded for this open detail view. What they
+  // answer depends on everything but the query, so any of those changing
+  // (including a retry) starts a fresh cache.
+  const pageCache = useRef<{
+    scope: readonly unknown[];
+    pages: DetailPageCache;
+  } | null>(null);
   const querySignature: string = useMemo(
-    () => (server === undefined ? '' : JSON.stringify(server.query)),
+    () => (server === undefined ? '' : detailQuerySignature(server.query)),
     [server]
   );
 
@@ -602,12 +703,35 @@ export function useDetailData(
     if (!enabled) return undefined;
     const controller = new AbortController();
     const query: DetailQuery = isServer
-      ? queryRef.current
+      ? providerQuery(queryRef.current)
       : defaultDetailQuery();
+    const scope: readonly unknown[] = [
+      load,
+      definition,
+      optionValues,
+      filterValues,
+      view,
+      attempt,
+    ];
+    if (
+      pageCache.current === null ||
+      pageCache.current.scope.some((part, index) => part !== scope[index])
+    ) {
+      pageCache.current = { scope, pages: createDetailPageCache() };
+    }
+    const pages: DetailPageCache = pageCache.current.pages;
+    // An earlier answer for this very query shows at once (busy, while the
+    // provider is asked again); otherwise the previous page stays until the
+    // new one arrives.
+    const remembered: DetailData | undefined = isServer
+      ? pages.get(query)
+      : undefined;
     setState((previous) =>
-      isServer && previous.data !== undefined
-        ? { status: 'ok', data: previous.data, refreshing: true }
-        : { status: 'loading' }
+      remembered !== undefined
+        ? { status: 'ok', data: remembered, refreshing: true }
+        : isServer && previous.data !== undefined
+          ? { status: 'ok', data: previous.data, refreshing: true }
+          : { status: 'loading' }
     );
     Promise.resolve()
       .then(() =>
@@ -617,6 +741,7 @@ export function useDetailData(
               signal: controller.signal,
               options: optionValues,
               filters: filterValues,
+              view,
               query,
             })
       )
@@ -637,6 +762,7 @@ export function useDetailData(
           `Widget "${definition.key}" detail`,
           isServer ? { mode: 'server', pageSize: query.pageSize } : {}
         );
+        if (checked.ok && isServer) pages.set(query, checked.value);
         setState(
           checked.ok
             ? { status: 'ok', data: checked.value }
@@ -660,6 +786,7 @@ export function useDetailData(
     definition,
     optionValues,
     filterValues,
+    view,
     attempt,
     isServer,
     querySignature,

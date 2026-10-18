@@ -327,11 +327,17 @@ Where the data comes from:
   `text` and an optional `value` used for sorting and filtering. It is called
   for every widget that sets `detail`, so branch on `definition.key`.
 - Return `undefined` for a widget you have no extra data for. A TABLE with no
-  `footer` and a BAR_LIST then show their own card data; for any other widget
+  `footer`, a BAR_LIST and a chart (the same table as "View as table") then
+  show their own card data; for any other widget
   (or a TABLE with a footer, whose card holds only some of the rows) the
   dialog reports that there is no detail data.
-- Without `loadDetail`, a TABLE with no `footer` and a BAR_LIST show their own
-  card data and other widgets get no View button.
+- Without `loadDetail`, a TABLE with no `footer`, a BAR_LIST and a chart show
+  their own card data and other widgets get no View button.
+- A widget with `views` gets `options.view` in `loadDetail`: `base`, or the key
+  of the view the provider supplies that the card is showing (converted views
+  load the base). Return the rows behind that view, or `undefined` to use the
+  card's own data when it is complete (a provider view of a chart or a bar list
+  needs no loader).
 - `onOpenDetail={(key) => navigate(...)}` replaces the built-in dialog so you
   can open your own page.
 - The pieces are exported for your own layout: `WidgetDetail` (controlled by
@@ -385,6 +391,12 @@ const loadDetail: DetailLoader = async (definition, { query, signal }) => {
   `query` and aborts the request before it. The old page stays on screen
   (marked `aria-busy`) until the new one arrives. Typing waits 300 ms after the
   last key (`SERVER_INPUT_DEBOUNCE_MS`).
+- Pages already loaded are remembered while the dialog is open, by query
+  (`detailQuerySignature`; `createDetailPageCache` holds the last 20). Going
+  back to an earlier page or sort shows its rows at once, marked busy, while the
+  loader is asked again, so what you see is never left stale. Changing a
+  dashboard filter or option, or a retry, starts over. Nothing is stored
+  outside the open dialog.
 - The loader must honor `query.page` and `query.pageSize`. The result is
   checked (`validateDetailData(data, subject, { mode: 'server', pageSize })`):
   `totalRows` is required, and more rows than a page is an error. Column keys
@@ -428,7 +440,7 @@ useEffect(() => {
 />;
 ```
 
-- `detail` is `{ key, query }` or `null` (closed); leave it out and `Dashboard`
+- `detail` is `{ key, query, defaultPageSize? }` or `null` (closed); leave it out and `Dashboard`
   keeps the state itself (`defaultDetail` sets the initial one).
   `onDetailChange(next, reason)` has `reason` `'open'`, `'query'` or `'close'`.
 - `parseDetailLink(queryString, definitions)` is ok with `undefined` when there
@@ -445,7 +457,13 @@ link)` puts them into a query string that has your own parameters (`tab=...`),
 - In server mode a deep link loads the right page on open; client mode sorts,
   filters and pages the loaded rows to match.
 
-Page-size choice and column visibility are planned; see
+**Rows per page and columns.** `detail: { pageSize: 25, pageSizes: [10, 25, 100],
+columnVisibility: true }` adds a "Rows per page" select and a "Columns" menu to
+the detail view. The viewer's choices are in the query (`pageSize`, `hidden`),
+so they are in the deep link too (`size=100`, `hide=note`; `size` is left out
+when it is the widget's own). Hidden columns are display only: search, filters
+and sort still use them, a server-mode loader is not sent `hidden`, and the CSV
+download leaves them out. Neither choice is saved in the layout. See
 [docs/design/detail-view.md](./docs/design/detail-view.md).
 
 ### Searchable, sortable tables in the card

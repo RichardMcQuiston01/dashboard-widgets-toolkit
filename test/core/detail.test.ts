@@ -4,6 +4,10 @@ import { describe, it } from 'node:test';
 import {
   defaultDetailQuery,
   deriveDetailData,
+  createDetailPageCache,
+  detailQuerySignature,
+  hideColumns,
+  providerQuery,
   parseDetailQuery,
   clampServerQuery,
   parseDetailLink,
@@ -235,13 +239,21 @@ void describe('detail option on definitions', () => {
       title: 'X',
       pageSize: 25,
       mode: 'client',
+      pageSizes: [],
+      columnVisibility: false,
     });
     assert.deepEqual(
       resolveDetailOptions({
         ...base,
         detail: { title: 'All X', pageSize: 50, mode: 'server' },
       }),
-      { title: 'All X', pageSize: 50, mode: 'server' }
+      {
+        title: 'All X',
+        pageSize: 50,
+        mode: 'server',
+        pageSizes: [],
+        columnVisibility: false,
+      }
     );
   });
 
@@ -315,6 +327,49 @@ void describe('deriveDetailData', () => {
     assert.equal(derived?.rows[0]?.[1]?.text, '1,200');
     assert.equal(derived?.rows[0]?.[1]?.value, 1200);
     assert.equal(derived?.rows[1]?.[1]?.text, '3 orders');
+  });
+
+  void it('turns a GRAPH into the x label and one column per series', () => {
+    const derived = deriveDetailData(
+      {
+        kind: 'GRAPH',
+        chartType: 'bar',
+        valueFormat: 'currency',
+        xLabel: 'Month',
+        series: [
+          {
+            name: 'Revenue',
+            points: [
+              { label: 'Jan', value: 1200 },
+              { label: 'Feb', value: 900 },
+            ],
+          },
+          { name: 'Refunds', points: [{ label: 'Jan', value: 10 }] },
+        ],
+      },
+      'en-US'
+    );
+    assert.deepEqual(
+      derived?.columns.map((column) => column.label),
+      ['Month', 'Revenue', 'Refunds']
+    );
+    assert.equal(derived?.rows[0]?.[1]?.text, '$1,200.00');
+    assert.equal(derived?.rows[0]?.[1]?.value, 1200);
+    // A series shorter than the first leaves an empty cell, not a crash.
+    assert.equal(derived?.rows[1]?.[2]?.text, '');
+    assert.ok(derived !== undefined && validateDetailData(derived, 't').ok);
+  });
+
+  void it('has nothing for a GRAPH without series', () => {
+    assert.equal(
+      deriveDetailData({
+        kind: 'GRAPH',
+        chartType: 'line',
+        valueFormat: 'number',
+        series: [],
+      }),
+      undefined
+    );
   });
 
   void it('has nothing for kinds that need a provider', () => {
@@ -538,7 +593,7 @@ void describe('detail deep links', () => {
     } as const;
     const parsed = parseDetailLink(`?${serializeDetailLink(link)}`, defs);
     assert.ok(parsed.ok);
-    assert.deepEqual(parsed.value, link);
+    assert.deepEqual(parsed.value, { ...link, defaultPageSize: 10 });
     const clone = parseDetailLink('widget=orders%231', defs);
     assert.ok(clone.ok);
     assert.equal(clone.value?.query.pageSize, 25);
@@ -621,5 +676,202 @@ void describe('detail deep links', () => {
       ),
       { page: 1, pageSize: 10 }
     );
+  });
+});
+
+void describe('page size choice and column visibility', () => {
+  void it('resolves pageSizes sorted, with the default size included', () => {
+    const options = resolveDetailOptions({
+      title: 'T',
+      detail: { pageSize: 25, pageSizes: [100, 10], columnVisibility: true },
+    });
+    assert.deepEqual(options?.pageSizes, [10, 25, 100]);
+    assert.equal(options?.columnVisibility, true);
+  });
+
+  void it('has no choice for fewer than two sizes', () => {
+    assert.deepEqual(
+      resolveDetailOptions({ title: 'T', detail: { pageSizes: [10] } })
+        ?.pageSizes,
+      []
+    );
+    assert.equal(
+      resolveDetailOptions({ title: 'T', detail: true })?.columnVisibility,
+      false
+    );
+  });
+
+  void it('validates pageSizes and columnVisibility', () => {
+    const base = { key: 'a', title: 'A', kind: 'TABLE' };
+    const bad = validateWidgetDefinition({
+      ...base,
+      detail: { pageSizes: [10, 0, 'x'], columnVisibility: 'yes' },
+    });
+    assert.equal(bad.ok, false);
+    if (!bad.ok) {
+      assert.match(bad.error, /detail\.pageSizes\[1\] must be a whole number/);
+      assert.match(bad.error, /detail\.pageSizes\[2\]/);
+      assert.match(bad.error, /detail\.columnVisibility must be true or false/);
+    }
+    assert.equal(
+      validateWidgetDefinition({
+        ...base,
+        detail: { pageSizes: [10, 50], columnVisibility: true },
+      }).ok,
+      true
+    );
+  });
+
+  void it('round-trips size and hide through the query string', () => {
+    const query: DetailQuery = {
+      page: 2,
+      pageSize: 50,
+      hidden: ['note', 'a,b'],
+    };
+    const text = serializeDetailQuery(query, 25);
+    assert.match(text, /size=50/);
+    const parsed = parseDetailQuery(text, 25);
+    assert.ok(parsed.ok);
+    assert.deepEqual(parsed.value, query);
+  });
+
+  void it('leaves size out at the default and when none is given', () => {
+    assert.equal(serializeDetailQuery({ page: 1, pageSize: 25 }, 25), '');
+    assert.equal(serializeDetailQuery({ page: 1, pageSize: 50 }), '');
+  });
+
+  void it('rejects a malformed or unoffered size, naming it', () => {
+    const bad = parseDetailQuery('size=0');
+    assert.ok(!bad.ok);
+    assert.match(bad.error, /size must be a whole number from 1 to 200/);
+    const unoffered = parseDetailQuery('size=7', 25, undefined, {
+      pageSizes: [10, 25],
+    });
+    assert.ok(!unoffered.ok);
+    assert.match(unoffered.error, /size 7 is not one of the page sizes/);
+  });
+
+  void it('ignores size and hide a widget does not offer', () => {
+    const parsed = parseDetailQuery('size=50&hide=note', 25, undefined, {
+      pageSizes: [],
+      columnVisibility: false,
+    });
+    assert.ok(parsed.ok);
+    assert.equal(parsed.value.pageSize, 25);
+    assert.equal(parsed.value.hidden, undefined);
+  });
+
+  void it('checks hide against known columns', () => {
+    const parsed = parseDetailQuery('hide=nope', 25, data);
+    assert.ok(!parsed.ok);
+    assert.match(parsed.error, /hide column "nope" does not exist/);
+  });
+
+  void it('carries size and hide through deep links', () => {
+    const defs = [
+      {
+        key: 'top',
+        title: 'Top',
+        detail: { pageSize: 10, pageSizes: [10, 50], columnVisibility: true },
+      },
+    ];
+    const link = parseDetailLink('widget=top&size=50&hide=note', defs);
+    assert.ok(link.ok && link.value !== undefined);
+    assert.equal(link.value.query.pageSize, 50);
+    assert.deepEqual(link.value.query.hidden, ['note']);
+    assert.equal(
+      serializeDetailLink(link.value),
+      'widget=top&size=50&hide=note'
+    );
+    assert.equal(withDetailLink('tab=a&size=3&hide=x', null), 'tab=a');
+    const refused = parseDetailLink('widget=top&size=7', defs);
+    assert.ok(!refused.ok);
+  });
+
+  void it('sanitizes unknown or all-hiding hidden lists', () => {
+    const cleaned = sanitizeDetailQuery(
+      { page: 1, pageSize: 25, hidden: ['note', 'zzz'] },
+      data.columns
+    );
+    assert.deepEqual(cleaned.hidden, ['note']);
+    const all = sanitizeDetailQuery(
+      { page: 1, pageSize: 25, hidden: ['name', 'sold', 'note'] },
+      data.columns
+    );
+    assert.equal(all.hidden, undefined);
+  });
+
+  void it('hides columns in every row and leaves queries unaffected', () => {
+    const hidden = hideColumns(data, ['sold']);
+    assert.deepEqual(
+      hidden.columns.map((column) => column.key),
+      ['name', 'note']
+    );
+    assert.equal(hidden.rows[0]?.length, 2);
+    assert.equal(hideColumns(data, undefined), data);
+    assert.deepEqual(
+      names({ page: 1, pageSize: 25, hidden: ['name'] }),
+      names({ page: 1, pageSize: 25 })
+    );
+    assert.equal(
+      providerQuery({ page: 1, pageSize: 5, hidden: ['a'] }).hidden,
+      undefined
+    );
+  });
+});
+
+void describe('server-mode page cache', () => {
+  const base: DetailQuery = { page: 1, pageSize: 25 };
+  const page = (text: string): DetailData => ({
+    columns: [{ key: 'a', label: 'A' }],
+    rows: [[{ text }]],
+    totalRows: 1,
+  });
+
+  void it('gives equal signatures to equal queries, whatever the key order', () => {
+    assert.equal(
+      detailQuerySignature({
+        ...base,
+        filters: { b: '2', a: '1', c: '' },
+        hidden: ['x'],
+      }),
+      detailQuerySignature({ ...base, filters: { a: '1', b: '2' } })
+    );
+  });
+
+  void it('tells different queries apart', () => {
+    const signatures = [
+      base,
+      { ...base, page: 2 },
+      { ...base, pageSize: 50 },
+      { ...base, search: 'x' },
+      { ...base, sort: { column: 'a', direction: 'asc' as const } },
+      { ...base, sort: { column: 'a', direction: 'desc' as const } },
+      { ...base, filters: { a: 'x' } },
+    ].map(detailQuerySignature);
+    assert.equal(new Set(signatures).size, signatures.length);
+  });
+
+  void it('returns what was stored for the same query only', () => {
+    const cache = createDetailPageCache();
+    cache.set(base, page('one'));
+    assert.equal(
+      cache.get({ ...base, hidden: ['a'] })?.rows[0]?.[0]?.text,
+      'one'
+    );
+    assert.equal(cache.get({ ...base, page: 2 }), undefined);
+    cache.clear();
+    assert.equal(cache.size, 0);
+  });
+
+  void it('drops the oldest page past its limit, and refreshes on set', () => {
+    const cache = createDetailPageCache(2);
+    cache.set({ ...base, page: 1 }, page('1'));
+    cache.set({ ...base, page: 2 }, page('2'));
+    cache.set({ ...base, page: 1 }, page('1b'));
+    cache.set({ ...base, page: 3 }, page('3'));
+    assert.equal(cache.size, 2);
+    assert.equal(cache.get({ ...base, page: 2 }), undefined);
+    assert.equal(cache.get({ ...base, page: 1 })?.rows[0]?.[0]?.text, '1b');
   });
 });

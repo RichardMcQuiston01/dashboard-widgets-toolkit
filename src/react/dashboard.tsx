@@ -67,7 +67,8 @@ import {
 } from '../core/duplicate.js';
 import type { WidgetSelection } from '../core/select.js';
 import type { WidgetThemeStyles } from '../core/theme.js';
-import { applyView } from '../core/views.js';
+import type { WidgetData } from '../core/payload.js';
+import { applyView, BASE_VIEW_KEY, loadViewKey } from '../core/views.js';
 import {
   clampServerQuery,
   defaultDetailQuery,
@@ -510,6 +511,7 @@ function initialDetailQuery(widget: DashboardWidget): DetailQuery {
 /** The built-in dialog for one widget's detail view. */
 function DetailHost({
   widget,
+  view,
   query,
   onQueryChange,
   loadDetail,
@@ -520,6 +522,8 @@ function DetailHost({
   onExportDetail,
 }: {
   readonly widget: DashboardWidget;
+  /** The view the card loads: `base` or a view the provider supplies. */
+  readonly view: string;
   readonly query: DetailQuery;
   readonly onQueryChange: (query: DetailQuery) => void;
   readonly loadDetail: DetailLoader | undefined;
@@ -534,15 +538,22 @@ function DetailHost({
     | undefined;
 }): ReactNode {
   const { locale } = useWidgetSettings();
-  const { definition } = widget;
+  // Viewer settings and views rebuild the definition on every dashboard render
+  // (typing in the search box included); reloading the detail each time would
+  // flash a spinner. Definitions are plain JSON, so compare by content.
+  const definitionJson: string = JSON.stringify(widget.definition);
+  const definition: WidgetDefinition = useMemo(
+    () => widget.definition,
+    [definitionJson]
+  );
   const options = resolveDetailOptions(definition);
   // Memoized: a fresh object each render would restart the load every time.
+  const cardData: WidgetData | undefined =
+    widget.status === 'ok' ? widget.data : undefined;
   const derived: DetailData | undefined = useMemo(
     () =>
-      widget.status === 'ok'
-        ? deriveDetailData(widget.data, locale)
-        : undefined,
-    [widget, locale]
+      cardData === undefined ? undefined : deriveDetailData(cardData, locale),
+    [cardData, locale]
   );
   const mode: DetailMode = options?.mode ?? 'client';
   const serverOptions: ServerDetailOptions | undefined = useMemo(
@@ -556,7 +567,8 @@ function DetailHost({
     derived,
     widget.options,
     serverOptions,
-    widget.filters
+    widget.filters,
+    view
   );
   // Rows were removed while the viewer was on the last page: ask for the new
   // last page instead of showing an empty one.
@@ -591,6 +603,10 @@ function DetailHost({
         onRetry={reload}
         mode={mode}
         busy={state.refreshing === true}
+        {...(options === undefined || options.pageSizes.length < 2
+          ? {}
+          : { pageSizes: options.pageSizes })}
+        columnVisibility={options?.columnVisibility === true}
         {...(exportFormats === undefined ? {} : { exportFormats })}
         {...(onExport === undefined ? {} : { onExport })}
         {...(onExportError === undefined ? {} : { onExportError })}
@@ -845,6 +861,7 @@ function DashboardInner({
   // The viewer's titles, widths, Flexible and view choices are applied on top
   // of each definition, except for widgets locked against options (which
   // still start on their `defaultView`).
+  const loadedViews = new Map<string, string>();
   const effectiveWidgets: DashboardWidget[] = widgets.map((w) => {
     const settings: WidgetViewerSettings | undefined =
       !overrideLocks && isOptionsLocked(w.definition)
@@ -854,6 +871,10 @@ function DashboardInner({
       settings === undefined
         ? w
         : { ...w, definition: applySettings(w.definition, settings) };
+    loadedViews.set(
+      w.definition.key,
+      loadViewKey(w.definition, settings?.view)
+    );
     return applyView(styled, settings?.view, {
       ...(locale === undefined ? {} : { locale }),
     });
@@ -1754,7 +1775,12 @@ function DashboardInner({
                         onView: () =>
                           onOpenDetail === undefined
                             ? changeDetail(
-                                { key, query: initialDetailQuery(widget) },
+                                {
+                                  key,
+                                  query: initialDetailQuery(widget),
+                                  defaultPageSize:
+                                    initialDetailQuery(widget).pageSize,
+                                },
                                 'open'
                               )
                             : onOpenDetail(key),
@@ -1847,9 +1873,19 @@ function DashboardInner({
           <DetailHost
             key={openDetail.key}
             widget={byKey.get(openDetail.key) as DashboardWidget}
+            view={loadedViews.get(openDetail.key) ?? BASE_VIEW_KEY}
             query={openDetail.query}
             onQueryChange={(query) =>
-              changeDetail({ key: openDetail.key, query }, 'query')
+              changeDetail(
+                {
+                  key: openDetail.key,
+                  query,
+                  ...(openDetail.defaultPageSize === undefined
+                    ? {}
+                    : { defaultPageSize: openDetail.defaultPageSize }),
+                },
+                'query'
+              )
             }
             loadDetail={loadDetail}
             onClose={() => changeDetail(null, 'close')}

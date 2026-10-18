@@ -840,8 +840,9 @@ the sketch above:
   `loading` rather than data of the wrong shape while a switch is in flight.
 - `sort` and `columns` client options are skipped for provider views; they name
   the base payload's columns.
-- Not built: a detail view per provider view (the detail provider still loads the
-  widget's whole list), and passing the view to `loadDetail`.
+- The detail view follows the view: `loadDetail` receives `options.view` (the
+  same key the card loads), and a view whose payload is a complete `GRAPH`,
+  `TABLE` or `BAR_LIST` derives its detail without a loader (`deriveDetailData`).
 
 Phase 4 is built. Differences from the sketch above:
 
