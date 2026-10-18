@@ -222,7 +222,7 @@ handles `onQueryChange`.
 | V4  | Add `value` to cells so numbers and dates sort correctly?       | Yes, on `DetailCell`; consider the same on `TableCell`                     |
 | V5  | Title as a button and an eye icon, or the icon only?            | Both; the title is a mouse convenience, the icon is the accessible control |
 | V6  | Which filter UI: one search box, per-column filters, or both?   | Search box plus per-column filters on columns marked `filterable`          |
-| V7  | Should derived details (GRAPH, BAR_LIST) exist at all in v1?    | Yes for BAR_LIST and TABLE without footer; GRAPH later                     |
+| V7  | Should derived details (GRAPH, BAR_LIST) exist at all in v1?    | Yes for BAR_LIST and TABLE without footer; GRAPH shipped later             |
 | V8  | Is the Drafts tab in etsy-dashboard a candidate first consumer? | Likely: it needs a list with a modal per row; confirm                      |
 
 ## 7. Risks
