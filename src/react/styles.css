@@ -876,13 +876,53 @@
   color: var(--dwt-text-secondary);
 }
 
-:where(.dwt-detail-field input) {
+:where(.dwt-detail-field input),
+:where(.dwt-detail-field select) {
   font: inherit;
   color: var(--dwt-text);
   background: var(--dwt-surface);
   border: 1px solid var(--dwt-border);
   border-radius: 6px;
   padding: 4px 8px;
+}
+
+:where(.dwt-detail-columns) {
+  position: relative;
+  align-self: flex-end;
+  font-size: 0.8125rem;
+  color: var(--dwt-text-secondary);
+}
+
+:where(.dwt-detail-columns summary) {
+  cursor: pointer;
+  padding: 5px 8px;
+  border: 1px solid var(--dwt-border);
+  border-radius: 6px;
+}
+
+:where(.dwt-detail-columns summary:focus-visible) {
+  outline: 2px solid var(--dwt-focus);
+  outline-offset: 2px;
+}
+
+:where(.dwt-detail-columns ul) {
+  position: absolute;
+  z-index: 1;
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  list-style: none;
+  min-width: 160px;
+  background: var(--dwt-surface);
+  border: 1px solid var(--dwt-border);
+  border-radius: 6px;
+  color: var(--dwt-text);
+}
+
+:where(.dwt-detail-columns label) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
 }
 
 :where(.dwt-detail-summary) {

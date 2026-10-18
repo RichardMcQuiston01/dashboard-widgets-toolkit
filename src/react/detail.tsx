@@ -10,8 +10,11 @@ import {
 
 import {
   defaultDetailQuery,
+  hideColumns,
+  providerQuery,
   queryRows,
   serverPage,
+  visibleColumnIndexes,
   validateDetailData,
   type DetailCell,
   type DetailColumn,
@@ -70,6 +73,13 @@ export interface WidgetDetailProps {
   readonly mode?: DetailMode;
   /** True while a new page is loading: the old rows stay, marked busy. */
   readonly busy?: boolean;
+  /**
+   * Rows-per-page choices. Two or more adds a "Rows per page" select; the
+   * choice goes into `query.pageSize` (and back to page 1's position).
+   */
+  readonly pageSizes?: readonly number[];
+  /** Adds a "Columns" menu; hidden columns go into `query.hidden`. */
+  readonly columnVisibility?: boolean;
   /** Heading level of the title, 2 to 6. Default 2. */
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   /** Id of the heading, so a dialog can label itself with it. */
@@ -214,6 +224,8 @@ export function WidgetDetail({
   onRetry,
   mode = 'client',
   busy = false,
+  pageSizes,
+  columnVisibility = false,
   headingLevel = 2,
   headingId,
   exportFormats,
@@ -276,12 +288,16 @@ export function WidgetDetail({
       const all: DetailData | undefined = await onExportAll({
         widgetKey,
         title,
-        query: { ...query, page: 1, pageSize: Math.max(1, page.totalRows) },
+        query: providerQuery({
+          ...query,
+          page: 1,
+          pageSize: Math.max(1, page.totalRows),
+        }),
         totalRows: page.totalRows,
       });
       // Undefined: the host saved the file itself.
       if (all === undefined) return;
-      const csv = detailToCsv(all);
+      const csv = detailToCsv(hideColumns(all, query.hidden));
       if (csv.ok) finishExport(csv.value);
       else onExportError?.(csv.error);
     } catch (cause) {
@@ -320,6 +336,11 @@ export function WidgetDetail({
     );
   } else if (data !== undefined && page !== undefined) {
     const columns: readonly DetailColumn[] = data.columns;
+    const shownIndexes: readonly number[] = visibleColumnIndexes(
+      data,
+      query.hidden
+    );
+    const choices: readonly number[] = pageSizes ?? [];
     const from: number = (page.page - 1) * query.pageSize + 1;
     const to: number = from + page.rows.length - 1;
     body = (
@@ -349,6 +370,68 @@ export function WidgetDetail({
                 />
               </label>
             ))}
+          {choices.length >= 2 && (
+            <label className="dwt-detail-field">
+              <span>{labels.rowsPerPage}</span>
+              <select
+                value={query.pageSize}
+                onChange={(event) => {
+                  const pageSize: number = Number(event.target.value);
+                  // Keep the first row on screen: the page that holds it.
+                  onQueryChange({
+                    ...query,
+                    pageSize,
+                    page: Math.floor((from - 1) / pageSize) + 1,
+                  });
+                }}
+              >
+                {(choices.includes(query.pageSize)
+                  ? choices
+                  : [...choices, query.pageSize].sort((a, b) => a - b)
+                ).map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {columnVisibility && columns.length > 1 && (
+            <details className="dwt-detail-columns">
+              <summary>{labels.columnsMenu}</summary>
+              <ul>
+                {columns.map((column, index) => {
+                  const shown: boolean = shownIndexes.includes(index);
+                  return (
+                    <li key={column.key}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={shown}
+                          // The last visible column stays: a table needs one.
+                          disabled={shown && shownIndexes.length === 1}
+                          onChange={() => {
+                            const hiddenKeys: string[] = (
+                              query.hidden ?? []
+                            ).filter((key) => key !== column.key);
+                            if (shown) hiddenKeys.push(column.key);
+                            const { hidden: _previous, ...rest } = query;
+                            onQueryChange({
+                              ...rest,
+                              ...(hiddenKeys.length === 0
+                                ? {}
+                                : { hidden: hiddenKeys }),
+                            });
+                          }}
+                        />
+                        {column.label}
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
+          )}
           {canExport && (
             <button
               type="button"
@@ -379,7 +462,9 @@ export function WidgetDetail({
             <caption className="dwt-visually-hidden">{title}</caption>
             <thead>
               <tr>
-                {columns.map((column) => {
+                {shownIndexes.map((columnIndex) => {
+                  const column: DetailColumn | undefined = columns[columnIndex];
+                  if (column === undefined) return null;
                   const sorted: boolean = query.sort?.column === column.key;
                   return (
                     <th
@@ -421,15 +506,18 @@ export function WidgetDetail({
             <tbody>
               {page.rows.map((row, rowIndex) => (
                 <tr key={rowIndex}>
-                  {row.map((cell, cellIndex) => (
-                    <Cell
-                      key={cellIndex}
-                      cell={cell}
-                      column={columns[cellIndex]}
-                      row={row}
-                      widgetKey={widgetKey}
-                    />
-                  ))}
+                  {shownIndexes.map((cellIndex) => {
+                    const cell: DetailCell | undefined = row[cellIndex];
+                    return cell === undefined ? null : (
+                      <Cell
+                        key={cellIndex}
+                        cell={cell}
+                        column={columns[cellIndex]}
+                        row={row}
+                        widgetKey={widgetKey}
+                      />
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -594,7 +682,8 @@ export function useDetailData(
   const queryRef = useRef<DetailQuery>(server?.query ?? defaultDetailQuery());
   queryRef.current = server?.query ?? queryRef.current;
   const querySignature: string = useMemo(
-    () => (server === undefined ? '' : JSON.stringify(server.query)),
+    () =>
+      server === undefined ? '' : JSON.stringify(providerQuery(server.query)),
     [server]
   );
 
@@ -602,7 +691,7 @@ export function useDetailData(
     if (!enabled) return undefined;
     const controller = new AbortController();
     const query: DetailQuery = isServer
-      ? queryRef.current
+      ? providerQuery(queryRef.current)
       : defaultDetailQuery();
     setState((previous) =>
       isServer && previous.data !== undefined
