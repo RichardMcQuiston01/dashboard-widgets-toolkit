@@ -91,8 +91,8 @@ Nothing is queued here right now: the planned work is under [Next](#next).
   [docs/design/widget-pages.md](./docs/design/widget-pages.md).
 - **Widget Builder**, headless functions in a `./builder` subpath that create and
   edit a definition as JSON, with data-source descriptions; viewer-created widgets
-  come after. See
-  [docs/design/widget-options-views-clones.md](./docs/design/widget-options-views-clones.md).
+  come after. Design proposed, nothing built. See
+  [docs/design/widget-builder.md](./docs/design/widget-builder.md).
 - **Vue renderers** (`./vue`) for Maker Toolkit's Shop Dashboard and other
   Vue 3 apps, over the same core and `styles.css` class names.
 - **Data sources and adapters**: payload builders and push (live) sources. See

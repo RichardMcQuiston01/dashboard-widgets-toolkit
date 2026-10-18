@@ -143,6 +143,9 @@ documented in the code and README, which win if they disagree.
   `WidgetTheme` / `Dashboard` `theme`, `checkTheme` (`color.ts`,
   `theme-check.ts`, `theme-defaults.ts`) and `themePresets` are built. Nothing
   planned except the open questions in the doc.
+- `docs/design/widget-builder.md`: Widget Builder. Proposed, nothing built:
+  headless `./builder` subpath, `SourceDescription`, `WidgetDefinition.source`.
+  Decisions D1-D12 await the maintainer.
 
 ## Commands (Bun only)
 
