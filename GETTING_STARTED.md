@@ -391,6 +391,12 @@ const loadDetail: DetailLoader = async (definition, { query, signal }) => {
   `query` and aborts the request before it. The old page stays on screen
   (marked `aria-busy`) until the new one arrives. Typing waits 300 ms after the
   last key (`SERVER_INPUT_DEBOUNCE_MS`).
+- Pages already loaded are remembered while the dialog is open, by query
+  (`detailQuerySignature`; `createDetailPageCache` holds the last 20). Going
+  back to an earlier page or sort shows its rows at once, marked busy, while the
+  loader is asked again, so what you see is never left stale. Changing a
+  dashboard filter or option, or a retry, starts over. Nothing is stored
+  outside the open dialog.
 - The loader must honor `query.page` and `query.pageSize`. The result is
   checked (`validateDetailData(data, subject, { mode: 'server', pageSize })`):
   `totalRows` is required, and more rows than a page is an error. Column keys

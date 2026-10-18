@@ -188,6 +188,18 @@ convention let a consumer put the open detail view in the URL. The package
 does not read or write `location`; the consumer passes the query in and
 handles `onQueryChange`.
 
+### 3.7 Server-mode page cache
+
+A server-mode detail view keeps the pages it has loaded, by query signature
+(`detailQuerySignature`: search, filters, sort, page and page size; not
+`hidden`), in memory for as long as the dialog is open
+(`createDetailPageCache`, 20 pages). A query seen before shows its cached rows
+at once, marked busy, and the provider is still asked: stale-while-revalidate,
+so data is never trusted past one round trip. A change to the load's other
+inputs (dashboard filters, options, view) or a retry clears it. The cache
+holds no payloads past the dialog; a long-lived cache is the consumer's own
+(their provider can cache by `query`).
+
 ## 4. Fit with the rest of the toolkit
 
 - **Async loading (phase 1):** the detail provider reuses `ProviderOptions`,

@@ -4,6 +4,8 @@ import { describe, it } from 'node:test';
 import {
   defaultDetailQuery,
   deriveDetailData,
+  createDetailPageCache,
+  detailQuerySignature,
   hideColumns,
   providerQuery,
   parseDetailQuery,
@@ -815,5 +817,61 @@ void describe('page size choice and column visibility', () => {
       providerQuery({ page: 1, pageSize: 5, hidden: ['a'] }).hidden,
       undefined
     );
+  });
+});
+
+void describe('server-mode page cache', () => {
+  const base: DetailQuery = { page: 1, pageSize: 25 };
+  const page = (text: string): DetailData => ({
+    columns: [{ key: 'a', label: 'A' }],
+    rows: [[{ text }]],
+    totalRows: 1,
+  });
+
+  void it('gives equal signatures to equal queries, whatever the key order', () => {
+    assert.equal(
+      detailQuerySignature({
+        ...base,
+        filters: { b: '2', a: '1', c: '' },
+        hidden: ['x'],
+      }),
+      detailQuerySignature({ ...base, filters: { a: '1', b: '2' } })
+    );
+  });
+
+  void it('tells different queries apart', () => {
+    const signatures = [
+      base,
+      { ...base, page: 2 },
+      { ...base, pageSize: 50 },
+      { ...base, search: 'x' },
+      { ...base, sort: { column: 'a', direction: 'asc' as const } },
+      { ...base, sort: { column: 'a', direction: 'desc' as const } },
+      { ...base, filters: { a: 'x' } },
+    ].map(detailQuerySignature);
+    assert.equal(new Set(signatures).size, signatures.length);
+  });
+
+  void it('returns what was stored for the same query only', () => {
+    const cache = createDetailPageCache();
+    cache.set(base, page('one'));
+    assert.equal(
+      cache.get({ ...base, hidden: ['a'] })?.rows[0]?.[0]?.text,
+      'one'
+    );
+    assert.equal(cache.get({ ...base, page: 2 }), undefined);
+    cache.clear();
+    assert.equal(cache.size, 0);
+  });
+
+  void it('drops the oldest page past its limit, and refreshes on set', () => {
+    const cache = createDetailPageCache(2);
+    cache.set({ ...base, page: 1 }, page('1'));
+    cache.set({ ...base, page: 2 }, page('2'));
+    cache.set({ ...base, page: 1 }, page('1b'));
+    cache.set({ ...base, page: 3 }, page('3'));
+    assert.equal(cache.size, 2);
+    assert.equal(cache.get({ ...base, page: 2 }), undefined);
+    assert.equal(cache.get({ ...base, page: 1 })?.rows[0]?.[0]?.text, '1b');
   });
 });

@@ -204,6 +204,65 @@ export function providerQuery(query: DetailQuery): DetailQuery {
   return rest;
 }
 
+/**
+ * What a server-mode provider is asked for, as one comparable string: the
+ * query without `hidden`. Equal signatures get equal answers, so it keys the
+ * page cache and tells the detail view when a query really changed.
+ */
+export function detailQuerySignature(query: DetailQuery): string {
+  const { search, filters, sort, page, pageSize } = providerQuery(query);
+  return JSON.stringify([
+    search ?? '',
+    Object.entries(filters ?? {})
+      .filter(([, text]) => text !== '')
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    sort === undefined ? null : [sort.column, sort.direction],
+    page,
+    pageSize,
+  ]);
+}
+
+/**
+ * Pages a server-mode detail view has already loaded, by query signature, so
+ * paging back or restoring an earlier sort shows its rows at once while the
+ * provider is asked again. In memory only, and the oldest entry goes when
+ * `limit` (default 20) is passed. Plain data in, plain data out: it never
+ * fetches or stores anything outside itself.
+ */
+export interface DetailPageCache {
+  get(query: DetailQuery): DetailData | undefined;
+  set(query: DetailQuery, data: DetailData): void;
+  clear(): void;
+  readonly size: number;
+}
+
+export function createDetailPageCache(limit: number = 20): DetailPageCache {
+  const entries = new Map<string, DetailData>();
+  const capacity: number = Math.max(1, Math.floor(limit));
+  return {
+    get(query: DetailQuery): DetailData | undefined {
+      return entries.get(detailQuerySignature(query));
+    },
+    set(query: DetailQuery, data: DetailData): void {
+      const signature: string = detailQuerySignature(query);
+      // Re-inserting moves it to the newest position.
+      entries.delete(signature);
+      entries.set(signature, data);
+      while (entries.size > capacity) {
+        const oldest: string | undefined = entries.keys().next().value;
+        if (oldest === undefined) break;
+        entries.delete(oldest);
+      }
+    },
+    clear(): void {
+      entries.clear();
+    },
+    get size(): number {
+      return entries.size;
+    },
+  };
+}
+
 /** Indexes of the columns of `data` that `query.hidden` does not hide. */
 export function visibleColumnIndexes(
   data: Pick<DetailData, 'columns'>,
