@@ -103,6 +103,16 @@ export interface WidgetLoader {
    * widget's definition changed in a way its data depends on.
    */
   setDefinitions(definitions: readonly WidgetDefinition[]): void;
+  /**
+   * Lets go of what the widgets in `keys` hold: a load in flight is aborted and
+   * its result ignored, the payload is dropped, and the card goes back to
+   * `loading`, as if it had never started (its option and view choices are
+   * kept). It loads again the next time `load(key)` is called, from the cache
+   * first when there is one. For a long-lived paged dashboard that wants to drop
+   * the payloads of pages the viewer left far behind (see `farPageWidgetKeys`).
+   * Keys that are unknown or never started are ignored.
+   */
+  release(keys: readonly string[]): void;
   /** Aborts everything in flight and ignores any later result. */
   dispose(): void;
 }
@@ -411,6 +421,31 @@ export function createWidgetLoader<C extends WidgetContext>(
     );
   }
 
+  function release(keys: readonly string[]): void {
+    if (disposed) return;
+    const released = new Set<string>();
+    for (const key of keys) {
+      if (!started.has(key)) continue;
+      const definition: WidgetDefinition | undefined = definitionFor(key);
+      if (definition === undefined) continue;
+      inFlight.get(key)?.abort(new Error('The widget was released.'));
+      inFlight.delete(key);
+      started.delete(key);
+      unapplied.delete(key);
+      // A result that is still on its way must not bring the widget back.
+      generations.set(key, (generations.get(key) ?? 0) + 1);
+      released.add(key);
+    }
+    if (released.size === 0) return;
+    publish(
+      snapshot.map((widget) =>
+        released.has(widget.definition.key)
+          ? { definition: widget.definition, status: 'loading' as const }
+          : widget
+      )
+    );
+  }
+
   function dispose(): void {
     disposed = true;
     abortAll(new Error('The widget loader was disposed.'));
@@ -434,6 +469,7 @@ export function createWidgetLoader<C extends WidgetContext>(
     setFilterValues,
     setView,
     setDefinitions,
+    release,
     dispose,
   };
 }

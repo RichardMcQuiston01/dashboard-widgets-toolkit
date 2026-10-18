@@ -14,6 +14,7 @@ import {
   addPage,
   assignPages,
   DEFAULT_PAGE_KEY,
+  farPageWidgetKeys,
   hasPages,
   movePage,
   moveWidgetToPage,
@@ -682,5 +683,68 @@ void describe('validateWidgetDefinition page', () => {
       assert.match(bad.error, /page must be a non-empty page key or title/);
     }
     assert.equal(validateWidgetDefinition({ ...base, page: ' ' }).ok, false);
+  });
+});
+
+void describe('farPageWidgetKeys', () => {
+  const defs = ['a', 'b', 'c', 'd', 'e'].map((key) => widget(key, 12));
+  const layout = paged(
+    page('p1', 'One', ['a']),
+    page('p2', 'Two', ['b']),
+    page('p3', 'Three', ['c']),
+    page('p4', 'Four', ['d']),
+    page('p5', 'Five', ['e'])
+  );
+
+  void it('lists the widgets of pages more than `keep` away', () => {
+    assert.deepEqual(farPageWidgetKeys(defs, layout, 'p1'), ['c', 'd', 'e']);
+    assert.deepEqual(farPageWidgetKeys(defs, layout, 'p3'), ['a', 'e']);
+    assert.deepEqual(farPageWidgetKeys(defs, layout, 'p5'), ['a', 'b', 'c']);
+  });
+
+  void it('keeps more pages with a larger `keep`, and only the active with 0', () => {
+    assert.deepEqual(farPageWidgetKeys(defs, layout, 'p3', 2), []);
+    assert.deepEqual(farPageWidgetKeys(defs, layout, 'p3', 0), [
+      'a',
+      'b',
+      'd',
+      'e',
+    ]);
+    assert.deepEqual(farPageWidgetKeys(defs, layout, 'p1', 1.9), [
+      'c',
+      'd',
+      'e',
+    ]);
+  });
+
+  void it('counts hidden widgets with their page', () => {
+    const withHidden: DashboardLayout = {
+      order: [],
+      hidden: [],
+      minimized: [],
+      pages: [
+        page('p1', 'One', ['a']),
+        page('p2', 'Two', ['b']),
+        {
+          key: 'p3',
+          title: 'Three',
+          order: ['c'],
+          hidden: ['d'],
+          minimized: [],
+        },
+      ],
+    };
+    assert.deepEqual(farPageWidgetKeys(defs.slice(0, 4), withHidden, 'p1'), [
+      'c',
+      'd',
+    ]);
+  });
+
+  void it('returns nothing for an unknown page or a one-page layout', () => {
+    assert.deepEqual(farPageWidgetKeys(defs, layout, 'nope'), []);
+    assert.deepEqual(
+      farPageWidgetKeys(defs, { ...EMPTY_LAYOUT, order: ['a'] }, 'default'),
+      []
+    );
   });
 });

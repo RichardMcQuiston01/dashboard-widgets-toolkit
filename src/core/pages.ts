@@ -203,6 +203,33 @@ export function assignPages<T extends LayoutItem>(
   return assigned;
 }
 
+/**
+ * The keys of the widgets on pages more than `keep` pages away from the page in
+ * view, in page order: what a long-lived paged dashboard can `release` so the
+ * payloads of pages the viewer left far behind don't pile up. `keep` is how many
+ * pages on each side of `activeKey` stay loaded (default 1: the neighbours, so
+ * a swipe lands on data). Hidden widgets count with their page. An unknown
+ * `activeKey` returns nothing, since no page is known to be far.
+ */
+export function farPageWidgetKeys<T extends LayoutItem>(
+  definitions: readonly T[],
+  layout: DashboardLayout,
+  activeKey: string,
+  keep: number = 1
+): string[] {
+  const pages: readonly LayoutPage[] = pageList(layout);
+  const active: number = pages.findIndex((page) => page.key === activeKey);
+  if (active === -1) return [];
+  const distance: number = Math.max(0, Math.floor(keep));
+  const assigned: Map<string, T[]> = assignPages(definitions, layout);
+  const far: string[] = [];
+  for (const [index, page] of pages.entries()) {
+    if (Math.abs(index - active) <= distance) continue;
+    for (const widget of assigned.get(page.key) ?? []) far.push(widget.key);
+  }
+  return far;
+}
+
 /** The key of the page a widget shows on; undefined if it isn't a definition. */
 export function pageOf<T extends LayoutItem>(
   definitions: readonly T[],

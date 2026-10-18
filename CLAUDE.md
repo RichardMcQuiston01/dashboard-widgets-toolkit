@@ -120,9 +120,10 @@ documented in the code and README, which win if they disagree.
   about 4 rows, moving widgets between pages, page bar hidden for one page,
   lazy loading by page). Built: the core (`pages.ts`, `placeRows`,
   `normalizeLayout`) and the React page bar, Move to page and page management.
-  Swipe between pages (`swipe.ts`, `use-page-swipe.ts`) and drag onto a page tab
-  (`tabAtPoint`, `tabsRef`/`tabFor` on `usePointerReorder`) are built. Not built:
-  `retain`/`release`.
+  Swipe between pages (`swipe.ts`, `use-page-swipe.ts`), drag onto a page tab
+  (`tabAtPoint`, `tabsRef`/`tabFor` on `usePointerReorder`) and `release` of
+  far-away pages (`loader.release`, `farPageWidgetKeys`) are built. Not built:
+  `loadWhen: 'adjacent'`.
 - `docs/design/export.md`: export is built: CSV for cards and the detail view
   (`export.ts`, `exportFormats`, `onExport`, `onExportDetail`), chart SVG/PNG
   (`chart-export.ts`) and the print stylesheet (`@media print` in `styles.css`,
