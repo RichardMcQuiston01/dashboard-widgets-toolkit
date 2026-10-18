@@ -1354,6 +1354,13 @@ page in view. With one page (or none) there is no page bar.
 - **Tabs and dots.** Tabs are a real `tablist` (arrow keys, Home and End move and
   select; names read "Page 2 of 3: Sales"). Under 640px they collapse to dots
   with Previous and Next buttons. Page changes are announced.
+- **Swipe.** On a touch screen, swiping left or right on the page changes page
+  (left is the next page, as on a phone's home screen; right-to-left layouts
+  flip). It never starts on a button, link, field, drag handle or a table that
+  scrolls sideways, it does not wrap past the first or last page, and a mostly
+  vertical movement is a scroll. The page bar stays the baseline: nothing
+  depends on the gesture. `swipeDirection` and `adjacentPageKey` (core) and
+  `usePageSwipe` (React) are exported if you build your own page container.
 - **Lazy loading by page.** Only the page in view is rendered, so with
   `useWidgets(..., { loadWhen: 'visible' })` (and `gridRef` around the
   dashboard) widgets on other pages load the first time their page is shown, and

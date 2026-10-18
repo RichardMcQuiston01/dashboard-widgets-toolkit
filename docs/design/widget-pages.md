@@ -1,7 +1,8 @@
 # Design: widget pages
 
 - **Status:** Built: the core (0.10.0) and the React page bar, Move to page and
-  page management (0.10.0 to 0.11.2). Not built: swipe, drag onto a page tab and
+  page management (0.10.0 to 0.11.2), and swipe between pages on touch screens
+  (`swipe.ts`, `usePageSwipe`). Not built: drag onto a page tab and
   `retain`/`release`. Decisions 1 to 6 of section 12 come from the maintainer; the
   rest were taken as proposed.
 - **Date:** 2026-10-09
@@ -190,8 +191,15 @@ With one page, **no page control is shown** (decided).
 - Page changes are announced ("Page 2 of 3: Sales") in a live region, and focus
   stays on the control the viewer used. Motion between pages respects
   `prefers-reduced-motion`.
-- **Swipe** on touch screens is an enhancement for later; the buttons and tabs
-  are the baseline, so nothing depends on a gesture.
+- **Swipe** on touch screens changes page (built: `swipeDirection`,
+  `adjacentPageKey`, `usePageSwipe`). The buttons and tabs are the baseline, so
+  nothing depends on a gesture. It listens to touch events rather than pointer
+  events: a card's table wrapper is a scroll container, so the browser takes a
+  sideways pan there and cancels the pointer, but touch events keep arriving.
+  It never starts on a control, a drag handle or a table that really scrolls
+  sideways; 56px sideways, 1.5x more sideways than vertical, under a second. It
+  does not wrap, and there is no slide animation (so nothing to switch off for
+  `prefers-reduced-motion`).
 - The active page is state of the view, not of the layout: `Dashboard` takes
   `activePage` and `onActivePageChange` (controlled), or manages it itself
   (uncontrolled, starting on the first page). A consumer who wants to reopen the
@@ -271,7 +279,7 @@ Indicative; after edit mode (0.9.0) and the options dialog (0.11.0), before clon
 | ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | 0.10.0  | **Built.** Core: `pages` in the layout, helpers, `placeRows`/`fitCount`, `normalizeLayout`, definition `page`                                                 |
 | 2     | 0.10.0  | **Built.** React: page bar (tabs and dots, hidden for one page), `activePage`, lazy loading by page, Move to page select, edit-mode Add/Rename/Reorder/Delete |
-| 3     | later   | Swipe, drag onto a page tab, adjacent prefetch tuning, `retain`/`release`                                                                                     |
+| 3     | later   | **Swipe built.** Drag onto a page tab, adjacent prefetch tuning, `retain`/`release` still planned                                                             |
 
 Tests (`test/core`): round trips with and without `pages` and byte-identical old
 JSON; `pageLayout`/`withPageLayout`; `placeRows` including the 7-wide example and flexible growth that never adds a row;

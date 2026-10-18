@@ -68,6 +68,7 @@ import {
 import type { WidgetSelection } from '../core/select.js';
 import type { WidgetThemeStyles } from '../core/theme.js';
 import type { WidgetData } from '../core/payload.js';
+import { adjacentPageKey } from '../core/swipe.js';
 import { applyView, BASE_VIEW_KEY, loadViewKey } from '../core/views.js';
 import {
   clampServerQuery,
@@ -98,6 +99,7 @@ import { WidgetEditMenu, type EditMenuItem } from './edit-menu.js';
 import { FilterBar } from './filters.js';
 import { WidgetOptionsDialog } from './options-dialog.js';
 import { WidgetTheme } from './theme.js';
+import { usePageSwipe, type PageSwipeProps } from './use-page-swipe.js';
 import { usePointerReorder } from './use-reorder.js';
 import {
   WidgetDetail,
@@ -121,11 +123,13 @@ function PagePanel({
   paged,
   id,
   labelledBy,
+  swipe,
   children,
 }: {
   readonly paged: boolean;
   readonly id: string;
   readonly labelledBy: string;
+  readonly swipe: PageSwipeProps;
   readonly children: ReactNode;
 }): ReactNode {
   if (!paged) return <>{children}</>;
@@ -135,6 +139,7 @@ function PagePanel({
       id={id}
       aria-labelledby={labelledBy}
       className="dwt-page-panel"
+      {...swipe}
     >
       {children}
     </div>
@@ -1033,6 +1038,18 @@ function DashboardInner({
         setDragAnnouncement(labels.dragCancelled(titleOf(key)));
     },
   });
+  // Swipe left or right on a touch screen to change page; never mid-drag.
+  const pageSwipe: PageSwipeProps = usePageSwipe({
+    enabled: paged && drag === undefined,
+    onSwipe: (direction) => {
+      const next: string | undefined = adjacentPageKey(
+        pages,
+        activeKey,
+        direction
+      );
+      if (next !== undefined) selectPage(next);
+    },
+  });
   // Moving a card in the DOM can drop its focus; give it back to the handle.
   useEffect(() => {
     if (grab === undefined) return;
@@ -1491,6 +1508,7 @@ function DashboardInner({
       )}
       <PagePanel
         paged={paged}
+        swipe={pageSwipe}
         id={panelId}
         labelledBy={`${instanceId}-tab-${pages.findIndex((p) => p.key === activeKey)}`}
       >

@@ -38,6 +38,7 @@ src/
     layout.ts           DashboardLayout: parse/serialise, order, hide, minimize
     pages.ts            pages of widgets: helpers, capacity, normalizeLayout
     reorder.ts          drag and drop decisions: dropTargetKey, reorderOnto, autoScrollStep
+    swipe.ts            swipeDirection, adjacentPageKey: swipe between pages
     options.ts          declared options: resolve values, cache suffix, client sort/columns
     settings.ts         viewer settings in the layout: title, width, view, option values
     views.ts            alternate views: conversions, applyView, effectiveViewKey
@@ -72,6 +73,7 @@ src/
     detail.tsx          WidgetDetailDialog and useDetailData
     use-widgets.ts      useWidgets: loader hook (optionValues, viewValues, polling)
     use-reorder.ts      usePointerReorder: pointer/touch drag of cards by their handle
+    use-page-swipe.ts   usePageSwipe: touch swipe between pages
     theme.tsx           WidgetTheme: the theme's <style> and scope wrapper
     options-dialog.tsx  WidgetOptionsDialog: title, width, view, declared options
     confirm.tsx         InlineConfirm (✓ / ✕)
@@ -118,7 +120,8 @@ documented in the code and README, which win if they disagree.
   about 4 rows, moving widgets between pages, page bar hidden for one page,
   lazy loading by page). Built: the core (`pages.ts`, `placeRows`,
   `normalizeLayout`) and the React page bar, Move to page and page management.
-  Not built: swipe, drag onto a page tab, `retain`/`release`.
+  Swipe between pages is built (`swipe.ts`, `use-page-swipe.ts`). Not built: drag
+  onto a page tab, `retain`/`release`.
 - `docs/design/export.md`: export is built: CSV for cards and the detail view
   (`export.ts`, `exportFormats`, `onExport`, `onExportDetail`), chart SVG/PNG
   (`chart-export.ts`) and the print stylesheet (`@media print` in `styles.css`,

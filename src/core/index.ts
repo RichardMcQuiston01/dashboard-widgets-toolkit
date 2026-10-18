@@ -27,6 +27,7 @@ export * from './select.js';
 export * from './scale.js';
 export * from './settings.js';
 export * from './storage.js';
+export * from './swipe.js';
 export * from './color.js';
 export * from './theme.js';
 export * from './theme-check.js';
