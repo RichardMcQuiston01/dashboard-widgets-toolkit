@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## 0.28.0
+
+### Minor Changes
+
+- d764c43: Detail view: a page-size choice and column visibility.
+  
+  - `detail.pageSizes` (for example `[10, 25, 100]`) adds a "Rows per page" select; `detail.columnVisibility` adds a "Columns" menu. Both are off by default.
+  - `DetailQuery.hidden` lists the hidden column keys. It is display only: search, filters and sort still cover every column, a server-mode provider is not sent it (`providerQuery`), and CSV exports leave the hidden columns out.
+  - Deep links carry `size` and `hide`; `serializeDetailLink` writes `size` only when it differs from `DetailLink.defaultPageSize`, which `parseDetailLink` fills in. `parseDetailQuery` takes an `allowed` argument to refuse sizes a widget does not offer.
+  - New helpers `hideColumns`, `visibleColumnIndexes` and `providerQuery`; new labels `rowsPerPage` and `columnsMenu`.
+- 0c7f363: Server-mode detail view remembers the pages it has loaded.
+  
+  Going back to an earlier page, sort or search shows its rows at once (marked busy) while the loader is asked again, instead of keeping the wrong page on screen until the answer arrives. The cache is per open detail view, in memory, and starts over when the dashboard filters, options, view or a retry change. New core helpers: `detailQuerySignature` and `createDetailPageCache`.
+- 2df0553: Detail view for widgets with views.
+  
+  - `loadDetail` and detail providers now receive `options.view`: the view the card loads (`base`, or the key of a view the provider supplies), so a widget with several views can return the rows behind the one on screen. `useDetailData` takes it as a new last argument.
+  - A chart (`GRAPH`) now has a derived detail view, the same table as "View as table" with search, sorting and paging (`deriveDetailData`). A provider view of kind `GRAPH`, `TABLE` or `BAR_LIST` needs no detail loader when its payload is complete.
+  - Fixed: the detail view reloaded on every keystroke or page change for a widget with views or viewer settings, because the card's definition was rebuilt on each render.
+
 ## 0.27.0
 
 ### Minor Changes

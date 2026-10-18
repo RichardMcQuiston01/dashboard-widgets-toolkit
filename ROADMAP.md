@@ -62,10 +62,14 @@
 - Export: CSV for table, bar list and chart cards and for the detail view
   (`exportFormats`, `widgetToCsv`, `queryToCsv`, `onExportDetail`), SVG and PNG
   download for charts (`chartToSvg`, `svgToPng`) and a print stylesheet
-  (unreleased).
+  (0.26.0).
 - Freshness: "Updated 2 minutes ago" on each card, a refresh button, and the
   last good data kept with a badge when a refresh fails (`freshness`,
-  `onRefresh`, `OkWidget.refreshError`, `formatAge`) (unreleased).
+  `onRefresh`, `OkWidget.refreshError`, `formatAge`) (0.27.0).
+- Detail view, the rest: a page-size choice (`detail.pageSizes`) and column
+  visibility (`detail.columnVisibility`), a detail view that follows provider
+  views (`options.view`) with a derived table for charts, and a server-mode page
+  cache by query (0.28.0).
 - Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
   and `data-dwt-default-title` on cards (0.21.0).
 
@@ -73,12 +77,7 @@
 
 ## Short term
 
-Listed in the order they are planned. None needs data fetching in the package.
-
-1. **Detail view, the rest.** Page-size choice and column visibility,
-   server-mode detail caching by query, and a detail view for each
-   provider-supplied view. Server mode and URL deep links are built. See
-   [docs/design/detail-view.md](./docs/design/detail-view.md).
+Nothing is queued here right now: the planned work is under [Next](#next).
 
 [Back to Top](#roadmap)
 
