@@ -159,8 +159,9 @@ documented in the code and README, which win if they disagree.
   `./builder` subpath (`SourceDescription`, `defineSource`, the edit functions,
   `parseDefinitions`) and `WidgetDefinition.source` / `providerKeyOf`. The React
   building blocks (`useWidgetDraft`, `WidgetOptionsForm`, `WidgetViewsForm`,
-  `WidgetPreview`, `previewWidget`) are built. Not built: the demo admin tab,
-  viewer-created widgets (phase 3).
+  `WidgetPreview`, `previewWidget`) are built, and the demo has its admin tab.
+  Proposed, not built: viewer-created widgets (phase 3, section 14: a policy,
+  `validateViewerSave`).
 
 ## Commands (Bun only)
 
