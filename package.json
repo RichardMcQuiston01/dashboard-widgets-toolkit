@@ -1,6 +1,6 @@
 {
   "name": "@richardmcquiston01/dashboard-widgets-toolkit",
-  "version": "0.30.0",
+  "version": "0.31.0",
   "description": "Framework-agnostic dashboard widget toolkit: typed widget definitions and data payloads (KPI, gauge, table, bar list, alert list, chart), user layout (order, hide, minimise), and React renderers. Bring your own data providers.",
   "keywords": [
     "dashboard",
@@ -16,6 +16,10 @@
   ],
   "license": "Apache-2.0",
   "author": "Richard McQuiston (https://richardmcquiston.com/)",
+  "funding": {
+    "type": "individual",
+    "url": "https://donate.stripe.com/00w5kD3Gj1Xo9v7gVOcs800"
+  },
   "homepage": "https://github.com/RichardMcQuiston01/dashboard-widgets-toolkit#readme",
   "repository": {
     "type": "git",

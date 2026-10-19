@@ -216,6 +216,59 @@ export function exposeOption(
   });
 }
 
+/** What `updateOption` may change on an exposed option. */
+export interface UpdateOptionChanges {
+  readonly label?: string;
+  readonly default?: OptionValue;
+}
+
+/**
+ * Changes the label or the default of an option the widget exposes. The
+ * default must fit the source's option, like `exposeOption`'s.
+ */
+export function updateOption(
+  source: SourceDescription,
+  definition: WidgetDefinition,
+  optionKey: string,
+  changes: UpdateOptionChanges
+): Result<WidgetDefinition> {
+  const subject = `Widget ${JSON.stringify(definition.key)}`;
+  const exposed = (definition.options ?? []).find((o) => o.key === optionKey);
+  const template = source.options?.find((o) => o.key === optionKey);
+  if (exposed === undefined || template === undefined) {
+    return err(
+      `${subject}: option ${JSON.stringify(optionKey)} is not exposed on this widget (it exposes ${(definition.options ?? []).map((o) => JSON.stringify(o.key)).join(', ') || 'none'}).`
+    );
+  }
+  const next: Record<string, unknown> = { ...exposed };
+  if (changes.label !== undefined) {
+    if (changes.label.trim() === '') {
+      return err(`${subject}: option label must not be empty.`);
+    }
+    next['label'] = changes.label;
+  }
+  if (changes.default !== undefined) {
+    // Checked against the widget's own (possibly narrowed) option first, so a
+    // value the source allows but the widget excludes gets the right message.
+    const value =
+      coerceOptionValue(exposed, changes.default) === undefined
+        ? undefined
+        : coerceOptionValue(template, changes.default);
+    if (value === undefined) {
+      return err(
+        `${subject}: ${JSON.stringify(changes.default)} is not a valid default for option ${JSON.stringify(optionKey)}.`
+      );
+    }
+    next['default'] = value;
+  }
+  return checkAgainstSource(source, {
+    ...definition,
+    options: (definition.options ?? []).map((o) =>
+      o.key === optionKey ? (next as unknown as WidgetOption) : o
+    ),
+  });
+}
+
 /** Removes an option from the widget. Unchanged when it is not exposed. */
 export function hideOption(
   definition: WidgetDefinition,
