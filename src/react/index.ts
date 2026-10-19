@@ -26,7 +26,12 @@ export {
   type BuilderLabels,
   type WidgetPreviewProps,
 } from './builder-forms.js';
-export { useWidgetDraft, type WidgetDraft } from './use-widget-draft.js';
+export {
+  useWidgetDraft,
+  type DraftLimits,
+  type UseWidgetDraftOptions,
+  type WidgetDraft,
+} from './use-widget-draft.js';
 export {
   Dashboard,
   WidgetGrid,

@@ -1,0 +1,9 @@
+---
+'@richardmcquiston01/dashboard-widgets-toolkit': minor
+---
+
+Widget Builder, viewer-created widgets: a policy for what a viewer may build, and one server-side check for every save.
+
+`BuilderPolicy` (checked by `defineBuilderPolicy`) is plain data a server builds for the signed-in user: the `sources` they may build on (an allow-list, empty allows none), `maxWidgets`, a required `keyPrefix` derived from their id, the plain fields they may set (`editable`, default `title`, `description`, `width`, `defaultView`; `roles`, `locked`, `active`, `page`, `filters`, `detail` and sizes are opt-in), and per-widget `maxOptions`, `maxViews` and `maxSize`. `validateViewerSave({ policy, sources, submitted, previous, owned })` returns the definition to store, or an error naming the widget and the rule: a source outside the policy, a key without the prefix or one that changes, a new widget past the quota or reusing a key, too many options or views, too large a widget, or any field outside `editable` that differs from the stored widget (or from what `newWidget` makes), so a viewer cannot send `roles` or `locked` and a value an administrator set survives their edits. It is pure, so the quota needs a transaction around count and insert. `viewerSources`, `viewerWidgetKey` and `parseViewerDefinitions` (rows a tightened policy no longer allows come back in `skipped` with the reason, never deleted) round it out, with `optionsLeft`, `viewsLeft` and `validateBuilderPolicy`.
+
+React: `useWidgetDraft(source, definition, { policy })` adds `draft.editable` and `draft.limits`, flags an edit to a field the policy does not allow, refuses it on `commit()`, and refuses an option or view past a limit; `WidgetOptionsForm` and `WidgetViewsForm` hide "Add" at a limit and say why (`optionsLimitReached`, `viewsLimitReached` in the labels). The browser's checks are for the form; the server runs `validateViewerSave` with a policy it built itself.
