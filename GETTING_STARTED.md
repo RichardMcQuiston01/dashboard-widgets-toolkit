@@ -1598,6 +1598,57 @@ const { definitions, clashes } = mergeDefinitions(
 // pass `definitions` to <Dashboard> as usual
 ```
 
+**An admin screen in React.** `useWidgetDraft` holds the form's state and the
+building blocks draw the parts that repeat:
+
+```tsx
+import {
+  WidgetOptionsForm,
+  WidgetPreview,
+  WidgetViewsForm,
+  useWidgetDraft,
+} from '@richardmcquiston01/dashboard-widgets-toolkit/react';
+
+function WidgetEditor({ source, definition, onSave }) {
+  const draft = useWidgetDraft(source, definition);
+  return (
+    <>
+      <label>
+        Title
+        <input
+          value={draft.patch.title ?? draft.definition.title}
+          onChange={(event) => draft.setField('title', event.target.value)}
+        />
+      </label>
+      {draft.problems['title'] && <p role="alert">{draft.problems['title']}</p>}
+
+      <WidgetOptionsForm draft={draft} />
+      <WidgetViewsForm draft={draft} />
+      <WidgetPreview source={source} definition={draft.candidate} />
+
+      <button
+        disabled={Object.keys(draft.problems).length > 0}
+        onClick={() => {
+          const saved = draft.commit();
+          if (saved.ok) onSave(saved.value);
+        }}
+      >
+        Save
+      </button>
+    </>
+  );
+}
+```
+
+Plain fields (`title`, `width`, `roles`, `locked`, ...) are edits waiting to be
+committed, so a half-typed title never becomes a definition; `draft.candidate`
+is what the definition would be with them, or the last valid one while they
+have problems. Options and views change `draft.definition` at once, and the
+forms show a refused change's reason beside it. `WidgetPreview` draws the real
+card from the source's `sample` (add a `sample` payload to `defineSource`), with
+no provider call. Pass `labels` to the forms to change their words, and import
+the optional stylesheet: the forms' tokens work outside a dashboard.
+
 A stored definition names its provider in `source`, so it loads like any other
 widget (clones of it too). A row whose source was removed, or that no longer
 fits its source, is skipped with a reason instead of rendering a broken card;

@@ -12,7 +12,7 @@
  * dark surface (not an automatic flip).
  */
 
-:where(.dwt-dashboard, .dwt-card) {
+:where(.dwt-dashboard, .dwt-card, .dwt-builder) {
   color-scheme: light;
   --dwt-font: system-ui, -apple-system, 'Segoe UI', sans-serif;
   --dwt-surface: #fcfcfb;
@@ -46,7 +46,8 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme='light'])) :where(.dwt-dashboard, .dwt-card) {
+  :root:where(:not([data-theme='light']))
+    :where(.dwt-dashboard, .dwt-card, .dwt-builder) {
     color-scheme: dark;
     --dwt-surface: #1a1a19;
     --dwt-page: #0d0d0d;
@@ -75,7 +76,8 @@
   }
 }
 
-:root:where([data-theme='dark'], .dark) :where(.dwt-dashboard, .dwt-card) {
+:root:where([data-theme='dark'], .dark)
+  :where(.dwt-dashboard, .dwt-card, .dwt-builder) {
   color-scheme: dark;
   --dwt-surface: #1a1a19;
   --dwt-page: #0d0d0d;
@@ -1118,6 +1120,53 @@
 :where(.dwt-options-actions button:disabled) {
   opacity: 0.5;
   cursor: default;
+}
+
+/* Widget Builder building blocks (WidgetOptionsForm, WidgetViewsForm, WidgetPreview). */
+:where(.dwt-builder-options) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+:where(.dwt-builder-option) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--dwt-border);
+}
+
+:where(.dwt-builder-option:last-child) {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+:where(.dwt-builder-view-list) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.dwt-builder-view-list li) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+:where(.dwt-builder-hint) {
+  margin: 0;
+  color: var(--dwt-text-muted, inherit);
+  font-size: 0.875rem;
+}
+
+:where(.dwt-builder-preview) {
+  min-width: 0;
 }
 
 @media (max-width: 640px) {

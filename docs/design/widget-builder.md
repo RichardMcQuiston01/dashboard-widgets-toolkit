@@ -1,10 +1,11 @@
 # Design: the Widget Builder
 
 - **Status:** Phase 1 (headless, 0.30.0) is built, with every recommendation in
-  section 12 accepted by the maintainer. Phases 2 (React building blocks, demo
-  tab) and 3 (viewer-created widgets) are not built.
+  section 12 accepted by the maintainer. Phase 2's React building blocks
+  (`useWidgetDraft`, `WidgetOptionsForm`, `WidgetViewsForm`, `WidgetPreview`) are
+  built; the demo's admin tab and phase 3 (viewer-created widgets) are not.
 - **Date:** 2026-10-18
-- **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.30.x
+- **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.31.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
 
 ## 1. Summary
@@ -293,20 +294,34 @@ registered is the consumer's check (`parseDefinitions` does it).
 - **Detail view, export, freshness, pages.** No change: they read the
   definition.
 
-## 9. React building blocks (later phase)
+## 9. React building blocks
 
-Not part of the first release, listed so the headless API is shaped for them:
+Built (phase 2). The forms take a `draft` from `useWidgetDraft` rather than
+loose props, so one object carries the source, the valid definition and the
+pending edits:
 
-- `WidgetOptionsForm`: renders a list of `WidgetOption` declarations as form
-  fields with validation messages from `validatePatch` (the same form the
-  Options dialog already uses for values, generalised to declarations).
-- `WidgetPreview`: renders a definition with the existing renderers over
-  `source.sample` (or over data the consumer passes), inside `WidgetTheme`, with
-  no provider call.
-- A `useWidgetDraft(source, definition)` hook: draft state, `validatePatch` on
-  change, `commit()` to a valid definition.
+- `useWidgetDraft(source, definition)`: the pure draft functions in
+  `./builder` (`newDraft`, `setDraftField`, `draftProblems`, `draftCandidate`,
+  `commitDraft`) in a hook. Plain fields are a pending patch (`setField`,
+  `problems` by field, `candidate`, `commit()` returning a `Result`);
+  options and views change the definition at once and return a `Result`
+  (`exposeOption`, `updateOption`, `hideOption`, `addView`, `removeView`).
+- `WidgetOptionsForm`: the exposed options as fields, built on the Options
+  dialog's `OptionField` (the form the dialog already uses for values,
+  generalised to declarations): a label, a default, Remove, and the source's
+  other options to add. A refused change shows its reason beside the option.
+- `WidgetViewsForm` (added to the sketch): remove a view, add one the source
+  can serve (`availableViews`).
+- `WidgetPreview`: `previewWidget` (headless: validate `source.sample` for the
+  widget's kind, apply client options by their defaults or chosen values, build
+  a converted view) drawn with `ResolvedWidgetCard`. No provider call. A view
+  only the provider builds can't be previewed, and the message says so.
 
-`styles.css` stays optional; new classes follow `dwt-builder-*`.
+The plain-field inputs (title, width, roles, lock) are the consumer's: they set
+fields with `draft.setField` and show `draft.problems[field]`. Words come from
+`labels` (`DEFAULT_BUILDER_LABELS`); classes are `dwt-builder-*`, and
+`styles.css` defines the tokens for `.dwt-builder` so the forms work outside a
+dashboard. `styles.css` stays optional.
 
 ## 10. Security and trust
 
@@ -327,11 +342,11 @@ same way a layout is:
 
 ## 11. Phasing
 
-| Phase | Version | Scope                                                                                                                                                                                                                                     |
-| ----- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | 0.30.0  | `WidgetDefinition.source` and `providerKeyOf`; `./builder` subpath (tsup entry, `exports`, `typesVersions`): `SourceDescription`, `defineSource`, the functions of section 5, storage helpers (section 6), tests, GETTING_STARTED section |
-| 2     | later   | React building blocks (section 9) and a demo "Widget Builder" tab (an admin screen over the demo's providers, with the stored definitions kept in the page's memory or `localStorage`)                                                    |
-| 3     | later   | Viewer-created widgets: an allow-list of sources per user and a per-user quota, on top of the same functions, validated on the server                                                                                                     |
+| Phase | Version                        | Scope                                                                                                                                                                                                                                     |
+| ----- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | 0.30.0                         | `WidgetDefinition.source` and `providerKeyOf`; `./builder` subpath (tsup entry, `exports`, `typesVersions`): `SourceDescription`, `defineSource`, the functions of section 5, storage helpers (section 6), tests, GETTING_STARTED section |
+| 2     | 0.31.0 (blocks), then the demo | React building blocks (section 9) and a demo "Widget Builder" tab (an admin screen over the demo's providers, with the stored definitions kept in the page's memory or `localStorage`)                                                    |
+| 3     | later                          | Viewer-created widgets: an allow-list of sources per user and a per-user quota, on top of the same functions, validated on the server                                                                                                     |
 
 Tests (`test/builder`, `node:test`): each function's success and every refusal
 message; the "never returns an invalid definition" property over a small
