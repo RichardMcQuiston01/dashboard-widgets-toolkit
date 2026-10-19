@@ -16,6 +16,10 @@
   ],
   "license": "Apache-2.0",
   "author": "Richard McQuiston (https://richardmcquiston.com/)",
+  "funding": {
+    "type": "individual",
+    "url": "https://donate.stripe.com/00w5kD3Gj1Xo9v7gVOcs800"
+  },
   "homepage": "https://github.com/RichardMcQuiston01/dashboard-widgets-toolkit#readme",
   "repository": {
     "type": "git",
