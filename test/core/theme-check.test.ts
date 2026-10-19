@@ -189,7 +189,9 @@ void describe('THEME_DEFAULTS and styles.css', () => {
   }
 
   void it('declares the same light values', () => {
-    const start = css.indexOf(':where(.dwt-dashboard, .dwt-card) {');
+    const start = css.indexOf(
+      ':where(.dwt-dashboard, .dwt-card, .dwt-builder) {'
+    );
     const end = css.indexOf('}', start);
     const light = declarations(css.slice(start, end));
     for (const [variable, value] of Object.entries(THEME_DEFAULTS.light)) {

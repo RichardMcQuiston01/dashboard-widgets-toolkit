@@ -18,6 +18,16 @@ export {
   describeChart,
 } from './charts.js';
 export {
+  DEFAULT_BUILDER_LABELS,
+  WidgetOptionsForm,
+  WidgetPreview,
+  WidgetViewsForm,
+  type BuilderFormProps,
+  type BuilderLabels,
+  type WidgetPreviewProps,
+} from './builder-forms.js';
+export { useWidgetDraft, type WidgetDraft } from './use-widget-draft.js';
+export {
   Dashboard,
   WidgetGrid,
   type DashboardProps,

@@ -65,6 +65,8 @@ src/
     edit.ts             newWidget, updateWidget, validatePatch, exposeOption/hideOption,
                         availableViews/addView/removeView, uniqueWidgetKey
     store.ts            serialize/parse(Definitions), mergeDefinitions (versioned envelope)
+    draft.ts            DraftState: pending plain-field edits, draftProblems, commitDraft
+    preview.ts          previewWidget: a definition over source.sample
   react/                subpath ./react: browser code, React >= 18 peer
     index.ts            barrel
     settings.tsx        WidgetSettingsProvider: locale, linkTarget, classNames, labels
@@ -77,6 +79,8 @@ src/
     charts.tsx          GraphWidget: SVG bar/line, legend, tooltip, table twin
     dashboard.tsx       WidgetGrid, Dashboard (layout controls)
     edit-menu.tsx       WidgetEditMenu: the Arrange menu on each card
+    use-widget-draft.ts useWidgetDraft: builder form state over the draft functions
+    builder-forms.tsx   WidgetOptionsForm, WidgetViewsForm, WidgetPreview (Widget Builder)
     detail.tsx          WidgetDetailDialog and useDetailData
     use-widgets.ts      useWidgets: loader hook (optionValues, viewValues, polling)
     use-reorder.ts      usePointerReorder: pointer/touch drag of cards by their handle
@@ -153,8 +157,10 @@ documented in the code and README, which win if they disagree.
   planned except the open questions in the doc.
 - `docs/design/widget-builder.md`: Widget Builder. Phase 1 is built: the headless
   `./builder` subpath (`SourceDescription`, `defineSource`, the edit functions,
-  `parseDefinitions`) and `WidgetDefinition.source` / `providerKeyOf`. Not built:
-  the React building blocks and demo tab (phase 2), viewer-created widgets (phase 3).
+  `parseDefinitions`) and `WidgetDefinition.source` / `providerKeyOf`. The React
+  building blocks (`useWidgetDraft`, `WidgetOptionsForm`, `WidgetViewsForm`,
+  `WidgetPreview`, `previewWidget`) are built. Not built: the demo admin tab,
+  viewer-created widgets (phase 3).
 
 ## Commands (Bun only)
 
