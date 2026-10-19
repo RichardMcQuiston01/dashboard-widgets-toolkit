@@ -67,6 +67,7 @@ src/
     store.ts            serialize/parse(Definitions), mergeDefinitions (versioned envelope)
     draft.ts            DraftState: pending plain-field edits, draftProblems, commitDraft
     preview.ts          previewWidget: a definition over source.sample
+    policy.ts           BuilderPolicy, validateViewerSave, parseViewerDefinitions (viewer-made widgets)
   react/                subpath ./react: browser code, React >= 18 peer
     index.ts            barrel
     settings.tsx        WidgetSettingsProvider: locale, linkTarget, classNames, labels
@@ -160,8 +161,9 @@ documented in the code and README, which win if they disagree.
   `parseDefinitions`) and `WidgetDefinition.source` / `providerKeyOf`. The React
   building blocks (`useWidgetDraft`, `WidgetOptionsForm`, `WidgetViewsForm`,
   `WidgetPreview`, `previewWidget`) are built, and the demo has its admin tab.
-  Proposed, not built: viewer-created widgets (phase 3, section 14: a policy,
-  `validateViewerSave`).
+  Viewer-created widgets (phase 3, section 14: `BuilderPolicy`,
+  `validateViewerSave`, the draft hook's `policy`) are built. Not built: the
+  demo's Viewer mode.
 
 ## Commands (Bun only)
 

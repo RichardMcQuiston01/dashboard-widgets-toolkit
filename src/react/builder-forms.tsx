@@ -19,6 +19,7 @@ export interface BuilderLabels {
   readonly optionRemove: string;
   readonly optionsAvailable: string;
   readonly optionsNoneAvailable: string;
+  readonly optionsLimitReached: string;
   readonly optionAdd: (label: string) => string;
   readonly viewsHeading: string;
   readonly viewsNone: string;
@@ -26,6 +27,7 @@ export interface BuilderLabels {
   readonly viewAddField: string;
   readonly viewAddPlaceholder: string;
   readonly viewsNoneAvailable: string;
+  readonly viewsLimitReached: string;
   readonly previewNoSample: string;
 }
 
@@ -36,6 +38,7 @@ export const DEFAULT_BUILDER_LABELS: BuilderLabels = {
   optionRemove: 'Remove',
   optionsAvailable: 'Available from the source',
   optionsNoneAvailable: 'The source offers no other options.',
+  optionsLimitReached: 'This widget has all the options it may have.',
   optionAdd: (label) => `Add ${label}`,
   viewsHeading: 'Views',
   viewsNone: 'No other views.',
@@ -43,6 +46,7 @@ export const DEFAULT_BUILDER_LABELS: BuilderLabels = {
   viewAddField: 'Add a view',
   viewAddPlaceholder: 'Choose a view…',
   viewsNoneAvailable: 'The source offers no more views.',
+  viewsLimitReached: 'This widget has all the views it may have.',
   previewNoSample: 'Add a "sample" to the source to preview here.',
 };
 
@@ -144,7 +148,9 @@ export function WidgetOptionsForm({
       </fieldset>
       <fieldset className="dwt-options-group">
         <legend>{text.optionsAvailable}</legend>
-        {available.length === 0 ? (
+        {draft.limits.optionsLeft <= 0 && available.length > 0 ? (
+          <p className="dwt-builder-hint">{text.optionsLimitReached}</p>
+        ) : available.length === 0 ? (
           <p className="dwt-builder-hint">{text.optionsNoneAvailable}</p>
         ) : (
           available.map((template) => (
@@ -219,7 +225,9 @@ export function WidgetViewsForm({
           ))}
         </ul>
       )}
-      {choices.length === 0 ? (
+      {draft.limits.viewsLeft <= 0 && choices.length > 0 ? (
+        <p className="dwt-builder-hint">{text.viewsLimitReached}</p>
+      ) : choices.length === 0 ? (
         <p className="dwt-builder-hint">{text.viewsNoneAvailable}</p>
       ) : (
         <div className="dwt-options-field">

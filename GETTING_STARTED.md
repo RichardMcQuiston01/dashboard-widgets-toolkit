@@ -1657,6 +1657,65 @@ a stored widget never replaces a code widget with the same key. Run
 browser's checks are for the form only, and a definition cannot name a provider
 you did not register.
 
+**Viewer-created widgets.** The same functions let a viewer, not an
+administrator, make widgets for themselves. A `BuilderPolicy` says what they
+may do; build it on the server for the signed-in user, and check every save
+against it:
+
+```ts
+import {
+  defineBuilderPolicy,
+  parseViewerDefinitions,
+  validateViewerSave,
+  viewerSources,
+} from '@richardmcquiston01/dashboard-widgets-toolkit/builder';
+
+// On the server, from the authenticated user (never from the request).
+const policy = defineBuilderPolicy({
+  sources: ['products', 'countries'], // an allow-list: absent or empty allows none
+  maxWidgets: 5,
+  keyPrefix: `u-${user.id}-`, // keeps users' keys apart
+  // editable: title, description, width and defaultView unless you list more
+  maxOptions: 3,
+  maxViews: 2,
+});
+
+// Saving: the browser sends JSON, the server decides.
+const saved = validateViewerSave({
+  policy,
+  sources: allSources,
+  submitted: request.body,
+  previous: storedRowOrUndefined, // the widget being replaced, if any
+  owned: theirStoredWidgets, // for the quota
+});
+if (!saved.ok) return reply(400, saved.error); // names the widget and the rule
+await store(user.id, saved.value);
+
+// Loading their widgets: rows the policy no longer allows come back in `skipped`.
+const mine = parseViewerDefinitions(storedText, allSources, policy);
+```
+
+`validateViewerSave` refuses a source outside the allow-list, a key without the
+prefix (or a key that changes on an update), a new widget past `maxWidgets`, too
+many options or views, a widget over `maxSize`, and any field outside `editable`
+that differs from what is stored, so a viewer cannot send `roles` or `locked` at
+all and a value an administrator set on their widget survives their edits.
+`viewerSources(policy, allSources)` is the list for the "new widget" picker and
+`viewerWidgetKey(policy, title, existingKeys)` makes a prefixed unique key.
+Storing and serving only the signed-in user's widgets is yours: the library has no
+notion of an owner. The check is pure, so it cannot see two saves racing: count
+and insert in one transaction. In React, pass the policy to the draft and the
+forms follow it:
+
+```tsx
+const draft = useWidgetDraft(source, definition, { policy });
+// draft.editable: the plain fields to show; draft.limits: options and views left.
+// WidgetOptionsForm and WidgetViewsForm hide "Add" once a limit is reached.
+```
+
+The browser's checks are for the form. The server runs `validateViewerSave` with
+a policy it built itself.
+
 [Back to Top](#getting-started)
 
 ### Theming

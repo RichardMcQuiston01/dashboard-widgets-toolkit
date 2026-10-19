@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import {
+  defineBuilderPolicy,
   defineSource,
   exposeOption,
   newWidget,
@@ -127,5 +128,65 @@ void describe('builder forms', () => {
     const html = renderToStaticMarkup(<Fr />);
     assert.match(html, /Choix/);
     assert.match(html, /Vues/);
+  });
+});
+
+void describe('builder forms under a policy', () => {
+  const viewerPolicy = defineBuilderPolicy({
+    sources: ['products'],
+    maxWidgets: 3,
+    keyPrefix: 'u-1-',
+    maxOptions: 1,
+    maxViews: 0,
+  });
+
+  // One option is already exposed, so the options limit is reached at once.
+  function start(): WidgetDefinition {
+    const created = newWidget(source, { key: 'u-1-w', title: 'Mine' });
+    assert.ok(created.ok);
+    const exposed = exposeOption(source, created.value, 'limit');
+    assert.ok(exposed.ok);
+    return exposed.value;
+  }
+
+  function Probe(): React.ReactElement {
+    const draft = useWidgetDraft(source, start(), { policy: viewerPolicy });
+    return (
+      <div>
+        <span id="editable">{draft.editable.join(',')}</span>
+        <span id="left">
+          {draft.limits.optionsLeft}/{draft.limits.viewsLeft}
+        </span>
+        <WidgetOptionsForm draft={draft} />
+        <WidgetViewsForm draft={draft} />
+      </div>
+    );
+  }
+
+  it('shows the editable fields and the limits left', () => {
+    const html = renderToStaticMarkup(<Probe />);
+    assert.match(html, /id="editable">title,description,width,defaultView</);
+    assert.match(html, /id="left">0\/0</);
+  });
+
+  it('hides Add and says why when the limits are reached', () => {
+    const html = renderToStaticMarkup(<Probe />);
+    assert.match(html, /This widget has all the options it may have\./);
+    assert.match(html, /This widget has all the views it may have\./);
+    assert.doesNotMatch(html, /Add Mode/);
+    assert.doesNotMatch(html, /Add a view/);
+  });
+
+  it('without a policy every field is editable and nothing is limited', () => {
+    function Open(): React.ReactElement {
+      const draft = useWidgetDraft(source, start());
+      return (
+        <span id="open">
+          {draft.editable.length}/{String(draft.limits.optionsLeft)}
+        </span>
+      );
+    }
+    assert.match(renderToStaticMarkup(<Open />), /id="open">\d+\/Infinity</);
+    assert.match(renderToStaticMarkup(<Open />), /id="open">17\//);
   });
 });

@@ -4,7 +4,8 @@
   section 12 accepted by the maintainer. Phase 2's React building blocks
   (`useWidgetDraft`, `WidgetOptionsForm`, `WidgetViewsForm`, `WidgetPreview`) are
   built, and so is the demo's admin tab. Phase 3 (viewer-created widgets) is
-  proposed in section 14, with its own decisions V1 to V9.
+  built as proposed in section 14 (decisions V1 to V9 accepted), except the
+  demo's Viewer mode.
 - **Date:** 2026-10-18
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.31.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
@@ -347,7 +348,7 @@ same way a layout is:
 | ----- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | 0.30.0                         | `WidgetDefinition.source` and `providerKeyOf`; `./builder` subpath (tsup entry, `exports`, `typesVersions`): `SourceDescription`, `defineSource`, the functions of section 5, storage helpers (section 6), tests, GETTING_STARTED section |
 | 2     | 0.31.0 (blocks), then the demo | React building blocks (section 9) and a demo "Widget Builder" tab (an admin screen over the demo's providers, with the stored definitions kept in the page's memory or `localStorage`)                                                    |
-| 3     | proposed (section 14)          | Viewer-created widgets: an allow-list of sources per user and a per-user quota, on top of the same functions, validated on the server                                                                                                     |
+| 3     | 0.32.0 (section 14)            | Viewer-created widgets: an allow-list of sources per user and a per-user quota, on top of the same functions, validated on the server                                                                                                     |
 
 Tests (`test/builder`, `node:test`): each function's success and every refusal
 message; the "never returns an invalid definition" property over a small
@@ -404,10 +405,11 @@ Notes on how phase 1 was built, where it adds to the sketch above:
 - **Key clashes** between code and stored definitions. Mitigation: `merge`
   rules (code wins, clash reported).
 
-## 14. Phase 3: viewer-created widgets (proposed)
+## 14. Phase 3: viewer-created widgets
 
-- **Status:** Proposed. Nothing is built. The decisions at the end (V1 to V9)
-  are the maintainer's, each with a recommendation.
+- **Status:** Part 3a (the headless policy and server check, and the draft
+  hook's `policy` option) is built; the demo's Viewer mode (3b) is not. The
+  decisions at the end (V1 to V9) were accepted as recommended.
 
 ### 14.1 What it is
 
@@ -547,3 +549,26 @@ its docs say so.
 - **Prefix from the wrong place**: documented in 14.4 and in the policy's own
   comment; there is no way for the library to check where it came from.
 - **Scope creep toward sharing and moderation**: the non-goals in 14.1.
+
+### 14.9 As built
+
+Where the build adds to or differs from the sketch above:
+
+- `optionsLeft(policy, definition)` and `viewsLeft(policy, definition)` are
+  exported pure helpers; the draft hook calls them against the latest
+  definition, so two structural changes in one event cannot both pass a limit.
+- `validateBuilderPolicy` is the Result-returning twin of `defineBuilderPolicy`;
+  `editableFields`, `optionLimit` and `viewLimit` return the defaults applied.
+- The editable rule compares every other field with the stored widget, or on a
+  new widget with what `newWidget` makes for the source (so the `filters` a
+  restricted source copies in are not "set by the viewer"). `options` and
+  `views` have their own limits and are not compared; `key` has its own rule; a
+  new widget's `title` is how it is named, so it is not compared.
+- `parseViewerDefinitions` checks the source, prefix, option, view and size
+  limits, and deliberately not `editable` or the quota: an administrator's
+  fields stay, and a stored row counts toward the quota until deleted.
+- `useWidgetDraft(source, definition, { policy })` adds `draft.editable` and
+  `draft.limits`, flags a pending edit to a non-editable field in
+  `draft.problems`, keeps it out of `candidate`, and refuses it in `commit()`.
+- `keyPrefix` must end with a separator (`-`, `_`, `.` or `:`): a prefix of `u1`
+  would be the start of user `u12`'s keys, so `defineBuilderPolicy` refuses it.
