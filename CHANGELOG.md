@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.33.0
+
+### Minor Changes
+
+- 1a86ce4: Prefetch the neighbouring pages of a paged dashboard. `nearPageWidgetKeys(definitions, layout, activeKey, reach)` names the widgets on the pages next to the one in view, `useWidgets` takes them as `prefetch` (with `prefetchDelayMs`), and `loader.prefetch(keys)` queues them to load once nothing else is loading, so a swipe lands on data and the cards in view are never held up.
+- 54bcf4f: Add `/vue`, Vue 3.3+ renderers over the same core and `styles.css` class names as `/react`: `WidgetCard` (with `actions` and `footer` slots), `ResolvedWidgetCard`, one renderer per kind (TEXT, KPI, GAUGE, TABLE with search and sort, BAR_LIST, ALERT_LIST, GRAPH with its "View as table" twin), field types and custom cell formatters, selection, CSV/SVG/PNG export buttons, freshness and refresh, `WidgetSettingsProvider`, `WidgetTheme` and the `useWidgets` composable (`loadWhen: 'visible'`, `prefetch`, polling, options, views and filters). Vue is an optional peer dependency. The layout controls (`Dashboard`, pages, drag and drop) and the dialogs are not in `/vue` yet.
+
+### Patch Changes
+
+- 792e9e8: Move the framework-free parts of the React layer into the core so other renderers can share them: the chart model and geometry (`buildChartModel`, `describeChart`, `barPath`, `chartX`, `chartY`, ...), the default labels and class slots (`DEFAULT_LABELS`, `joinClassNames`) and the chart palette (`seriesColor`, `CHART_COLORS`). `./react` still exports everything it did; nothing changes for existing users.
+
 ## 0.32.0
 
 ### Minor Changes

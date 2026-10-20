@@ -83,6 +83,13 @@
 - Widget Builder, viewer-created widgets: `BuilderPolicy` (allowed sources, a
   widget quota, a key prefix, editable fields, limits), `validateViewerSave`,
   `parseViewerDefinitions` and the draft hook's `policy` option (0.32.0).
+- Pages, adjacent prefetch: `nearPageWidgetKeys`, `loader.prefetch` and the
+  `prefetch` option of `useWidgets` load the neighbouring pages once the page in
+  view has finished (0.33.0).
+- Vue renderers, the read-only dashboard: the `./vue` subpath (cards, one
+  renderer per kind, the chart, freshness, exports, `WidgetSettingsProvider`,
+  `WidgetTheme`, `useWidgets`), with the chart model, labels and palette moved
+  into the core (0.33.0).
 - Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
   and `data-dwt-default-title` on cards (0.21.0).
 
