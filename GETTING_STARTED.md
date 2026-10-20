@@ -1374,6 +1374,23 @@ page in view. With one page (or none) there is no page bar.
   `useWidgets(..., { loadWhen: 'visible' })` (and `gridRef` around the
   dashboard) widgets on other pages load the first time their page is shown, and
   keep their data when the viewer comes back.
+- **Prefetching the neighbouring pages.** So a swipe lands on data,
+  `nearPageWidgetKeys(definitions, layout, activeKey, reach)` names the widgets
+  on the pages next to the one in view (`reach` defaults to 1). Pass them as
+  `prefetch` to `useWidgets` with `loadWhen: 'visible'`: they start once the
+  cards in view have finished loading (never before), and a new list replaces
+  the old one, so a page the viewer already left is not fetched.
+
+  ```tsx
+  const { widgets, gridRef } = useWidgets(definitions, providers, ctx, {
+    loadWhen: 'visible',
+    prefetch: nearPageWidgetKeys(definitions, layout, pageKey),
+  });
+  ```
+
+  `loader.prefetch(keys)` is the same on the core loader. It pairs with
+  releasing: prefetch `reach` pages, release the pages beyond `keep`.
+
 - **Releasing far-away pages.** A page keeps its data after the viewer leaves it,
   which is what makes going back instant but also means a long-lived dashboard
   with many pages only grows. `release(keys)` from `useWidgets` (with
