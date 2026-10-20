@@ -113,6 +113,15 @@ export interface WidgetLoader {
    * Keys that are unknown or never started are ignored.
    */
   release(keys: readonly string[]): void;
+  /**
+   * Queues `keys` to load once nothing else is loading: what a paged dashboard
+   * does for the pages next to the one in view (see `nearPageWidgetKeys`), so
+   * the visible cards are never held up. Each call replaces the earlier queue,
+   * keys that already started are skipped, and a key whose page the viewer
+   * left in the meantime is simply dropped by the next call. Starts at once
+   * when nothing is loading. Unknown keys are ignored.
+   */
+  prefetch(keys: readonly string[]): void;
   /** Aborts everything in flight and ignores any later result. */
   dispose(): void;
 }
@@ -156,6 +165,7 @@ export function createWidgetLoader<C extends WidgetContext>(
   const started = new Set<string>();
   const generations = new Map<string, number>();
   const inFlight = new Map<string, AbortController>();
+  let prefetchQueue: readonly string[] = [];
   let disposed = false;
 
   function publish(next: readonly DashboardWidget[]): void {
@@ -243,6 +253,7 @@ export function createWidgetLoader<C extends WidgetContext>(
     });
     if (!isCurrent()) return;
     inFlight.delete(key);
+    runPrefetch();
     if (result.status === 'error' && keepDataOnError) {
       // A refresh failed: keep the last good data on screen and say so.
       const kept: DashboardWidget | undefined = snapshot.find(
@@ -279,6 +290,20 @@ export function createWidgetLoader<C extends WidgetContext>(
     if (disposed || started.has(key)) return;
     const definition: WidgetDefinition | undefined = definitionFor(key);
     if (definition !== undefined) start(definition, true);
+  }
+
+  // Starts the queued prefetch keys once nothing is in flight.
+  function runPrefetch(): void {
+    if (disposed || inFlight.size > 0 || prefetchQueue.length === 0) return;
+    const keys: readonly string[] = prefetchQueue;
+    prefetchQueue = [];
+    for (const key of keys) load(key);
+  }
+
+  function prefetch(keys: readonly string[]): void {
+    if (disposed) return;
+    prefetchQueue = keys.filter((key) => !started.has(key));
+    runPrefetch();
   }
 
   function loadAll(): void {
@@ -470,6 +495,7 @@ export function createWidgetLoader<C extends WidgetContext>(
     setView,
     setDefinitions,
     release,
+    prefetch,
     dispose,
   };
 }
