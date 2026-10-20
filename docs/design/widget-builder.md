@@ -3,7 +3,9 @@
 - **Status:** Phase 1 (headless, 0.30.0) is built, with every recommendation in
   section 12 accepted by the maintainer. Phase 2's React building blocks
   (`useWidgetDraft`, `WidgetOptionsForm`, `WidgetViewsForm`, `WidgetPreview`) are
-  built; the demo's admin tab and phase 3 (viewer-created widgets) are not.
+  built, and so is the demo's admin tab. Phase 3 (viewer-created widgets) is
+  built as proposed in section 14 (decisions V1 to V9 accepted), except the
+  demo's Viewer mode.
 - **Date:** 2026-10-18
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.31.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
@@ -346,7 +348,7 @@ same way a layout is:
 | ----- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | 0.30.0                         | `WidgetDefinition.source` and `providerKeyOf`; `./builder` subpath (tsup entry, `exports`, `typesVersions`): `SourceDescription`, `defineSource`, the functions of section 5, storage helpers (section 6), tests, GETTING_STARTED section |
 | 2     | 0.31.0 (blocks), then the demo | React building blocks (section 9) and a demo "Widget Builder" tab (an admin screen over the demo's providers, with the stored definitions kept in the page's memory or `localStorage`)                                                    |
-| 3     | later                          | Viewer-created widgets: an allow-list of sources per user and a per-user quota, on top of the same functions, validated on the server                                                                                                     |
+| 3     | 0.32.0 (section 14)            | Viewer-created widgets: an allow-list of sources per user and a per-user quota, on top of the same functions, validated on the server                                                                                                     |
 
 Tests (`test/builder`, `node:test`): each function's success and every refusal
 message; the "never returns an invalid definition" property over a small
@@ -402,3 +404,171 @@ Notes on how phase 1 was built, where it adds to the sketch above:
   `parseDefinitions` skips with a reason instead of rendering a broken card.
 - **Key clashes** between code and stored definitions. Mitigation: `merge`
   rules (code wins, clash reported).
+
+## 14. Phase 3: viewer-created widgets
+
+- **Status:** Part 3a (the headless policy and server check, and the draft
+  hook's `policy` option) is built; the demo's Viewer mode (3b) is not. The
+  decisions at the end (V1 to V9) were accepted as recommended.
+
+### 14.1 What it is
+
+A viewer, not an administrator, makes widgets for themselves from the same
+sources, with the same functions. What changes is who is asking: a viewer may
+use only some sources, change only some fields, own only so many widgets, and
+sees only their own. The mechanism is a **policy**: plain data the consumer
+builds for the signed-in user (from their role or plan) and the library
+enforces. The library knows nothing about identities, roles or storage; it
+checks a definition against a policy, as `checkAgainstSource` checks one
+against a source.
+
+Non-goals: sharing a widget between users, approval or moderation, quotas by
+billing plan (a consumer builds the policy from the plan), rate limiting, audit
+logs, and a built-in "my widgets" screen beyond the building blocks.
+
+### 14.2 The policy
+
+```ts
+interface BuilderPolicy {
+  /** Source keys the viewer may build on. Deny by default: an empty or absent list allows none. */
+  readonly sources: readonly string[];
+  /** The most widgets the viewer may own. */
+  readonly maxWidgets: number;
+  /** Every key starts with this, derived on the server from the user id (`u-8f3a-`). */
+  readonly keyPrefix: string;
+  /** Plain fields the viewer may set. Default: title, description, width, defaultView. */
+  readonly editable?: readonly PatchableField[];
+  /** Most options and views one widget may expose or add. Default: no more than the library allows. */
+  readonly maxOptions?: number;
+  readonly maxViews?: number;
+  /** Largest stored widget, as serialized JSON. Default 8000 characters. */
+  readonly maxSize?: number;
+}
+```
+
+`defineBuilderPolicy(policy)` validates it (a prefix that fits `WIDGET_KEY_PATTERN`,
+positive limits, `editable` names real fields, no duplicates) and throws for a
+bad one: a policy is built from the server's own code, so a bad one is a
+programmer error.
+
+Fields a viewer never sets, whatever `editable` says: `key` after creation,
+`kind` and `source` (fixed by the source), `sourceKey`, and anything the policy
+does not list. `roles`, `active`, `locked`, `page`, `sortOrder`, `filters`,
+`fill`, `minWidth`, `maxWidth` and `detail` are off unless the consumer adds
+them to `editable`, because they widen who sees a widget, pin it, or cost the
+server more (a detail view needs a detail loader).
+
+### 14.3 The server check
+
+One pure function, run on the server before every save:
+
+```ts
+validateViewerSave({
+  policy,
+  sources,                       // every registered SourceDescription
+  submitted,                     // unknown: what the browser sent
+  previous,                      // the stored widget on an update, else undefined
+  owned,                         // the viewer's stored widgets (for the quota)
+}): Result<WidgetDefinition>
+```
+
+It fails, naming the widget and the rule, when: `submitted` is not a definition
+that `validateWidgetDefinition` and `checkAgainstSource` accept; its key does not
+start with `policy.keyPrefix`, or on an update differs from `previous.key`; its
+`source` is not in `policy.sources`; it is new and `owned` already holds
+`maxWidgets` (a widget being replaced does not count twice); it exposes more than
+`maxOptions` options or `maxViews` views; it is longer than `maxSize`; or a field
+outside `editable` differs from `previous` (absent on a new widget, so a viewer
+cannot send `roles` or `locked` at all). The result is the definition to store.
+
+Also headless:
+
+- `viewerSources(policy, sources)`: the descriptions the viewer may pick from,
+  for the "new widget" list.
+- `viewerWidgetKey(policy, base, existing)`: `uniqueWidgetKey` with the prefix.
+- `parseViewerDefinitions(text, sources, policy)`: `parseDefinitions` plus the
+  policy, for reading a viewer's stored widgets back. A row the policy no longer
+  allows (it was tightened, a source was withdrawn from the viewer) comes back in
+  `skipped` with the reason, never deleted: the viewer sees what was hidden, and
+  an administrator can widen the policy again.
+
+### 14.4 Ownership and visibility
+
+The consumer stores each viewer's widgets under their user id and loads only the
+current user's: the library has no notion of an owner. The key prefix is the
+guard against two users' widgets (or a user's and a code widget) clashing in a
+merged list, so it must come from the authenticated user on the server, never
+from the request. A viewer's widget has no `roles`, so it is visible to whoever it
+is served to; serving it only to its owner is the consumer's job (the same
+authorization as any per-user record).
+
+Count and insert in one transaction: two simultaneous saves must not both pass
+the `maxWidgets` check. `validateViewerSave` is pure and cannot see the race;
+its docs say so.
+
+### 14.5 React and the demo
+
+- `useWidgetDraft(source, definition, { policy })` adds `draft.editable`
+  (which plain fields the form may show) and `draft.limits` (`maxOptions` and
+  `maxViews` left), and refuses a structural change past a limit with the same
+  reason `validateViewerSave` gives. `WidgetOptionsForm` and `WidgetViewsForm`
+  hide their "Add" controls once a limit is reached and say why.
+- The demo's Widget Builder tab gets a **Viewer** mode beside Administrator: a
+  policy of two of the three sources, three widgets, title, description and
+  width only. The demo has no server, so on Save it runs `validateViewerSave`
+  and shows what a server would have answered, including a quota refusal.
+
+### 14.6 Phasing
+
+| Part | Version | Scope                                                                                                                                                                                                                                |
+| ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 3a   | 0.32.0  | `BuilderPolicy`, `defineBuilderPolicy`, `validateViewerSave`, `viewerSources`, `viewerWidgetKey`, `parseViewerDefinitions` in `./builder`; the policy option of `useWidgetDraft` and the limits in the forms; tests; GETTING_STARTED |
+| 3b   | demo    | The Viewer mode in the demo's Widget Builder tab                                                                                                                                                                                     |
+
+### 14.7 Decisions
+
+| ID  | Question                                        | Recommendation                                                                                                                                                                                               |
+| --- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| V1  | Default when a policy lists no sources?         | Deny: `sources` empty or absent allows none. An allow-list, never a deny-list.                                                                                                                               |
+| V2  | Who decides a viewer's policy?                  | The consumer, per user or role or plan. The library takes a `BuilderPolicy` and knows no roles; `policyFor(user)` is the consumer's code.                                                                    |
+| V3  | Which plain fields may a viewer set by default? | `title`, `description`, `width`, `defaultView`. Everything that widens visibility, pins, or costs the server (`roles`, `locked`, `active`, `page`, `filters`, `detail`, sizes) is opt-in through `editable`. |
+| V4  | What is a quota?                                | A count of widgets (`maxWidgets`), plus per-widget `maxOptions`, `maxViews` and `maxSize`. No rate limits, no billing: the consumer derives the numbers from its plans.                                      |
+| V5  | How are keys kept apart?                        | A required `keyPrefix`, derived server-side from the authenticated user. Keys are immutable after creation.                                                                                                  |
+| V6  | What may an update change?                      | Only `editable` fields; every other field must equal the stored one, so a value an administrator set on a viewer's widget (a `roles` restriction) survives the viewer's edits.                               |
+| V7  | A policy is tightened after widgets exist?      | Rows that no longer fit are skipped on read with the reason and kept in storage; they still count toward the quota until deleted.                                                                            |
+| V8  | Where does it live?                             | The same `./builder` subpath, no new dependency. React learns the policy through `useWidgetDraft`'s `policy` option, not a new component.                                                                    |
+| V9  | The demo?                                       | A Viewer mode in the existing tab that runs `validateViewerSave` on Save and shows the answer, since the demo has no server.                                                                                 |
+
+### 14.8 Risks
+
+- **Policy drift between client and server.** The forms enforce the policy for
+  convenience and the server enforces it for real. Both read the same
+  `BuilderPolicy` and the same refusal messages, and the server must build the
+  policy itself, never accept one from the request.
+- **Quota races** (14.4): a transaction is the consumer's, documented.
+- **Prefix from the wrong place**: documented in 14.4 and in the policy's own
+  comment; there is no way for the library to check where it came from.
+- **Scope creep toward sharing and moderation**: the non-goals in 14.1.
+
+### 14.9 As built
+
+Where the build adds to or differs from the sketch above:
+
+- `optionsLeft(policy, definition)` and `viewsLeft(policy, definition)` are
+  exported pure helpers; the draft hook calls them against the latest
+  definition, so two structural changes in one event cannot both pass a limit.
+- `validateBuilderPolicy` is the Result-returning twin of `defineBuilderPolicy`;
+  `editableFields`, `optionLimit` and `viewLimit` return the defaults applied.
+- The editable rule compares every other field with the stored widget, or on a
+  new widget with what `newWidget` makes for the source (so the `filters` a
+  restricted source copies in are not "set by the viewer"). `options` and
+  `views` have their own limits and are not compared; `key` has its own rule; a
+  new widget's `title` is how it is named, so it is not compared.
+- `parseViewerDefinitions` checks the source, prefix, option, view and size
+  limits, and deliberately not `editable` or the quota: an administrator's
+  fields stay, and a stored row counts toward the quota until deleted.
+- `useWidgetDraft(source, definition, { policy })` adds `draft.editable` and
+  `draft.limits`, flags a pending edit to a non-editable field in
+  `draft.problems`, keeps it out of `candidate`, and refuses it in `commit()`.
+- `keyPrefix` must end with a separator (`-`, `_`, `.` or `:`): a prefix of `u1`
+  would be the start of user `u12`'s keys, so `defineBuilderPolicy` refuses it.

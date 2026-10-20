@@ -80,6 +80,9 @@
 - Widget Builder, React building blocks: `useWidgetDraft`, `WidgetOptionsForm`,
   `WidgetViewsForm`, `WidgetPreview` and the headless `previewWidget`,
   `updateOption` and draft functions (0.31.0).
+- Widget Builder, viewer-created widgets: `BuilderPolicy` (allowed sources, a
+  widget quota, a key prefix, editable fields, limits), `validateViewerSave`,
+  `parseViewerDefinitions` and the draft hook's `policy` option (0.32.0).
 - Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
   and `data-dwt-default-title` on cards (0.21.0).
 
@@ -96,9 +99,10 @@ Nothing is queued here right now: the planned work is under [Next](#next).
 - **Pages, adjacent prefetch.** `loadWhen: 'adjacent'`: also load the next and
   previous pages once the page in view has finished, so a swipe lands on data. See
   [docs/design/widget-pages.md](./docs/design/widget-pages.md).
-- **Widget Builder, the rest**: a demo admin tab over the building blocks, then
-  viewer-created widgets with per-user allow-lists. See
-  [docs/design/widget-builder.md](./docs/design/widget-builder.md).
+- **Widget Builder, the demo's Viewer mode**: a policy of allowed sources, a
+  quota and editable fields in the Widget Builder tab, running
+  `validateViewerSave` on Save. See
+  [docs/design/widget-builder.md](./docs/design/widget-builder.md) section 14.
 - **Vue renderers** (`./vue`) for Maker Toolkit's Shop Dashboard and other
   Vue 3 apps, over the same core and `styles.css` class names.
 - **Data sources and adapters**: payload builders and push (live) sources. See
