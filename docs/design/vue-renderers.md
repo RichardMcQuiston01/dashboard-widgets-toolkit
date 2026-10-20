@@ -1,7 +1,8 @@
 # Vue renderers: design
 
-Status: **plan, nothing built.** Decisions VU1 to VU10 below carry a
-recommendation; build starts once they are confirmed.
+Status: decisions VU1 to VU10 are confirmed (the recommendations stand). Phase 0
+is built: `chart-model.ts`, `labels.ts` and `palette.ts` live in the core and
+`./react` re-exports them. Phases 1 to 4 are not built.
 
 ## 1. Goal
 

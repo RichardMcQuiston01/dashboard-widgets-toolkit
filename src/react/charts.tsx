@@ -8,8 +8,30 @@ import {
 import { formatValue } from '../core/format.js';
 import type { GraphWidgetData } from '../core/payload.js';
 import type { SelectionTarget } from '../core/select.js';
-import { labelStride, niceDomain, type NiceDomain } from '../core/scale.js';
+import { labelStride } from '../core/scale.js';
 import { CHART_COLORS, seriesColor } from './palette.js';
+import {
+  barPath,
+  buildChartModel,
+  describeChart,
+  CHART_BAR_GAP,
+  CHART_HEIGHT,
+  CHART_INNER_HEIGHT,
+  CHART_INNER_WIDTH,
+  CHART_MARGIN,
+  CHART_MAX_BAR_WIDTH,
+  CHART_MAX_MARKED_POINTS,
+  CHART_WIDTH,
+  chartAreaPath,
+  chartHitBand,
+  chartLinePath,
+  chartX,
+  chartY,
+  type ChartModel,
+} from '../core/chart-model.js';
+
+export { barPath, buildChartModel, describeChart };
+
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
 /**
@@ -23,153 +45,6 @@ import { useSlotClassName, useWidgetSettings } from './settings.js';
  * shows every series at that position, and every value is also in the
  * "View as table" twin, so the tooltip never gates a value.
  */
-
-const WIDTH = 640;
-const HEIGHT = 220;
-const MARGIN = { top: 16, right: 20, bottom: 28, left: 56 } as const;
-const INNER_WIDTH: number = WIDTH - MARGIN.left - MARGIN.right;
-const INNER_HEIGHT: number = HEIGHT - MARGIN.top - MARGIN.bottom;
-const MAX_BAR_WIDTH = 24;
-const BAR_GAP = 2;
-const BAR_RADIUS = 4;
-/** Above this many points, line markers are only drawn at the end. */
-const MAX_MARKED_POINTS = 24;
-
-/** A bar with a rounded data end and a square end on the baseline. */
-export function barPath(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  roundedEnd: 'top' | 'bottom'
-): string {
-  const r: number = Math.max(0, Math.min(BAR_RADIUS, width / 2, height));
-  const right: number = x + width;
-  const bottom: number = y + height;
-  const f = (n: number): string => n.toFixed(2);
-  if (roundedEnd === 'top') {
-    return `M${f(x)},${f(bottom)}V${f(y + r)}Q${f(x)},${f(y)} ${f(x + r)},${f(y)}H${f(right - r)}Q${f(right)},${f(y)} ${f(right)},${f(y + r)}V${f(bottom)}Z`;
-  }
-  return `M${f(x)},${f(y)}V${f(bottom - r)}Q${f(x)},${f(bottom)} ${f(x + r)},${f(bottom)}H${f(right - r)}Q${f(right)},${f(bottom)} ${f(right)},${f(bottom - r)}V${f(y)}Z`;
-}
-
-interface ChartModel {
-  readonly labels: readonly string[];
-  /** values[series][index]; null where a series has no point. */
-  readonly values: readonly (readonly (number | null)[])[];
-  readonly domain: NiceDomain;
-}
-
-/** Labels by position (first series that has one) and a value matrix. */
-export function buildChartModel(data: GraphWidgetData): ChartModel {
-  const count: number = Math.max(0, ...data.series.map((s) => s.points.length));
-  const labels: string[] = [];
-  for (let index = 0; index < count; index++) {
-    const label: string | undefined = data.series.find(
-      (s) => s.points[index] !== undefined
-    )?.points[index]?.label;
-    labels.push(label ?? '');
-  }
-  const values: (number | null)[][] = data.series.map((s) =>
-    labels.map((_, index) => s.points[index]?.value ?? null)
-  );
-  const all: number[] = values.flat().filter((v): v is number => v !== null);
-  return { labels, values, domain: niceDomain(all) };
-}
-
-function yFor(domain: NiceDomain, value: number): number {
-  const range: number = domain.max - domain.min || 1;
-  return MARGIN.top + INNER_HEIGHT * ((domain.max - value) / range);
-}
-
-/** Bar charts center each label in a slot; lines span the full width. */
-function xFor(chartType: 'bar' | 'line', count: number, index: number): number {
-  if (chartType === 'bar') {
-    const slot: number = INNER_WIDTH / Math.max(1, count);
-    return MARGIN.left + slot * index + slot / 2;
-  }
-  return count <= 1
-    ? MARGIN.left + INNER_WIDTH / 2
-    : MARGIN.left + (index / (count - 1)) * INNER_WIDTH;
-}
-
-/** The x band a pointer must be in to select `index` (bigger than the mark). */
-function hitBand(
-  chartType: 'bar' | 'line',
-  count: number,
-  index: number
-): { x: number; width: number } {
-  if (chartType === 'bar' || count <= 1) {
-    const slot: number = INNER_WIDTH / Math.max(1, count);
-    return { x: MARGIN.left + slot * index, width: slot };
-  }
-  const step: number = INNER_WIDTH / (count - 1);
-  const left: number = Math.max(
-    MARGIN.left,
-    xFor('line', count, index) - step / 2
-  );
-  const right: number = Math.min(
-    MARGIN.left + INNER_WIDTH,
-    xFor('line', count, index) + step / 2
-  );
-  return { x: left, width: right - left };
-}
-
-function linePath(
-  values: readonly (number | null)[],
-  domain: NiceDomain,
-  count: number
-): string {
-  let path = '';
-  let penDown = false;
-  values.forEach((value, index) => {
-    if (value === null) {
-      penDown = false;
-      return;
-    }
-    path += `${penDown ? 'L' : 'M'}${xFor('line', count, index).toFixed(2)},${yFor(domain, value).toFixed(2)}`;
-    penDown = true;
-  });
-  return path;
-}
-
-function areaPath(
-  values: readonly (number | null)[],
-  domain: NiceDomain,
-  count: number
-): string | null {
-  if (values.some((value) => value === null) || values.length < 2) {
-    return null;
-  }
-  const baseline: number = yFor(
-    domain,
-    Math.max(domain.min, Math.min(0, domain.max))
-  );
-  const first: string = xFor('line', count, 0).toFixed(2);
-  const last: string = xFor('line', count, count - 1).toFixed(2);
-  return `M${first},${baseline.toFixed(2)}${linePath(values, domain, count).replace(/^M/, 'L')}L${last},${baseline.toFixed(2)}Z`;
-}
-
-/** A plain-language summary of the chart, for its SVG <desc>. */
-export function describeChart(
-  data: GraphWidgetData,
-  model: ChartModel,
-  format: (value: number) => string
-): string {
-  const first: string = model.labels[0] ?? '';
-  const last: string = model.labels[model.labels.length - 1] ?? '';
-  const span: string =
-    model.labels.length <= 1 ? first : `from ${first} to ${last}`;
-  const parts: string[] = data.series.map((series, s) => {
-    const present: number[] = (model.values[s] ?? []).filter(
-      (v): v is number => v !== null
-    );
-    if (present.length === 0) return `${series.name}: no values.`;
-    const latest: number = present[present.length - 1] ?? 0;
-    return `${series.name}: latest ${format(latest)}, high ${format(Math.max(...present))}, low ${format(Math.min(...present))}.`;
-  });
-  return `${data.chartType === 'bar' ? 'Bar' : 'Line'} chart, ${model.labels.length} point(s) ${span}. ${parts.join(' ')}`;
-}
 
 export function GraphWidget({
   data,
@@ -206,7 +81,7 @@ export function GraphWidget({
   const chartTitle: string = title ?? data.series.map((s) => s.name).join(', ');
   const description: string = `${describeChart(data, model, format)}${onSelect === undefined ? '' : ` ${text.chartSelectHint}`}`;
   const stride: number = labelStride(count);
-  const zeroY: number = yFor(
+  const zeroY: number = chartY(
     model.domain,
     Math.max(model.domain.min, Math.min(0, model.domain.max))
   );
@@ -214,16 +89,17 @@ export function GraphWidget({
   const isBar: boolean = data.chartType === 'bar';
 
   // Bar geometry: thin bars, capped, with the slot's leftover left as air.
-  const slotWidth: number = INNER_WIDTH / Math.max(1, count);
+  const slotWidth: number = CHART_INNER_WIDTH / Math.max(1, count);
   const barWidth: number = Math.max(
     1,
     Math.min(
-      MAX_BAR_WIDTH,
-      (slotWidth * 0.7 - BAR_GAP * (seriesCount - 1)) / Math.max(1, seriesCount)
+      CHART_MAX_BAR_WIDTH,
+      (slotWidth * 0.7 - CHART_BAR_GAP * (seriesCount - 1)) /
+        Math.max(1, seriesCount)
     )
   );
   const groupWidth: number =
-    barWidth * seriesCount + BAR_GAP * (seriesCount - 1);
+    barWidth * seriesCount + CHART_BAR_GAP * (seriesCount - 1);
 
   function select(index: number): void {
     if (onSelect === undefined) return;
@@ -320,7 +196,7 @@ export function GraphWidget({
       )}
       <div className="dwt-chart-frame">
         <svg
-          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+          viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
           className="dwt-chart-svg"
           role="img"
           aria-labelledby={`${id}-title ${id}-desc`}
@@ -337,16 +213,16 @@ export function GraphWidget({
             {model.domain.ticks.map((tick) => (
               <g key={tick}>
                 <line
-                  x1={MARGIN.left}
-                  x2={WIDTH - MARGIN.right}
-                  y1={yFor(model.domain, tick)}
-                  y2={yFor(model.domain, tick)}
+                  x1={CHART_MARGIN.left}
+                  x2={CHART_WIDTH - CHART_MARGIN.right}
+                  y1={chartY(model.domain, tick)}
+                  y2={chartY(model.domain, tick)}
                   stroke={CHART_COLORS.grid}
                   strokeWidth={1}
                 />
                 <text
-                  x={MARGIN.left - 8}
-                  y={yFor(model.domain, tick)}
+                  x={CHART_MARGIN.left - 8}
+                  y={chartY(model.domain, tick)}
                   textAnchor="end"
                   dominantBaseline="middle"
                   className="dwt-axis-label dwt-axis-label--y"
@@ -358,8 +234,8 @@ export function GraphWidget({
               </g>
             ))}
             <line
-              x1={MARGIN.left}
-              x2={WIDTH - MARGIN.right}
+              x1={CHART_MARGIN.left}
+              x2={CHART_WIDTH - CHART_MARGIN.right}
               y1={zeroY}
               y2={zeroY}
               stroke={CHART_COLORS.baseline}
@@ -369,8 +245,8 @@ export function GraphWidget({
               index % stride === 0 || index === count - 1 ? (
                 <text
                   key={index}
-                  x={xFor(data.chartType, count, index)}
-                  y={HEIGHT - 8}
+                  x={chartX(data.chartType, count, index)}
+                  y={CHART_HEIGHT - 8}
                   textAnchor={
                     !isBar && count > 1 && index === 0
                       ? 'start'
@@ -404,10 +280,10 @@ export function GraphWidget({
                     const value: number | null = values[index] ?? null;
                     if (value === null || value === 0) return null;
                     const x: number =
-                      xFor('bar', count, index) -
+                      chartX('bar', count, index) -
                       groupWidth / 2 +
-                      s * (barWidth + BAR_GAP);
-                    const valueY: number = yFor(model.domain, value);
+                      s * (barWidth + CHART_BAR_GAP);
+                    const valueY: number = chartY(model.domain, value);
                     const top: number = Math.min(valueY, zeroY);
                     const height: number = Math.abs(zeroY - valueY);
                     return (
@@ -432,7 +308,7 @@ export function GraphWidget({
             <g className="dwt-chart-marks" aria-hidden="true">
               {seriesCount === 1 &&
                 (() => {
-                  const area: string | null = areaPath(
+                  const area: string | null = chartAreaPath(
                     model.values[0] ?? [],
                     model.domain,
                     count
@@ -450,7 +326,7 @@ export function GraphWidget({
                 <path
                   key={s}
                   className="dwt-line"
-                  d={linePath(values, model.domain, count)}
+                  d={chartLinePath(values, model.domain, count)}
                   fill="none"
                   stroke={seriesColor(s)}
                   strokeWidth={2}
@@ -462,14 +338,18 @@ export function GraphWidget({
                 values.map((value, index) => {
                   const isLast: boolean = index === count - 1;
                   if (value === null) return null;
-                  if (count > MAX_MARKED_POINTS && !isLast && index !== active)
+                  if (
+                    count > CHART_MAX_MARKED_POINTS &&
+                    !isLast &&
+                    index !== active
+                  )
                     return null;
                   return (
                     <circle
                       key={`${s}-${index}`}
                       className="dwt-marker"
-                      cx={xFor('line', count, index)}
-                      cy={yFor(model.domain, value)}
+                      cx={chartX('line', count, index)}
+                      cy={chartY(model.domain, value)}
                       r={index === active ? 5 : 4}
                       fill={seriesColor(s)}
                       stroke={CHART_COLORS.surface}
@@ -486,8 +366,8 @@ export function GraphWidget({
                   return (
                     <text
                       className="dwt-end-label"
-                      x={xFor('line', count, count - 1)}
-                      y={yFor(model.domain, last) - 10}
+                      x={chartX('line', count, count - 1)}
+                      y={chartY(model.domain, last) - 10}
                       textAnchor="end"
                       fill={CHART_COLORS.textPrimary}
                       fontSize={12}
@@ -500,10 +380,10 @@ export function GraphWidget({
               {active !== null && (
                 <line
                   className="dwt-crosshair"
-                  x1={xFor('line', count, active)}
-                  x2={xFor('line', count, active)}
-                  y1={MARGIN.top}
-                  y2={MARGIN.top + INNER_HEIGHT}
+                  x1={chartX('line', count, active)}
+                  x2={chartX('line', count, active)}
+                  y1={CHART_MARGIN.top}
+                  y2={CHART_MARGIN.top + CHART_INNER_HEIGHT}
                   stroke={CHART_COLORS.crosshair}
                   strokeWidth={1}
                 />
@@ -513,14 +393,14 @@ export function GraphWidget({
 
           <g className="dwt-hit-layer">
             {model.labels.map((_, index) => {
-              const band = hitBand(data.chartType, count, index);
+              const band = chartHitBand(data.chartType, count, index);
               return (
                 <rect
                   key={index}
                   x={band.x}
-                  y={MARGIN.top}
+                  y={CHART_MARGIN.top}
                   width={Math.max(0, band.width)}
-                  height={INNER_HEIGHT}
+                  height={CHART_INNER_HEIGHT}
                   fill="transparent"
                   onPointerEnter={() => setActive(index)}
                   onPointerMove={() => setActive(index)}
@@ -536,7 +416,7 @@ export function GraphWidget({
           <div
             className={slot('tooltip', 'dwt-tooltip')}
             style={{
-              left: `${(xFor(data.chartType, count, active) / WIDTH) * 100}%`,
+              left: `${(chartX(data.chartType, count, active) / CHART_WIDTH) * 100}%`,
             }}
           >
             <p className="dwt-tooltip-label">{activeLabel}</p>

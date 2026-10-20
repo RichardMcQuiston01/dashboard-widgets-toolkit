@@ -54,6 +54,9 @@ src/
     theme-presets.ts    themePresets: highContrast, compact, mono
     format.ts           Intl formatting, percent change, kpiDelta
     scale.ts            niceStep, niceDomain, labelStride
+    chart-model.ts      buildChartModel, describeChart, chart geometry (shared by every renderer)
+    labels.ts           DEFAULT_LABELS, DashboardClassSlot: interface text and class slots
+    palette.ts          default series/chrome colors as var(--dwt-*, fallback)
     url.ts              isSafeHref / isSafeImageUrl
     compat.ts           Maker Toolkit payload/definition upgrades
     result.ts           Result<T>
@@ -90,7 +93,6 @@ src/
     options-dialog.tsx  WidgetOptionsDialog: title, width, view, declared options
     confirm.tsx         InlineConfirm (✓ / ✕)
     use-stored-layout.ts useStoredLayout: persistence + Dashboard
-    palette.ts          default series/chrome colors as var(--dwt-*, fallback)
     primitives.tsx      WidgetLink (rel="noreferrer", safe schemes), Thumbnail
     styles.css          optional stylesheet, copied to dist/styles.css
 test/
