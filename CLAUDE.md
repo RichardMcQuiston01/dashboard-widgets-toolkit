@@ -106,6 +106,11 @@ src/
     primitives.ts       WidgetLink, NewTabIndicator, Thumbnail
     theme.ts            WidgetTheme
     use-widgets.ts      useWidgets composable (ref widgets, visible/prefetch/polling)
+    dashboard.ts        WidgetGrid, Dashboard (layout controls, edit mode, pages), PageTabs
+    edit-menu.ts        WidgetEditMenu: the Arrange menu on each card
+    confirm.ts          InlineConfirm (✓ / ✕)
+    grid-spans.ts       useFillSpans: measured column spans for width-filling cards
+    use-stored-layout.ts useStoredLayout composable: persistence, backup, active page
 test/
   core/*.test.ts        node:test + node:assert, run by bun test
   builder/*.test.ts     the Widget Builder
@@ -171,9 +176,10 @@ documented in the code and README, which win if they disagree.
   `theme-check.ts`, `theme-defaults.ts`) and `themePresets` are built. Nothing
   planned except the open questions in the doc.
 - `docs/design/vue-renderers.md`: Vue renderers. Phase 0 (shared chart model,
-  labels, palette in the core) and phase 1 (`./vue`: cards, renderers, chart,
-  `useWidgets`) are built. Not built: `WidgetGrid` / `Dashboard` and the layout
-  controls, the dialogs, drag and drop. Keep the Vue markup identical to React's
+  labels, palette in the core), phase 1 (`./vue`: cards, renderers, chart,
+  `useWidgets`) and phase 2 (`Dashboard`, `WidgetGrid`, layout controls, pages,
+  `useStoredLayout`) are built. Not built: the dialogs (options, clones, detail,
+  filters), drag and drop, swipe. Keep the Vue markup identical to React's
   (`test/vue/parity.test.tsx` fails on drift).
 - `docs/design/widget-builder.md`: Widget Builder. Phase 1 is built: the headless
   `./builder` subpath (`SourceDescription`, `defineSource`, the edit functions,

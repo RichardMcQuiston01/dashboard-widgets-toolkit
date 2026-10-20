@@ -13,6 +13,19 @@ export {
   type WidgetCardProps,
 } from './card.js';
 export { CellContent, type CellContentProps } from './cells.js';
+export { InlineConfirm } from './confirm.js';
+export {
+  Dashboard,
+  WidgetGrid,
+  type DashboardProps,
+  type WidgetGridProps,
+} from './dashboard.js';
+export {
+  EDIT_MENU_INITIAL_OPEN,
+  WidgetEditMenu,
+  type EditMenuItem,
+  type WidgetEditMenuProps,
+} from './edit-menu.js';
 export {
   GraphWidget,
   barPath,
@@ -51,6 +64,13 @@ export {
   type WidgetSettings,
 } from './settings.js';
 export { WidgetTheme, type WidgetThemeProps } from './theme.js';
+export {
+  useStoredLayout,
+  type StoredLayoutConflict,
+  type StoredLayoutStatus,
+  type UseStoredLayoutOptions,
+  type UseStoredLayoutResult,
+} from './use-stored-layout.js';
 export {
   useWidgets,
   type UseWidgetsOptions,

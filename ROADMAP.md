@@ -103,10 +103,10 @@ Nothing is queued here right now: the planned work is under [Next](#next).
 
 ## Next
 
-- **Vue renderers, the rest** (`./vue`): the read-only dashboard is built; still
-  planned are the layout controls (`WidgetGrid`, `Dashboard`: hide, minimize,
-  reorder, pages, `useStoredLayout`), the dialogs (options, clones, detail view,
-  filters) and drag and drop. See
+- **Vue renderers, the rest** (`./vue`): the read-only dashboard, `Dashboard`
+  with the layout controls and pages, and `useStoredLayout` are built; still
+  planned are the dialogs (options, clones, detail view, filters) and drag and
+  drop with swipe. See
   [docs/design/vue-renderers.md](./docs/design/vue-renderers.md).
 - **Data sources and adapters**: payload builders and push (live) sources. See
   [docs/design/widget-extensions.md](./docs/design/widget-extensions.md).

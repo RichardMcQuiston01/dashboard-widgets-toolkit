@@ -1,61 +1,27 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { createSSRApp, h, type Component } from 'vue';
-import { renderToString } from 'vue/server-renderer';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { h } from 'vue';
 import type { ReactElement } from 'react';
 
 import type { GraphWidgetData, WidgetData } from '../../src/core/payload.js';
 import type { DashboardWidget } from '../../src/core/resolve.js';
 import * as reactApi from '../../src/react/index.js';
 import * as vueApi from '../../src/vue/index.js';
-import { normalizeMarkup } from './markup.js';
-
-const settings = { locale: 'en-US' } as const;
-
-async function vueHtml(
-  component: Component,
-  props: Record<string, unknown>,
-  provided: Record<string, unknown> = settings,
-  slots: Record<string, () => unknown> = {}
-): Promise<string> {
-  const app = createSSRApp({
-    render: () =>
-      h(vueApi.WidgetSettingsProvider, provided, {
-        default: () => h(component, props, slots),
-      }),
-  });
-  return renderToString(app);
-}
-
-function reactHtml(
-  element: ReactElement,
-  provided: Record<string, unknown> = settings
-): string {
-  return renderToStaticMarkup(
-    <reactApi.WidgetSettingsProvider {...provided}>
-      {element}
-    </reactApi.WidgetSettingsProvider>
-  );
-}
+import {
+  assertParity as assertWithOptions,
+  defaultSettings as settings,
+  type VueSide,
+} from './helpers.js';
 
 /** Both renderers draw the same widget the same way. */
 async function assertParity(
   name: string,
   react: ReactElement,
-  vue: {
-    component: Component;
-    props: Record<string, unknown>;
-    slots?: Record<string, () => unknown>;
-  },
+  vue: VueSide,
   provided: Record<string, unknown> = settings
 ): Promise<void> {
-  const fromReact: string = normalizeMarkup(reactHtml(react, provided));
-  const fromVue: string = normalizeMarkup(
-    await vueHtml(vue.component, vue.props, provided, vue.slots)
-  );
-  assert.equal(fromVue, fromReact, `${name}: Vue markup differs from React`);
+  await assertWithOptions(name, react, vue, { provided });
 }
 
 function parityOfContent(name: string, data: WidgetData): void {
