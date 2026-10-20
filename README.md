@@ -33,7 +33,7 @@ The package has five parts:
 | `@richardmcquiston01/dashboard-widgets-toolkit` (or `/core`) | Runtime-neutral core (Node, Bun, browsers): definitions, payload types, validators, `resolveWidgets`, layout, formatting. No DOM, no network, no storage.                    |
 | `@richardmcquiston01/dashboard-widgets-toolkit/builder`      | Headless Widget Builder: describe a provider (`defineSource`), then create and edit a widget definition as JSON with functions that never return an invalid one.            |
 | `@richardmcquiston01/dashboard-widgets-toolkit/react`        | React (18+) renderers: `WidgetCard`, one renderer per kind, `WidgetGrid`, a layout-aware `Dashboard`, and accessible inline-SVG charts with a "View as table" twin.          |
-| `@richardmcquiston01/dashboard-widgets-toolkit/vue`          | Vue (3.3+) renderers over the same core and class names: `WidgetCard`, `ResolvedWidgetCard`, one renderer per kind, an SVG chart with a "View as table" twin, and `useWidgets`. |
+| `@richardmcquiston01/dashboard-widgets-toolkit/vue`          | Vue (3.3+) renderers over the same core and class names: `WidgetCard`, `ResolvedWidgetCard`, one renderer per kind, an SVG chart with a "View as table" twin, a layout-aware `Dashboard` with pages, and `useWidgets` / `useStoredLayout`. |
 | `@richardmcquiston01/dashboard-widgets-toolkit/styles.css`   | Optional stylesheet. Components are unstyled by default and carry stable `dwt-*` class names.                                                                               |
 
 [Back to Top](#table-of-contents)

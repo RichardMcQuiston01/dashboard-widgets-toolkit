@@ -212,10 +212,12 @@ Links open in the same tab unless you set `linkTarget` (for example
 `/vue` draws the same widgets as `/react`, from the same payloads, with the same
 `dwt-*` class names, so `styles.css`, themes and `classNames` work unchanged.
 The markup is checked against the React renderers in the test suite. What is
-built so far is the read-only dashboard: the cards, one renderer per kind, the
-chart with its "View as table" twin, searchable and sortable tables, selection,
-exports, freshness, theming and `useWidgets`. The layout controls (hide,
-minimize, reorder, pages), dialogs and drag and drop are not in `/vue` yet; see
+built so far: the cards, one renderer per kind, the chart with its "View as
+table" twin, searchable and sortable tables, selection, exports, freshness,
+theming, `useWidgets`, and the layout-aware `Dashboard` (hide, show, minimize,
+move earlier or later, locks, Customize/Done/Reset/Revert, pages) with
+`useStoredLayout`. The Options dialog, clones, the detail view, dashboard
+filters, drag and drop and swipe are not in `/vue` yet; see
 `docs/design/vue-renderers.md` for the plan.
 
 ```vue
@@ -248,6 +250,64 @@ const { widgets, refresh, gridRef } = useWidgets(definitions, providers, {
   </WidgetSettingsProvider>
 </template>
 ```
+
+A `Dashboard` orders the widgets by the viewer's saved layout and adds the
+layout controls when you give it `onLayoutChange`. Keep the layout in
+`useStoredLayout`, which loads and saves it through a storage adapter (see
+"Storing the layout") without ever blocking the first render:
+
+```vue
+<script setup lang="ts">
+import {
+  Dashboard,
+  useStoredLayout,
+  useWidgets,
+} from '@richardmcquiston01/dashboard-widgets-toolkit/vue';
+import {
+  EMPTY_LAYOUT,
+  createLayoutPersistence,
+} from '@richardmcquiston01/dashboard-widgets-toolkit';
+import { localStorageAdapter } from '@richardmcquiston01/storage-adapters/browser';
+import { definitions, providers } from './widgets'; // your code
+
+const { widgets, refresh } = useWidgets(definitions, providers, {});
+const stored = useStoredLayout({
+  persistence: createLayoutPersistence(localStorageAdapter()),
+  scope: { dashboardKey: 'shop', userKey: 'u1' },
+  definitions,
+  defaultLayout: EMPTY_LAYOUT,
+});
+</script>
+
+<template>
+  <Dashboard
+    :widgets="widgets"
+    :layout="stored.layout.value"
+    :on-layout-change="stored.setLayout"
+    edit-mode="toggle"
+    :backup="stored.backup.value"
+    :on-backup="stored.setBackup"
+    :active-page="stored.activePage.value"
+    :on-active-page-change="stored.setActivePage"
+    :on-retry="refresh"
+    locale="en-US"
+  />
+</template>
+```
+
+`Dashboard` takes the same props as the React one for these features
+(`overrideLocks`, `editMode`, `editing` / `defaultEditing` / `onEditingChange`,
+`defaultLayout`, `toolbar`, `activePage` / `defaultActivePage` /
+`onActivePageChange`, `backup` / `onBackup`, `maxRows`, `maxPages`, `theme` and
+the card props `onRetry`, `onSelect`, `exportFormats`, `onExport`,
+`onExportError`, `freshness`, `onRefresh`, `headingLevel`). `WidgetGrid` is the
+plain grid with no layout controls. The Arrange menu has Move earlier, Move
+later, Move to page and Hide; it will gain Options and Duplicate with the
+dialogs. `useStoredLayout` returns refs (`layout.value`, `backup.value`,
+`activePage.value`, `status.value`, `error.value`, `conflict.value`,
+`remoteLayout.value`) and the same functions as the React hook; `scope` and
+`definitions` can be refs or getters. Nothing is loaded while rendering on the
+server.
 
 How it differs from React:
 
