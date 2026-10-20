@@ -10,6 +10,7 @@ export default defineConfig({
     core: 'src/core/index.ts',
     builder: 'src/builder/index.ts',
     react: 'src/react/index.ts',
+    vue: 'src/vue/index.ts',
   },
   format: ['esm', 'cjs'],
   dts: {
@@ -23,8 +24,8 @@ export default defineConfig({
   treeshake: true,
   target: 'es2022',
   platform: 'neutral',
-  // react and react/jsx-runtime come from the consumer (peer dependency).
-  external: ['react', 'react/jsx-runtime'],
+  // react, react/jsx-runtime and vue come from the consumer (peer dependencies).
+  external: ['react', 'react/jsx-runtime', 'vue'],
   onSuccess: async () => {
     copyFileSync('src/react/styles.css', 'dist/styles.css');
   },

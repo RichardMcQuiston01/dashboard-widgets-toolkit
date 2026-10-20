@@ -96,8 +96,11 @@ Nothing is queued here right now: the planned work is under [Next](#next).
 
 ## Next
 
-- **Vue renderers** (`./vue`) for Maker Toolkit's Shop Dashboard and other
-  Vue 3 apps, over the same core and `styles.css` class names.
+- **Vue renderers, the rest** (`./vue`): the read-only dashboard is built; still
+  planned are the layout controls (`WidgetGrid`, `Dashboard`: hide, minimize,
+  reorder, pages, `useStoredLayout`), the dialogs (options, clones, detail view,
+  filters) and drag and drop. See
+  [docs/design/vue-renderers.md](./docs/design/vue-renderers.md).
 - **Data sources and adapters**: payload builders and push (live) sources. See
   [docs/design/widget-extensions.md](./docs/design/widget-extensions.md).
 - **Sparkline kind** (`SPARKLINE`), and an optional sparkline on `KPI` tiles

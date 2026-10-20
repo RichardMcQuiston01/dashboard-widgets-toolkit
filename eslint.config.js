@@ -81,8 +81,12 @@ export default tseslint.config(
                 'react/*',
                 'react-dom/*',
                 '../react/*',
+                'vue',
+                'vue/*',
+                '../vue/*',
               ],
-              message: 'src/core is framework-free; React lives in src/react.',
+              message:
+                'src/core is framework-free; React lives in src/react and Vue in src/vue.',
             },
           ],
         },
@@ -101,7 +105,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/react/**/*.{ts,tsx}'],
+    files: ['src/react/**/*.{ts,tsx}', 'src/vue/**/*.ts'],
     languageOptions: { globals: { ...globals.browser } },
   },
   {
