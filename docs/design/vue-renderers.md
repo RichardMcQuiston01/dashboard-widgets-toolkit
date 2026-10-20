@@ -2,7 +2,9 @@
 
 Status: decisions VU1 to VU10 are confirmed (the recommendations stand). Phase 0
 is built: `chart-model.ts`, `labels.ts` and `palette.ts` live in the core and
-`./react` re-exports them. Phases 1 to 4 are not built.
+`./react` re-exports them. Phase 1 is built (`./vue`: settings, theme, cards, every renderer, the chart,
+freshness, exports, `useWidgets`, with a React-versus-Vue markup parity test).
+Phases 2 to 4 are not built.
 
 ## 1. Goal
 

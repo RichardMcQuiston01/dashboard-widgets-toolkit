@@ -11,6 +11,7 @@
     "svg",
     "layout",
     "react",
+    "vue",
     "typescript",
     "accessibility"
   ],
@@ -45,6 +46,9 @@
       ],
       "react": [
         "./dist/react.d.cts"
+      ],
+      "vue": [
+        "./dist/vue.d.cts"
       ]
     }
   },
@@ -90,7 +94,17 @@
       }
     },
     "./styles.css": "./dist/styles.css",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./vue": {
+      "import": {
+        "types": "./dist/vue.d.ts",
+        "default": "./dist/vue.js"
+      },
+      "require": {
+        "types": "./dist/vue.d.cts",
+        "default": "./dist/vue.cjs"
+      }
+    }
   },
   "files": [
     "dist"
@@ -104,7 +118,7 @@
   },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.react.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.react.json --noEmit && tsc -p tsconfig.vue.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "test": "bun test test",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -113,10 +127,14 @@
     "version-packages": "changeset version"
   },
   "peerDependencies": {
-    "react": ">=18"
+    "react": ">=18",
+    "vue": ">=3.3"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "vue": {
       "optional": true
     }
   },
@@ -133,7 +151,8 @@
     "react-dom": "^19.3.0",
     "tsup": "^8.5.1",
     "typescript": "~6.0.2",
-    "typescript-eslint": "^8.71.1"
+    "typescript-eslint": "^8.71.1",
+    "vue": "^3.5.0"
   },
   "dependencies": {
     "@richardmcquiston01/storage-adapters": "^0.3.0"
