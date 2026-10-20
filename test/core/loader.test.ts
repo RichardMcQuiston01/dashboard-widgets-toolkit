@@ -691,3 +691,69 @@ void describe('release', () => {
     loader.dispose();
   });
 });
+
+void describe('prefetch', () => {
+  void it('waits for loads in flight, then starts the queued widgets', async () => {
+    const order: string[] = [];
+    const loader = createWidgetLoader({
+      definitions,
+      providers: {
+        slow: async () => {
+          order.push('slow start');
+          await sleep(30);
+          order.push('slow done');
+          return text('s');
+        },
+        fast: () => {
+          order.push('fast start');
+          return text('f');
+        },
+      },
+      context: {},
+    });
+    loader.load('slow');
+    loader.prefetch(['fast']);
+    await sleep(10);
+    assert.equal(statusOf(loader.getSnapshot()), 'slow:loading fast:loading');
+    await sleep(60);
+    assert.equal(statusOf(loader.getSnapshot()), 'slow:ok fast:ok');
+    assert.deepEqual(order, ['slow start', 'slow done', 'fast start']);
+    loader.dispose();
+  });
+
+  void it('starts at once when nothing is loading', async () => {
+    const loader = createWidgetLoader({
+      definitions,
+      providers: { slow: () => text('s'), fast: () => text('f') },
+      context: {},
+    });
+    loader.prefetch(['fast', 'nope']);
+    await sleep(10);
+    assert.equal(statusOf(loader.getSnapshot()), 'slow:loading fast:ok');
+    loader.dispose();
+  });
+
+  void it('replaces the queue, so a page left behind is not fetched', async () => {
+    const started: string[] = [];
+    const loader = createWidgetLoader({
+      definitions,
+      providers: {
+        slow: async () => {
+          await sleep(30);
+          return text('s');
+        },
+        fast: () => {
+          started.push('fast');
+          return text('f');
+        },
+      },
+      context: {},
+    });
+    loader.load('slow');
+    loader.prefetch(['fast']);
+    loader.prefetch([]);
+    await sleep(60);
+    assert.deepEqual(started, []);
+    loader.dispose();
+  });
+});

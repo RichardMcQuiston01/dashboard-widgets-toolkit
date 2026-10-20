@@ -54,6 +54,9 @@ src/
     theme-presets.ts    themePresets: highContrast, compact, mono
     format.ts           Intl formatting, percent change, kpiDelta
     scale.ts            niceStep, niceDomain, labelStride
+    chart-model.ts      buildChartModel, describeChart, chart geometry (shared by every renderer)
+    labels.ts           DEFAULT_LABELS, DashboardClassSlot: interface text and class slots
+    palette.ts          default series/chrome colors as var(--dwt-*, fallback)
     url.ts              isSafeHref / isSafeImageUrl
     compat.ts           Maker Toolkit payload/definition upgrades
     result.ts           Result<T>
@@ -90,14 +93,25 @@ src/
     options-dialog.tsx  WidgetOptionsDialog: title, width, view, declared options
     confirm.tsx         InlineConfirm (✓ / ✕)
     use-stored-layout.ts useStoredLayout: persistence + Dashboard
-    palette.ts          default series/chrome colors as var(--dwt-*, fallback)
     primitives.tsx      WidgetLink (rel="noreferrer", safe schemes), Thumbnail
     styles.css          optional stylesheet, copied to dist/styles.css
+  vue/                  subpath ./vue: Vue 3.3+ peer; render functions in .ts, no SFCs
+    index.ts            barrel
+    settings.ts         WidgetSettingsProvider (provide/inject), useWidgetSettings, useSlotClassName
+    card.ts             WidgetCard (slots), ResolvedWidgetCard, widgetTitle
+    renderers.ts        one renderer per kind, WidgetContent switch
+    charts.ts           GraphWidget over core/chart-model.ts
+    cells.ts            CellContent: field types, custom formatters
+    freshness.ts        FreshnessLine, RefreshButton
+    primitives.ts       WidgetLink, NewTabIndicator, Thumbnail
+    theme.ts            WidgetTheme
+    use-widgets.ts      useWidgets composable (ref widgets, visible/prefetch/polling)
 test/
   core/*.test.ts        node:test + node:assert, run by bun test
   builder/*.test.ts     the Widget Builder
   react/*.test.tsx      react-dom/server renderToStaticMarkup, no DOM needed
-tsup.config.ts          entries index, core, builder, react; copies styles.css
+  vue/*.test.ts(x)      vue/server-renderer, plus parity.test.tsx: same markup as React
+tsup.config.ts          entries index, core, builder, react, vue; copies styles.css
 ```
 
 Adding a subpath: add the entry to `tsup.config.ts`, `package.json`
@@ -135,8 +149,8 @@ documented in the code and README, which win if they disagree.
   `normalizeLayout`) and the React page bar, Move to page and page management.
   Swipe between pages (`swipe.ts`, `use-page-swipe.ts`), drag onto a page tab
   (`tabAtPoint`, `tabsRef`/`tabFor` on `usePointerReorder`) and `release` of
-  far-away pages (`loader.release`, `farPageWidgetKeys`) are built. Not built:
-  `loadWhen: 'adjacent'`.
+  far-away pages (`loader.release`, `farPageWidgetKeys`) and adjacent prefetch
+  (`nearPageWidgetKeys`, `loader.prefetch`, `useWidgets` `prefetch`) are built.
 - `docs/design/export.md`: export is built: CSV for cards and the detail view
   (`export.ts`, `exportFormats`, `onExport`, `onExportDetail`), chart SVG/PNG
   (`chart-export.ts`) and the print stylesheet (`@media print` in `styles.css`,
@@ -156,6 +170,11 @@ documented in the code and README, which win if they disagree.
   `WidgetTheme` / `Dashboard` `theme`, `checkTheme` (`color.ts`,
   `theme-check.ts`, `theme-defaults.ts`) and `themePresets` are built. Nothing
   planned except the open questions in the doc.
+- `docs/design/vue-renderers.md`: Vue renderers. Phase 0 (shared chart model,
+  labels, palette in the core) and phase 1 (`./vue`: cards, renderers, chart,
+  `useWidgets`) are built. Not built: `WidgetGrid` / `Dashboard` and the layout
+  controls, the dialogs, drag and drop. Keep the Vue markup identical to React's
+  (`test/vue/parity.test.tsx` fails on drift).
 - `docs/design/widget-builder.md`: Widget Builder. Phase 1 is built: the headless
   `./builder` subpath (`SourceDescription`, `defineSource`, the edit functions,
   `parseDefinitions`) and `WidgetDefinition.source` / `providerKeyOf`. The React
@@ -191,7 +210,7 @@ Author, Buy Me a Coffee, License and Copyright sections stay byte-for-byte.
 
 The build must keep producing ESM (`dist/*.js`) and CommonJS (`dist/*.cjs`)
 with declarations for each (`.d.ts`, `.d.cts`) for every entry (`.`,
-`./core`, `./react`), plus `dist/styles.css`. Maker Toolkit's NestJS API
+`./core`, `./builder`, `./react`, `./vue`), plus `dist/styles.css`. Maker Toolkit's NestJS API
 compiles to CommonJS and `require()`s the core. Before releasing, check that
 `require('@richardmcquiston01/dashboard-widgets-toolkit/core')` works under
 Node and that an ESM import of `./react` works with React installed.
@@ -205,6 +224,8 @@ functions it uses. That's fine: the core has no singletons or classes.
   Node). ESLint bans `node:*`, `fs`, `bun`, React imports, and the globals
   `Bun`, `process`, `Buffer`, `require`, `window`, `document`, `fetch` and
   `localStorage`. `Intl` is fine (it's ECMAScript).
+- `src/vue`: DOM lib, render functions in `.ts` (no `.vue` files, no compiler
+  plugin); Vue is an optional peer (`>=3.3`) kept external by tsup.
 - `src/react`: DOM lib and JSX allowed; still no Node or Bun. React is a peer
   dependency (`>=18`, optional so core-only consumers needn't install it).
   Components render on the server with no effects, so tests use

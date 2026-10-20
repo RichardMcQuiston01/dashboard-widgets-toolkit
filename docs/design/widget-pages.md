@@ -4,7 +4,7 @@
   management (0.10.0 to 0.11.2), swipe between pages on touch screens
   (`swipe.ts`, `usePageSwipe`), drag onto a page tab, and `release` of far-away
   pages' payloads (`loader.release`, `useWidgets().release`,
-  `farPageWidgetKeys`). Not built: adjacent prefetch tuning (`loadWhen: 'adjacent'`).
+  `farPageWidgetKeys`). Adjacent prefetch is built (`nearPageWidgetKeys`, `loader.prefetch`, `useWidgets` `prefetch`).
   Decisions 1 to 6 of section 12 come from the maintainer; the rest were taken as
   proposed.
 - **Date:** 2026-10-09
@@ -235,11 +235,20 @@ the first time its card is near the viewport (`loadWhen: 'visible'`), so widgets
 on other pages load when their page is first shown and nothing more is needed.
 (This phase made `useWidgets` pick up cards that appear after the first render,
 which also fixes a widget restored from the Hidden bar never loading.) The
-options below stay design ideas for later:
+option below stays a design idea:
 
-- `'adjacent'`: also prefetch the next and previous pages after the active page
-  has finished.
 - `'all'`: today's behavior, `loadWhen: 'mount'`.
+
+**Adjacent prefetch (built).** Rather than a third `loadWhen` value (`useWidgets`
+does not know the pages, and a mode would have hidden which keys it fetched),
+prefetch is a list: `nearPageWidgetKeys(definitions, layout, activeKey, reach =
+1)` names the widgets on the pages within `reach` of the one in view (the mirror
+of `farPageWidgetKeys`), and `useWidgets({ loadWhen: 'visible', prefetch })`
+passes them to `loader.prefetch(keys)`. The loader holds the keys until nothing
+is loading, so the cards in view are never held up, then starts them like any
+other `load`. `prefetchDelayMs` (default 150) lets the visible cards start first.
+A new list replaces the queue, so a page the viewer swiped past is not fetched.
+It is ignored for `loadWhen: 'mount'`, which already loads everything.
 
 Pages already visited keep their payloads under the loader's existing cache and
 refresh rules, so going back is instant and stale data is refreshed per the
@@ -297,7 +306,7 @@ Indicative; after edit mode (0.9.0) and the options dialog (0.11.0), before clon
 | ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | 0.10.0  | **Built.** Core: `pages` in the layout, helpers, `placeRows`/`fitCount`, `normalizeLayout`, definition `page`                                                 |
 | 2     | 0.10.0  | **Built.** React: page bar (tabs and dots, hidden for one page), `activePage`, lazy loading by page, Move to page select, edit-mode Add/Rename/Reorder/Delete |
-| 3     | 0.29.0  | **Swipe, drag onto a page tab and `release` built.** Adjacent prefetch tuning (`loadWhen: 'adjacent'`) still planned                                          |
+| 3     | 0.29.0  | **Swipe, drag onto a page tab and `release` built.** Adjacent prefetch was built later as `nearPageWidgetKeys` + `prefetch` (see section 7)                   |
 
 Tests (`test/core`): round trips with and without `pages` and byte-identical old
 JSON; `pageLayout`/`withPageLayout`; `placeRows` including the 7-wide example and flexible growth that never adds a row;

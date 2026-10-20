@@ -230,6 +230,33 @@ export function farPageWidgetKeys<T extends LayoutItem>(
   return far;
 }
 
+/**
+ * The keys of the widgets on the pages next to the page in view, in page order:
+ * what a paged dashboard can prefetch so a swipe lands on data. `reach` is how
+ * many pages on each side of `activeKey` count (default 1: the neighbours).
+ * The page in view is not included (its cards load as they appear), and hidden
+ * widgets count with their page. An unknown `activeKey` returns nothing.
+ */
+export function nearPageWidgetKeys<T extends LayoutItem>(
+  definitions: readonly T[],
+  layout: DashboardLayout,
+  activeKey: string,
+  reach: number = 1
+): string[] {
+  const pages: readonly LayoutPage[] = pageList(layout);
+  const active: number = pages.findIndex((page) => page.key === activeKey);
+  if (active === -1) return [];
+  const distance: number = Math.max(0, Math.floor(reach));
+  const assigned: Map<string, T[]> = assignPages(definitions, layout);
+  const near: string[] = [];
+  for (const [index, page] of pages.entries()) {
+    const away: number = Math.abs(index - active);
+    if (away === 0 || away > distance) continue;
+    for (const widget of assigned.get(page.key) ?? []) near.push(widget.key);
+  }
+  return near;
+}
+
 /** The key of the page a widget shows on; undefined if it isn't a definition. */
 export function pageOf<T extends LayoutItem>(
   definitions: readonly T[],

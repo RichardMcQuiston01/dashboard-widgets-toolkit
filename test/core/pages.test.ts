@@ -15,6 +15,7 @@ import {
   assignPages,
   DEFAULT_PAGE_KEY,
   farPageWidgetKeys,
+  nearPageWidgetKeys,
   hasPages,
   movePage,
   moveWidgetToPage,
@@ -746,5 +747,36 @@ void describe('farPageWidgetKeys', () => {
       farPageWidgetKeys(defs, { ...EMPTY_LAYOUT, order: ['a'] }, 'default'),
       []
     );
+  });
+});
+
+void describe('nearPageWidgetKeys', () => {
+  const defs = ['a', 'b', 'c', 'd', 'e'].map((key) => widget(key, 12));
+  const layout = paged(
+    page('p1', 'One', ['a']),
+    page('p2', 'Two', ['b']),
+    page('p3', 'Three', ['c']),
+    page('p4', 'Four', ['d']),
+    page('p5', 'Five', ['e'])
+  );
+
+  void it('lists the neighbours of the page in view, not the page itself', () => {
+    assert.deepEqual(nearPageWidgetKeys(defs, layout, 'p1'), ['b']);
+    assert.deepEqual(nearPageWidgetKeys(defs, layout, 'p3'), ['b', 'd']);
+    assert.deepEqual(nearPageWidgetKeys(defs, layout, 'p5'), ['d']);
+  });
+
+  void it('reaches further with a larger `reach`, and nowhere with 0', () => {
+    assert.deepEqual(nearPageWidgetKeys(defs, layout, 'p3', 2), [
+      'a',
+      'b',
+      'd',
+      'e',
+    ]);
+    assert.deepEqual(nearPageWidgetKeys(defs, layout, 'p3', 0), []);
+  });
+
+  void it('returns nothing for an unknown page', () => {
+    assert.deepEqual(nearPageWidgetKeys(defs, layout, 'nope'), []);
   });
 });

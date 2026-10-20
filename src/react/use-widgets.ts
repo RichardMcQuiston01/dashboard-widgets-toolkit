@@ -30,6 +30,20 @@ export interface UseWidgetsOptions extends ResolveOptions {
   /** `IntersectionObserver` margin for `loadWhen: 'visible'`. Default `'200px'`. */
   readonly rootMargin?: string;
   /**
+   * For `loadWhen: 'visible'`: keys of widgets to load ahead of time, once the
+   * cards in view have finished loading (what a paged dashboard passes for the
+   * pages next to the one in view: `nearPageWidgetKeys(definitions, layout,
+   * pageKey)`). The newest list replaces the older one, so a page the viewer
+   * has already left is not fetched. Ignored for `loadWhen: 'mount'`, which
+   * loads everything up front. May be an inline array.
+   */
+  readonly prefetch?: readonly string[];
+  /**
+   * How long to wait, in ms, before queueing `prefetch` so the cards in view
+   * get to start first. Default 150.
+   */
+  readonly prefetchDelayMs?: number;
+  /**
    * Reload started widgets every this many ms. Ticks are skipped while the
    * tab is hidden, and a widget still loading is not restarted.
    */
@@ -115,6 +129,8 @@ export function useWidgets<C extends WidgetContext>(
   const {
     loadWhen = 'mount',
     rootMargin = '200px',
+    prefetch,
+    prefetchDelayMs = 150,
     refreshMs = 0,
     validate,
     timeoutMs,
@@ -271,6 +287,26 @@ export function useWidgets<C extends WidgetContext>(
       observer.disconnect();
     };
   }, [loader, loadWhen, rootMargin, cardKeys]);
+
+  // Prefetch: after a short wait (so the cards in view start first), queue the
+  // widgets on the neighbouring pages; the loader starts them once nothing else
+  // is loading. A changed list replaces the queue.
+  const prefetchSignature: string = JSON.stringify(prefetch ?? []);
+  useEffect(() => {
+    if (
+      loader === null ||
+      loadWhen !== 'visible' ||
+      typeof IntersectionObserver === 'undefined'
+    ) {
+      return undefined;
+    }
+    const keys: readonly string[] = JSON.parse(prefetchSignature) as string[];
+    const timer = setTimeout(() => loader.prefetch(keys), prefetchDelayMs);
+    return () => {
+      clearTimeout(timer);
+      loader.prefetch([]);
+    };
+  }, [loader, loadWhen, prefetchSignature, prefetchDelayMs]);
 
   // Polling: reload started widgets, skipping ticks while the tab is hidden.
   useEffect(() => {

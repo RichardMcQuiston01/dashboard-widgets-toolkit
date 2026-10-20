@@ -207,6 +207,68 @@ Links open in the same tab unless you set `linkTarget` (for example
 
 [Back to Top](#getting-started)
 
+### Vue: render widgets
+
+`/vue` draws the same widgets as `/react`, from the same payloads, with the same
+`dwt-*` class names, so `styles.css`, themes and `classNames` work unchanged.
+The markup is checked against the React renderers in the test suite. What is
+built so far is the read-only dashboard: the cards, one renderer per kind, the
+chart with its "View as table" twin, searchable and sortable tables, selection,
+exports, freshness, theming and `useWidgets`. The layout controls (hide,
+minimize, reorder, pages), dialogs and drag and drop are not in `/vue` yet; see
+`docs/design/vue-renderers.md` for the plan.
+
+```vue
+<script setup lang="ts">
+import {
+  ResolvedWidgetCard,
+  WidgetSettingsProvider,
+  useWidgets,
+} from '@richardmcquiston01/dashboard-widgets-toolkit/vue';
+import '@richardmcquiston01/dashboard-widgets-toolkit/styles.css'; // optional
+import { definitions, providers } from './widgets'; // your code
+
+const { widgets, refresh, gridRef } = useWidgets(definitions, providers, {
+  roles: ['owner'],
+});
+</script>
+
+<template>
+  <WidgetSettingsProvider locale="en-US" link-target="_blank">
+    <div ref="gridRef" class="dwt-grid">
+      <ResolvedWidgetCard
+        v-for="widget in widgets"
+        :key="widget.definition.key"
+        :widget="widget"
+        :on-retry="() => refresh(widget.definition.key)"
+        :on-refresh="() => refresh(widget.definition.key)"
+        freshness
+      />
+    </div>
+  </WidgetSettingsProvider>
+</template>
+```
+
+How it differs from React:
+
+- Components take their React props by the same names (`onRetry`, `onSelect`,
+  `onToggleMinimized`, ...) and Vue slots where React takes nodes: the default
+  slot of `WidgetCard` is its body, and its `actions` and `footer` slots add
+  header controls and a footer. `ResolvedWidgetCard` has an `actions` slot.
+- `useWidgets(definitions, providers, context, options)` takes `definitions` and
+  `options` as a value, a ref or a getter, and returns `widgets` as a ref (read
+  `widgets.value` in script, `widgets` in a template), plus `refresh`,
+  `setOptions`, `setView`, `setFilterValues`, `release` and a `gridRef` to set
+  as `ref="gridRef"`. Loading starts when the component mounts, never during
+  server rendering, and `loadWhen: 'visible'`, `prefetch`, `refreshMs`,
+  `optionValues`, `viewValues` and `filterValues` work as in React.
+- `WidgetSettingsProvider` takes `locale`, `link-target`, `class-names`,
+  `labels`, `formatters` and `on-formatter-error` as props. A `custom` column's
+  formatter returns what Vue can render (a string or `h(...)` nodes).
+- `WidgetTheme` takes `theme` (from `createTheme`) and wraps its default slot.
+
+[Back to Top](#getting-started)
+
 ## Examples
 
 | [Layout functions on their own](#layout-functions-on-their-own) | [KPI deltas and formatting](#kpi-deltas-and-formatting) | [Styling with Tailwind (or any classes)](#styling-with-tailwind-or-any-classes) | [Widget width](#widget-width) | [Detail view](#detail-view) | [Searchable, sortable tables in the card](#searchable-sortable-tables-in-the-card) | [Declared options](#declared-options) | [Viewer settings: the Options dialog](#viewer-settings-the-options-dialog) | [Alternate views](#alternate-views) | [Clones](#clones) | [Locked widgets](#locked-widgets) | [Edit mode: Customize and Done](#edit-mode-customize-and-done) | [Storing the layout](#storing-the-layout) | [Pages of widgets (core)](#pages-of-widgets-core) | [Filling space](#filling-space) | [Loading data after the page renders](#loading-data-after-the-page-renders) | [Widget Builder](#widget-builder) | [Theming](#theming) | [Changing the text](#changing-the-text) | [Charts](#charts) |
@@ -1374,6 +1436,23 @@ page in view. With one page (or none) there is no page bar.
   `useWidgets(..., { loadWhen: 'visible' })` (and `gridRef` around the
   dashboard) widgets on other pages load the first time their page is shown, and
   keep their data when the viewer comes back.
+- **Prefetching the neighbouring pages.** So a swipe lands on data,
+  `nearPageWidgetKeys(definitions, layout, activeKey, reach)` names the widgets
+  on the pages next to the one in view (`reach` defaults to 1). Pass them as
+  `prefetch` to `useWidgets` with `loadWhen: 'visible'`: they start once the
+  cards in view have finished loading (never before), and a new list replaces
+  the old one, so a page the viewer already left is not fetched.
+
+  ```tsx
+  const { widgets, gridRef } = useWidgets(definitions, providers, ctx, {
+    loadWhen: 'visible',
+    prefetch: nearPageWidgetKeys(definitions, layout, pageKey),
+  });
+  ```
+
+  `loader.prefetch(keys)` is the same on the core loader. It pairs with
+  releasing: prefetch `reach` pages, release the pages beyond `keep`.
+
 - **Releasing far-away pages.** A page keeps its data after the viewer leaves it,
   which is what makes going back instant but also means a long-lived dashboard
   with many pages only grows. `release(keys)` from `useWidgets` (with

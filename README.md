@@ -26,13 +26,14 @@ It gives you:
 
 You bring your own data. The package never fetches or stores anything. You register a provider for each widget, such as a database query, a web request, or a computed value. You also save each viewer's layout wherever you like. Payloads are plain JavaScript Object Notation (JSON), so a server can resolve widgets and a browser can check and draw them.
 
-The package has four parts:
+The package has five parts:
 
 | Import path                                                  | What it is                                                                                                                                                                  |
 | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@richardmcquiston01/dashboard-widgets-toolkit` (or `/core`) | Runtime-neutral core (Node, Bun, browsers): definitions, payload types, validators, `resolveWidgets`, layout, formatting. No DOM, no network, no storage.                    |
 | `@richardmcquiston01/dashboard-widgets-toolkit/builder`      | Headless Widget Builder: describe a provider (`defineSource`), then create and edit a widget definition as JSON with functions that never return an invalid one.            |
 | `@richardmcquiston01/dashboard-widgets-toolkit/react`        | React (18+) renderers: `WidgetCard`, one renderer per kind, `WidgetGrid`, a layout-aware `Dashboard`, and accessible inline-SVG charts with a "View as table" twin.          |
+| `@richardmcquiston01/dashboard-widgets-toolkit/vue`          | Vue (3.3+) renderers over the same core and class names: `WidgetCard`, `ResolvedWidgetCard`, one renderer per kind, an SVG chart with a "View as table" twin, and `useWidgets`. |
 | `@richardmcquiston01/dashboard-widgets-toolkit/styles.css`   | Optional stylesheet. Components are unstyled by default and carry stable `dwt-*` class names.                                                                               |
 
 [Back to Top](#table-of-contents)
@@ -45,6 +46,7 @@ The [Getting Started guide](./GETTING_STARTED.md) has the full walkthrough and m
 
 - Node.js 18 or newer, or Bun 1.3 or newer (or any modern browser bundler)
 - React 18 or newer, only if you use `/react`
+- Vue 3.3 or newer, only if you use `/vue`
 - TypeScript is optional. Type declarations are included.
 
 ### Installation

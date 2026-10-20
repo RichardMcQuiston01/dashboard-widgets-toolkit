@@ -4,6 +4,7 @@
  * browsers): no DOM, no Node built-ins, no network, no storage.
  */
 
+export * from './chart-model.js';
 export * from './clones.js';
 export * from './compat.js';
 export * from './definition.js';
@@ -15,10 +16,12 @@ export * from './export.js';
 export * from './format.js';
 export * from './freshness.js';
 export * from './grid.js';
+export * from './labels.js';
 export * from './layout.js';
 export * from './loader.js';
 export * from './options.js';
 export * from './pages.js';
+export * from './palette.js';
 export * from './reorder.js';
 export * from './payload.js';
 export * from './resolve.js';

@@ -83,6 +83,13 @@
 - Widget Builder, viewer-created widgets: `BuilderPolicy` (allowed sources, a
   widget quota, a key prefix, editable fields, limits), `validateViewerSave`,
   `parseViewerDefinitions` and the draft hook's `policy` option (0.32.0).
+- Pages, adjacent prefetch: `nearPageWidgetKeys`, `loader.prefetch` and the
+  `prefetch` option of `useWidgets` load the neighbouring pages once the page in
+  view has finished (0.33.0).
+- Vue renderers, the read-only dashboard: the `./vue` subpath (cards, one
+  renderer per kind, the chart, freshness, exports, `WidgetSettingsProvider`,
+  `WidgetTheme`, `useWidgets`), with the chart model, labels and palette moved
+  into the core (0.33.0).
 - Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
   and `data-dwt-default-title` on cards (0.21.0).
 
@@ -96,15 +103,11 @@ Nothing is queued here right now: the planned work is under [Next](#next).
 
 ## Next
 
-- **Pages, adjacent prefetch.** `loadWhen: 'adjacent'`: also load the next and
-  previous pages once the page in view has finished, so a swipe lands on data. See
-  [docs/design/widget-pages.md](./docs/design/widget-pages.md).
-- **Widget Builder, the demo's Viewer mode**: a policy of allowed sources, a
-  quota and editable fields in the Widget Builder tab, running
-  `validateViewerSave` on Save. See
-  [docs/design/widget-builder.md](./docs/design/widget-builder.md) section 14.
-- **Vue renderers** (`./vue`) for Maker Toolkit's Shop Dashboard and other
-  Vue 3 apps, over the same core and `styles.css` class names.
+- **Vue renderers, the rest** (`./vue`): the read-only dashboard is built; still
+  planned are the layout controls (`WidgetGrid`, `Dashboard`: hide, minimize,
+  reorder, pages, `useStoredLayout`), the dialogs (options, clones, detail view,
+  filters) and drag and drop. See
+  [docs/design/vue-renderers.md](./docs/design/vue-renderers.md).
 - **Data sources and adapters**: payload builders and push (live) sources. See
   [docs/design/widget-extensions.md](./docs/design/widget-extensions.md).
 - **Sparkline kind** (`SPARKLINE`), and an optional sparkline on `KPI` tiles
