@@ -90,6 +90,9 @@
   renderer per kind, the chart, freshness, exports, `WidgetSettingsProvider`,
   `WidgetTheme`, `useWidgets`), with the chart model, labels and palette moved
   into the core (0.33.0).
+- Vue renderers, layout controls: the `Dashboard` and `WidgetGrid` for `./vue`
+  (hide, show, minimize, move, locks, Customize/Done/Reset/Revert, pages) and the
+  `useStoredLayout` composable (0.34.0).
 - Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
   and `data-dwt-default-title` on cards (0.21.0).
 
@@ -103,10 +106,10 @@ Nothing is queued here right now: the planned work is under [Next](#next).
 
 ## Next
 
-- **Vue renderers, the rest** (`./vue`): the read-only dashboard is built; still
-  planned are the layout controls (`WidgetGrid`, `Dashboard`: hide, minimize,
-  reorder, pages, `useStoredLayout`), the dialogs (options, clones, detail view,
-  filters) and drag and drop. See
+- **Vue renderers, the rest** (`./vue`): the read-only dashboard, `Dashboard`
+  with the layout controls and pages, and `useStoredLayout` are built; still
+  planned are the dialogs (options, clones, detail view, filters) and drag and
+  drop with swipe. See
   [docs/design/vue-renderers.md](./docs/design/vue-renderers.md).
 - **Data sources and adapters**: payload builders and push (live) sources. See
   [docs/design/widget-extensions.md](./docs/design/widget-extensions.md).

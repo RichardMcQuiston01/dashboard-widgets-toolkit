@@ -4,7 +4,14 @@ Status: decisions VU1 to VU10 are confirmed (the recommendations stand). Phase 0
 is built: `chart-model.ts`, `labels.ts` and `palette.ts` live in the core and
 `./react` re-exports them. Phase 1 is built (`./vue`: settings, theme, cards, every renderer, the chart,
 freshness, exports, `useWidgets`, with a React-versus-Vue markup parity test).
-Phases 2 to 4 are not built.
+Phase 2 is built: `WidgetGrid`, `Dashboard` (hide, show, minimize, move, locks,
+Customize/Done/Reset/Revert, `backup`, pages with the tab bar, add, rename, move
+and delete, Move to page), `WidgetEditMenu`, `InlineConfirm` and
+`useStoredLayout`. The Dashboard's saved viewer settings (title, width, view)
+are applied, but the Options dialog, Duplicate and Delete, the detail view and
+the filter bar are phase 3, and drag and drop and swipe are phase 4. The
+Arrange menu lacks Options and Duplicate until then (the parity test drops
+those two items from React's menu before comparing).
 
 ## 1. Goal
 

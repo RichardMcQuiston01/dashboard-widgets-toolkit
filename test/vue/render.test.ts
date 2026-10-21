@@ -5,9 +5,13 @@ import { createSSRApp, defineComponent, h, type Component } from 'vue';
 import { renderToString } from 'vue/server-renderer';
 
 import {
+  EMPTY_LAYOUT,
+  createLayoutPersistence,
   createTheme,
   defineWidget,
+  memoryAdapter,
   themePresets,
+  type DashboardLayout,
 } from '../../src/core/index.js';
 import type { WidgetData } from '../../src/core/payload.js';
 import {
@@ -15,7 +19,9 @@ import {
   WidgetContent,
   WidgetSettingsProvider,
   WidgetTheme,
+  useStoredLayout,
   useWidgets,
+  Dashboard,
   type CellFormatterProblem,
 } from '../../src/vue/index.js';
 
@@ -184,5 +190,55 @@ void describe('useWidgets (server rendering)', () => {
     assert.match(markup, /dwt-card--loading/);
     assert.match(markup, />Alpha</);
     assert.equal(calls, 0);
+  });
+});
+
+void describe('useStoredLayout (server rendering)', () => {
+  void it('shows the default layout and touches no storage', async () => {
+    let touched = 0;
+    const base = memoryAdapter();
+    const persistence = createLayoutPersistence({
+      ...base,
+      get: (...args: Parameters<typeof base.get>) => {
+        touched++;
+        return base.get(...args);
+      },
+      set: (...args: Parameters<typeof base.set>) => {
+        touched++;
+        return base.set(...args);
+      },
+    });
+    const defaultLayout: DashboardLayout = {
+      ...EMPTY_LAYOUT,
+      hidden: ['b'],
+    };
+    const definitions = [
+      defineWidget({ key: 'a', title: 'Alpha', kind: 'TEXT' }),
+      defineWidget({ key: 'b', title: 'Beta', kind: 'TEXT' }),
+    ];
+    const widgets = definitions.map((definition) => ({
+      definition,
+      status: 'ok' as const,
+      data: { kind: 'TEXT' as const, value: '1', label: 'x' },
+    }));
+    const Page = defineComponent(() => {
+      const stored = useStoredLayout({
+        persistence,
+        scope: { dashboardKey: 'demo' },
+        definitions,
+        defaultLayout,
+      });
+      return () =>
+        h(Dashboard, {
+          widgets,
+          layout: stored.layout.value,
+          onLayoutChange: stored.setLayout,
+        });
+    });
+    const markup = await render(Page);
+    assert.match(markup, />Alpha</);
+    assert.doesNotMatch(markup, /<h2[^>]*>Beta</);
+    assert.match(markup, /dwt-hidden-bar/);
+    assert.equal(touched, 0);
   });
 });
