@@ -20,6 +20,7 @@ export * from './labels.js';
 export * from './layout.js';
 export * from './loader.js';
 export * from './options.js';
+export * from './options-draft.js';
 export * from './pages.js';
 export * from './palette.js';
 export * from './reorder.js';

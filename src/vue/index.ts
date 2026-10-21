@@ -37,6 +37,12 @@ export {
   RefreshButton,
   type FreshnessLineProps,
 } from './freshness.js';
+export {
+  OptionField,
+  WidgetOptionsDialog,
+  type OptionFieldProps,
+  type WidgetOptionsDialogProps,
+} from './options-dialog.js';
 export { NewTabIndicator, Thumbnail, WidgetLink } from './primitives.js';
 export {
   AlertListWidget,

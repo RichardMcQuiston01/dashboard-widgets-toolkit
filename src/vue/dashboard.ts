@@ -50,7 +50,17 @@ import {
 } from '../core/pages.js';
 import type { DashboardWidget } from '../core/resolve.js';
 import type { WidgetSelection } from '../core/select.js';
-import { applySettings, isOptionsLocked } from '../core/settings.js';
+import {
+  canDuplicate,
+  deleteClone,
+  duplicateWidget,
+} from '../core/duplicate.js';
+import {
+  applySettings,
+  isOptionsLocked,
+  isTitleInUse,
+  setWidgetSettings,
+} from '../core/settings.js';
 import type { WidgetThemeStyles } from '../core/theme.js';
 import { applyView } from '../core/views.js';
 import type { ExportFile, ExportFormat } from '../react/download.js';
@@ -64,6 +74,7 @@ import {
   useWidgetSettings,
   type WidgetSettings,
 } from './settings.js';
+import { WidgetOptionsDialog } from './options-dialog.js';
 import { WidgetTheme } from './theme.js';
 
 /** The "New page…" choice of a card's move-to-page menu. */
@@ -471,6 +482,9 @@ const DASHBOARD_PROPS: (keyof DashboardProps)[] = [
 
 /** Everything the render function needs, derived from the props and state. */
 interface DashboardModel {
+  readonly effectiveWidgets: readonly DashboardWidget[];
+  /** The authors' definitions, before the viewer's settings. */
+  readonly authorDefinitions: ReadonlyMap<string, WidgetDefinition>;
   readonly definitions: WidgetDefinition[];
   readonly layout: DashboardLayout;
   readonly byKey: ReadonlyMap<string, DashboardWidget>;
@@ -511,6 +525,8 @@ const DashboardInner = defineComponent(
     const pageEditor: Ref<
       { readonly mode: 'rename' | 'delete'; readonly key: string } | undefined
     > = ref(undefined);
+    /** The widget whose Options dialog is open. */
+    const optionsKey: Ref<string | undefined> = ref(undefined);
     const toggleButton: Ref<HTMLButtonElement | null> = ref(null);
     const resetButton: Ref<HTMLButtonElement | null> = ref(null);
     const gridRef: Ref<HTMLElement | null> = ref(null);
@@ -575,6 +591,10 @@ const DashboardInner = defineComponent(
         ? visible.filter((definition) => !isMinimized(view, definition.key))
         : visible;
       return {
+        effectiveWidgets,
+        authorDefinitions: new Map(
+          props.widgets.map((w) => [w.definition.key, w.definition])
+        ),
         definitions,
         layout,
         byKey: new Map(effectiveWidgets.map((w) => [w.definition.key, w])),
@@ -819,6 +839,36 @@ const DashboardInner = defineComponent(
       (which === 'revert' ? toggleButton : resetButton).value?.focus();
     }
 
+    /** The Arrange menu's Duplicate item, disabled when the page has no room. */
+    function duplicateItems(key: string, title: string): EditMenuItem[] {
+      const { labels } = settings.value;
+      const { authorDefinitions, layout, roomOptions } = model.value;
+      const overrideLocks: boolean = props.overrideLocks ?? false;
+      const sources: WidgetDefinition[] = [...authorDefinitions.values()];
+      if (!canDuplicate(sources, key, { overrideLocks })) return [];
+      const trial = duplicateWidget(sources, layout, key, {
+        overrideLocks,
+        ...roomOptions,
+      });
+      return [
+        {
+          kind: 'action',
+          key: 'duplicate',
+          label: labels.menuDuplicate,
+          ariaLabel: trial.ok
+            ? labels.duplicate(title)
+            : labels.duplicateBlocked(title, trial.error),
+          disabled: !trial.ok,
+          onSelect: () => {
+            if (!trial.ok) return;
+            change(trial.value.layout);
+            optionsKey.value = trial.value.key;
+            announcement.value = labels.duplicated(title);
+          },
+        },
+      ];
+    }
+
     /** The Arrange menu of one card. */
     function editItems(
       definition: WidgetDefinition,
@@ -893,6 +943,20 @@ const DashboardInner = defineComponent(
                   changePage(moveWidgetBy(pageDefs, view, key, 1)),
               },
             ]),
+        ...(lock.options
+          ? []
+          : [
+              {
+                kind: 'action' as const,
+                key: 'options',
+                label: labels.menuOptions,
+                ariaLabel: labels.optionsFor(title),
+                onSelect: () => {
+                  optionsKey.value = key;
+                },
+              },
+            ]),
+        ...duplicateItems(key, title),
         ...pageTargets,
         ...(lock.hide
           ? []
@@ -1310,6 +1374,54 @@ const DashboardInner = defineComponent(
             )
           : panel
       );
+
+      const dialogKey: string | undefined = optionsKey.value;
+      const dialogDefinition: WidgetDefinition | undefined =
+        dialogKey === undefined
+          ? undefined
+          : model.value.authorDefinitions.get(dialogKey);
+      if (dialogKey !== undefined && dialogDefinition !== undefined) {
+        const { effectiveWidgets } = model.value;
+        const titleOf = (key: string): string =>
+          effectiveWidgets.find((w) => w.definition.key === key)?.definition
+            .title ?? key;
+        children.push(
+          h(WidgetOptionsDialog, {
+            key: dialogKey,
+            definition: dialogDefinition,
+            settings: layout.settings?.[dialogKey],
+            baseline:
+              snapshot.value === undefined
+                ? undefined
+                : { settings: snapshot.value.settings?.[dialogKey] },
+            sourceTitle:
+              dialogDefinition.sourceKey === undefined
+                ? undefined
+                : titleOf(dialogDefinition.sourceKey),
+            onDelete:
+              dialogDefinition.sourceKey === undefined
+                ? undefined
+                : () => {
+                    change(deleteClone(layout, dialogKey));
+                    announcement.value = labels.deleted(titleOf(dialogKey));
+                  },
+            isTitleInUse: (title: string) =>
+              isTitleInUse(
+                props.widgets.map((w) => w.definition),
+                layout,
+                dialogKey,
+                title
+              ),
+            onApply: (patch) => {
+              change(setWidgetSettings(layout, dialogKey, patch));
+              announcement.value = labels.optionsSaved(dialogDefinition.title);
+            },
+            onClose: () => {
+              optionsKey.value = undefined;
+            },
+          })
+        );
+      }
 
       return h(
         'div',
