@@ -216,9 +216,10 @@ built so far: the cards, one renderer per kind, the chart with its "View as
 table" twin, searchable and sortable tables, selection, exports, freshness,
 theming, `useWidgets`, and the layout-aware `Dashboard` (hide, show, minimize,
 move earlier or later, locks, Customize/Done/Reset/Revert, pages) with
-`useStoredLayout`. The Options dialog, clones, the detail view, dashboard
-filters, drag and drop and swipe are not in `/vue` yet; see
-`docs/design/vue-renderers.md` for the plan.
+`useStoredLayout`, the Options dialog (`WidgetOptionsDialog`: title, width,
+view, declared options) and clones (Duplicate in the Arrange menu, Delete in
+the dialog). The detail view, dashboard filters, drag and drop and swipe are
+not in `/vue` yet; see `docs/design/vue-renderers.md` for the plan.
 
 ```vue
 <script setup lang="ts">
@@ -302,8 +303,10 @@ const stored = useStoredLayout({
 the card props `onRetry`, `onSelect`, `exportFormats`, `onExport`,
 `onExportError`, `freshness`, `onRefresh`, `headingLevel`). `WidgetGrid` is the
 plain grid with no layout controls. The Arrange menu has Move earlier, Move
-later, Move to page and Hide; it will gain Options and Duplicate with the
-dialogs. `useStoredLayout` returns refs (`layout.value`, `backup.value`,
+later, Options, Duplicate, Move to page and Hide. Duplicate stores a clone in
+the layout; as in React, build the widgets you pass in with
+`withClones(definitions, layout)` (for example in a `computed`) so the clone
+appears and loads, and give `useWidgets` the same list. `useStoredLayout` returns refs (`layout.value`, `backup.value`,
 `activePage.value`, `status.value`, `error.value`, `conflict.value`,
 `remoteLayout.value`) and the same functions as the React hook; `scope` and
 `definitions` can be refs or getters. Nothing is loaded while rendering on the

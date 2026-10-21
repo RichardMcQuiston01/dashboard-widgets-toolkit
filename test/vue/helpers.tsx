@@ -56,14 +56,6 @@ export function reactHtml(
   );
 }
 
-/**
- * The Arrange menu items `/vue` does not have yet: the Options dialog and
- * Duplicate are phase 3. They are dropped from React's menus before comparing,
- * so everything else in the menu is still checked. Delete this when they land.
- */
-const MENU_ITEMS_NOT_IN_VUE_YET =
-  /<button[^>]*role="menuitem"[^>]*>(?:Options…|Duplicate)<\/button>/g;
-
 /** Both renderers draw the same widget the same way. */
 export async function assertParity(
   name: string,
@@ -71,10 +63,7 @@ export async function assertParity(
   vue: VueSide,
   options: ParityOptions = {}
 ): Promise<void> {
-  const fromReact: string = normalizeMarkup(reactHtml(react, options)).replace(
-    MENU_ITEMS_NOT_IN_VUE_YET,
-    ''
-  );
+  const fromReact: string = normalizeMarkup(reactHtml(react, options));
   const fromVue: string = normalizeMarkup(await vueHtml(vue, options));
   assert.equal(fromVue, fromReact, `${name}: Vue markup differs from React`);
 }
