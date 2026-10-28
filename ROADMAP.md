@@ -93,6 +93,10 @@
 - Vue renderers, layout controls: the `Dashboard` and `WidgetGrid` for `./vue`
   (hide, show, minimize, move, locks, Customize/Done/Reset/Revert, pages) and the
   `useStoredLayout` composable (0.34.0).
+- Vue renderers, the Options dialog and clones: `WidgetOptionsDialog` and
+  `OptionField` for `./vue`, Options and Duplicate in the Arrange menu, and the
+  dialog's draft helpers moved into the core (`optionsPatchFrom` and friends)
+  (0.35.0).
 - Storage, the rest: the stored active page, `backup` / `onBackup` on `Dashboard`
   and `data-dwt-default-title` on cards (0.21.0).
 

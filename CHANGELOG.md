@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.35.0
+
+### Minor Changes
+
+- dbc53f9: `/vue`: the Options dialog and clones. `WidgetOptionsDialog` and `OptionField` edit a widget's title, width, Flexible, view and every declared option type (choice, number, boolean, text, color, date range, sort, columns), with Apply, Cancel, Reset to defaults and Revert to before editing asking first, a refused duplicate title, and a clone's Delete and suggested view title. The `Dashboard` Arrange menu gains Options and Duplicate, applies the dialog's patch to `layout.settings`, and opens the dialog on a new clone, with the same props, labels and markup as the React `Dashboard` (the parity tests compare them). The draft helpers behind the dialog moved into the core (`optionsDraftFrom`, `optionsPatchFrom`, `optionsPatchKey`, `EMPTY_SETTINGS_PATCH`, `storedOptionDefault`, `DATE_RANGE_PRESET_LABELS`), so other renderers can share them; `/react` is unchanged. The filter bar, the detail view, drag and drop and swipe are not in `/vue` yet.
+
 ## 0.34.0
 
 ### Minor Changes
