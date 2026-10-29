@@ -11,7 +11,6 @@ import type { WidgetDefinition } from '../core/definition.js';
 import {
   DATE_RANGE_PRESETS,
   coerceOptionValue,
-  defaultOptionValue,
   parseSortValue,
   type ColumnsOption,
   type DateRangeOption,
@@ -29,6 +28,15 @@ import {
   type WidgetViewerSettings,
 } from '../core/settings.js';
 import { effectiveViewKey, viewChoices } from '../core/views.js';
+import {
+  DATE_RANGE_PRESET_LABELS,
+  EMPTY_SETTINGS_PATCH,
+  optionsDraftFrom,
+  optionsPatchFrom,
+  optionsPatchKey,
+  storedOptionDefault,
+  type OptionsDraft,
+} from '../core/options-draft.js';
 import { InlineConfirm } from './confirm.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
@@ -57,103 +65,7 @@ export interface WidgetOptionsDialogProps {
   readonly onClose: () => void;
 }
 
-interface Draft {
-  readonly title: string;
-  readonly width: number | undefined;
-  readonly flexible: boolean | undefined;
-  readonly options: Readonly<Record<string, OptionValue>>;
-  readonly view: string | undefined;
-}
-
 type Confirming = 'apply' | 'discard' | 'reset' | 'revert' | 'delete';
-
-function draftFrom(settings: WidgetViewerSettings | undefined): Draft {
-  return {
-    title: settings?.title ?? '',
-    width: settings?.width,
-    flexible: settings?.flexible,
-    options: settings?.options ?? {},
-    view: settings?.view,
-  };
-}
-
-/**
- * The author's default as stored in settings. A date range keeps its preset
- * (`last30`) rather than the interval it resolves to today.
- */
-function storedDefault(option: WidgetOption): OptionValue | undefined {
-  return option.type === 'dateRange'
-    ? option.default
-    : defaultOptionValue(option);
-}
-
-function sameValue(
-  a: OptionValue | undefined,
-  b: OptionValue | undefined
-): boolean {
-  if (Array.isArray(a) && Array.isArray(b)) {
-    return a.length === b.length && a.every((item, i) => item === b[i]);
-  }
-  return a === b;
-}
-
-/**
- * The patch a draft stands for: only what differs from the author's
- * defaults, so choosing the default again clears the setting.
- */
-function patchFrom(
-  definition: WidgetDefinition,
-  draft: Draft
-): WidgetSettingsPatch {
-  const title: string = draft.title.trim();
-  const options: Record<string, OptionValue> = {};
-  for (const option of definition.options ?? []) {
-    const value: OptionValue | undefined = draft.options[option.key];
-    if (value === undefined) continue;
-    if (sameValue(value, storedDefault(option))) continue;
-    options[option.key] = value;
-  }
-  return {
-    title: title === '' ? undefined : title,
-    width: draft.width,
-    flexible:
-      draft.flexible === undefined ||
-      draft.flexible === isFlexible(definition, undefined)
-        ? undefined
-        : draft.flexible,
-    options: Object.keys(options).length === 0 ? undefined : options,
-    // Choosing the author's own default view again clears the setting.
-    view:
-      draft.view === undefined ||
-      draft.view === effectiveViewKey(definition, undefined)
-        ? undefined
-        : draft.view,
-  };
-}
-
-function patchKey(patch: WidgetSettingsPatch): string {
-  const options: Record<string, OptionValue> = {};
-  for (const key of Object.keys(patch.options ?? {}).sort()) {
-    options[key] = (patch.options as Record<string, OptionValue>)[
-      key
-    ] as OptionValue;
-  }
-  return JSON.stringify([
-    patch.title,
-    patch.width,
-    patch.flexible,
-    options,
-    patch.view,
-  ]);
-}
-
-const EMPTY_PATCH: WidgetSettingsPatch = {
-  title: undefined,
-  width: undefined,
-  flexible: undefined,
-  options: undefined,
-  view: undefined,
-};
 
 export function WidgetOptionsDialog({
   definition,
@@ -170,7 +82,9 @@ export function WidgetOptionsDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headingId: string = useId();
   const baseId: string = useId();
-  const [draft, setDraft] = useState<Draft>(() => draftFrom(settings));
+  const [draft, setDraft] = useState<OptionsDraft>(() =>
+    optionsDraftFrom(settings)
+  );
   const [confirming, setConfirming] = useState<Confirming | undefined>(
     undefined
   );
@@ -189,19 +103,23 @@ export function WidgetOptionsDialog({
     };
   }, []);
 
-  const savedKey: string = patchKey(patchFrom(definition, draftFrom(settings)));
-  const draftPatch: WidgetSettingsPatch = patchFrom(definition, draft);
-  const dirty: boolean = patchKey(draftPatch) !== savedKey;
+  const savedKey: string = optionsPatchKey(
+    optionsPatchFrom(definition, optionsDraftFrom(settings))
+  );
+  const draftPatch: WidgetSettingsPatch = optionsPatchFrom(definition, draft);
+  const dirty: boolean = optionsPatchKey(draftPatch) !== savedKey;
   const titleTaken: boolean =
     draft.title.trim() !== '' && isTitleInUse?.(draft.title.trim()) === true;
   const canApply: boolean = dirty && !titleTaken;
   const baselineKey: string | undefined =
     baseline === undefined
       ? undefined
-      : patchKey(patchFrom(definition, draftFrom(baseline.settings)));
+      : optionsPatchKey(
+          optionsPatchFrom(definition, optionsDraftFrom(baseline.settings))
+        );
   const canRevert: boolean =
     baselineKey !== undefined && baselineKey !== savedKey;
-  const canReset: boolean = savedKey !== patchKey(EMPTY_PATCH);
+  const canReset: boolean = savedKey !== optionsPatchKey(EMPTY_SETTINGS_PATCH);
   const range = widthRange(definition);
   const views = viewChoices(definition);
   const effectiveFlexible: boolean =
@@ -227,13 +145,15 @@ export function WidgetOptionsDialog({
       onApply(draftPatch);
       onClose();
     } else if (which === 'reset') {
-      onApply(EMPTY_PATCH);
+      onApply(EMPTY_SETTINGS_PATCH);
       onClose();
     } else if (which === 'delete') {
       onDelete?.();
       onClose();
     } else if (baseline !== undefined) {
-      onApply(patchFrom(definition, draftFrom(baseline.settings)));
+      onApply(
+        optionsPatchFrom(definition, optionsDraftFrom(baseline.settings))
+      );
       onClose();
     }
   }
@@ -357,7 +277,7 @@ export function WidgetOptionsDialog({
               onChange={(event) => {
                 const value: string = event.target.value;
                 setDraft((current) => {
-                  const next: Draft = { ...current, view: value };
+                  const next: OptionsDraft = { ...current, view: value };
                   if (
                     sourceTitle === undefined ||
                     (current.title.trim() !== '' &&
@@ -490,7 +410,7 @@ export function OptionField({
   id,
   onChange,
 }: OptionFieldProps): ReactNode {
-  const current: OptionValue | undefined = value ?? storedDefault(option);
+  const current: OptionValue | undefined = value ?? storedOptionDefault(option);
   switch (option.type) {
     case 'choice':
       return (
@@ -624,20 +544,6 @@ function NumberField({
   );
 }
 
-const PRESET_LABELS: Readonly<
-  Record<(typeof DATE_RANGE_PRESETS)[number], string>
-> = {
-  today: 'Today',
-  yesterday: 'Yesterday',
-  last7: 'Last 7 days',
-  last30: 'Last 30 days',
-  last90: 'Last 90 days',
-  thisMonth: 'This month',
-  lastMonth: 'Last month',
-  thisYear: 'This year',
-  lastYear: 'Last year',
-};
-
 function DateRangeField({
   option,
   id,
@@ -654,7 +560,7 @@ function DateRangeField({
     option.presets ??
     DATE_RANGE_PRESETS.map((preset) => ({
       value: preset,
-      label: PRESET_LABELS[preset],
+      label: DATE_RANGE_PRESET_LABELS[preset],
     }));
   const known: boolean = presets.some((preset) => preset.value === value);
   return (

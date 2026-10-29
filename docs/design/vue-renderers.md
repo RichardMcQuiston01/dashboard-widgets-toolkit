@@ -8,10 +8,14 @@ Phase 2 is built: `WidgetGrid`, `Dashboard` (hide, show, minimize, move, locks,
 Customize/Done/Reset/Revert, `backup`, pages with the tab bar, add, rename, move
 and delete, Move to page), `WidgetEditMenu`, `InlineConfirm` and
 `useStoredLayout`. The Dashboard's saved viewer settings (title, width, view)
-are applied, but the Options dialog, Duplicate and Delete, the detail view and
-the filter bar are phase 3, and drag and drop and swipe are phase 4. The
-Arrange menu lacks Options and Duplicate until then (the parity test drops
-those two items from React's menu before comparing).
+are applied. Phase 3 is split in two. **3a is built**: `WidgetOptionsDialog`
+and `OptionField` (title, width, Flexible, view, every declared option type,
+Apply / Cancel / Reset / Revert with confirmations, a clone's Delete and its
+suggested view title), the Options and Duplicate items of the Arrange menu, and
+the shared draft helpers moved into the core (`options-draft.ts`). **3b is
+planned**: the filter bar and the detail view (`WidgetDetail`, its dialog, client
+and server modes, page size and column choices, exports and deep links). Drag
+and drop and swipe are phase 4.
 
 ## 1. Goal
 

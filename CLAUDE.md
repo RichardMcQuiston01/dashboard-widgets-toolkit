@@ -40,6 +40,7 @@ src/
     reorder.ts          drag and drop decisions: dropTargetKey, reorderOnto, autoScrollStep
     swipe.ts            swipeDirection, adjacentPageKey: swipe between pages
     options.ts          declared options: resolve values, cache suffix, client sort/columns
+    options-draft.ts    the Options dialog's draft, patch and preset labels (shared by every renderer)
     settings.ts         viewer settings in the layout: title, width, view, option values
     views.ts            alternate views: conversions, applyView, effectiveViewKey
     clones.ts           layout.clones: parse, cleanClones, withClones (materialize)
@@ -109,6 +110,7 @@ src/
     dashboard.ts        WidgetGrid, Dashboard (layout controls, edit mode, pages), PageTabs
     edit-menu.ts        WidgetEditMenu: the Arrange menu on each card
     confirm.ts          InlineConfirm (✓ / ✕)
+    options-dialog.ts   WidgetOptionsDialog, OptionField
     grid-spans.ts       useFillSpans: measured column spans for width-filling cards
     use-stored-layout.ts useStoredLayout composable: persistence, backup, active page
 test/
@@ -178,8 +180,8 @@ documented in the code and README, which win if they disagree.
 - `docs/design/vue-renderers.md`: Vue renderers. Phase 0 (shared chart model,
   labels, palette in the core), phase 1 (`./vue`: cards, renderers, chart,
   `useWidgets`) and phase 2 (`Dashboard`, `WidgetGrid`, layout controls, pages,
-  `useStoredLayout`) are built. Not built: the dialogs (options, clones, detail,
-  filters), drag and drop, swipe. Keep the Vue markup identical to React's
+  `useStoredLayout`) and phase 3a (the Options dialog and clones) are built. Not
+  built: the filter bar and the detail view (3b), drag and drop, swipe. Keep the Vue markup identical to React's
   (`test/vue/parity.test.tsx` fails on drift).
 - `docs/design/widget-builder.md`: Widget Builder. Phase 1 is built: the headless
   `./builder` subpath (`SourceDescription`, `defineSource`, the edit functions,
