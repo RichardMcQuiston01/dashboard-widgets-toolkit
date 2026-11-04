@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.35.1
+
+### Patch Changes
+
+- 5998a90: Switch the donate link, QR code and `funding` URL in `package.json` from Stripe
+  to PayPal.
+
 ## 0.35.0
 
 ### Minor Changes
