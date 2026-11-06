@@ -218,8 +218,10 @@ theming, `useWidgets`, and the layout-aware `Dashboard` (hide, show, minimize,
 move earlier or later, locks, Customize/Done/Reset/Revert, pages) with
 `useStoredLayout`, the Options dialog (`WidgetOptionsDialog`: title, width,
 view, declared options) and clones (Duplicate in the Arrange menu, Delete in
-the dialog). The detail view, dashboard filters, drag and drop and swipe are
-not in `/vue` yet; see `docs/design/vue-renderers.md` for the plan.
+the dialog), dashboard filters (`FilterBar`, `useDashboardFilters`) and the
+detail view (`WidgetDetail`, `WidgetDetailDialog`, `useDetailData`). Drag and
+drop and swipe are not in `/vue` yet; see `docs/design/vue-renderers.md` for
+the plan.
 
 ```vue
 <script setup lang="ts">
@@ -301,7 +303,10 @@ const stored = useStoredLayout({
 `defaultLayout`, `toolbar`, `activePage` / `defaultActivePage` /
 `onActivePageChange`, `backup` / `onBackup`, `maxRows`, `maxPages`, `theme` and
 the card props `onRetry`, `onSelect`, `exportFormats`, `onExport`,
-`onExportError`, `freshness`, `onRefresh`, `headingLevel`). `WidgetGrid` is the
+`onExportError`, `freshness`, `onRefresh`, `headingLevel`, and for filters and
+the detail view `filters` / `filterValues` / `onFilterChange`, `loadDetail`,
+`onOpenDetail`, `detail` / `defaultDetail` / `onDetailChange` and
+`onExportDetail`). `WidgetGrid` is the
 plain grid with no layout controls. The Arrange menu has Move earlier, Move
 later, Options, Duplicate, Move to page and Hide. Duplicate stores a clone in
 the layout; as in React, build the widgets you pass in with
@@ -325,6 +330,11 @@ How it differs from React:
   as `ref="gridRef"`. Loading starts when the component mounts, never during
   server rendering, and `loadWhen: 'visible'`, `prefetch`, `refreshMs`,
   `optionValues`, `viewValues` and `filterValues` work as in React.
+- `useDashboardFilters(filters, initial)` returns refs (`values.value`,
+  `resolved.value`) and `setValues`, `setFilter` and `reset`; pass `values.value`
+  to `Dashboard` and to `useWidgets` as `filterValues`. `useDetailData` takes
+  its inputs as refs or getters, and `load` must be one of those too (give
+  `() => loader`: a bare function is read as a getter).
 - `WidgetSettingsProvider` takes `locale`, `link-target`, `class-names`,
   `labels`, `formatters` and `on-formatter-error` as props. A `custom` column's
   formatter returns what Vue can render (a string or `h(...)` nodes).

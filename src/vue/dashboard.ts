@@ -62,10 +62,23 @@ import {
   setWidgetSettings,
 } from '../core/settings.js';
 import type { WidgetThemeStyles } from '../core/theme.js';
-import { applyView } from '../core/views.js';
-import type { ExportFile, ExportFormat } from '../react/download.js';
+import type { DashboardFilter } from '../core/filters.js';
+import {
+  deriveDetailData,
+  resolveDetailOptions,
+  type DetailData,
+  type DetailLink,
+  type DetailLoader,
+} from '../core/detail.js';
+import { applyView, BASE_VIEW_KEY, loadViewKey } from '../core/views.js';
+import type {
+  DetailExportRequest,
+  ExportFile,
+  ExportFormat,
+} from '../react/download.js';
 import { ResolvedWidgetCard } from './card.js';
 import { InlineConfirm } from './confirm.js';
+import { DetailHost, initialDetailQuery } from './detail-host.js';
 import { WidgetEditMenu, type EditMenuItem } from './edit-menu.js';
 import { spanProps, useFillSpans, widthProps } from './grid-spans.js';
 import {
@@ -74,6 +87,7 @@ import {
   useWidgetSettings,
   type WidgetSettings,
 } from './settings.js';
+import { FilterBar } from './filters.js';
 import { WidgetOptionsDialog } from './options-dialog.js';
 import { WidgetTheme } from './theme.js';
 
@@ -448,8 +462,73 @@ export interface DashboardProps extends WidgetSettings, CardPassThrough {
   readonly maxRows?: number | undefined;
   /** Most pages the viewer can add while editing. Default: no limit. */
   readonly maxPages?: number | undefined;
+  /**
+   * The dashboard-level filters (a date range, a store, a segment). With
+   * `onFilterChange` they show as a filter bar above the cards. The choices
+   * belong to you: keep them in a ref (`useDashboardFilters`), the URL or
+   * storage, and pass the same filters and values to `useWidgets` so the
+   * providers receive them as `options.filters`.
+   */
+  readonly filters?: readonly DashboardFilter[] | undefined;
+  /** The values chosen for `filters`, by filter key. */
+  readonly filterValues?: Readonly<Record<string, unknown>> | undefined;
+  /**
+   * Called with all the chosen values when the viewer changes a filter or
+   * resets them. The filter bar is shown only when this is given.
+   */
+  readonly onFilterChange?:
+    ((values: Record<string, unknown>) => void) | undefined;
+  /**
+   * Server-mode detail views hold one page, so their Download CSV button
+   * cannot export the rest. Give this to fetch all the rows for the viewer's
+   * query (the request's `query` has page 1 and `pageSize` = `totalRows`) and
+   * return them as `DetailData`, or return nothing if you saved the file
+   * yourself. Without it, server-mode detail views have no export button.
+   * Client-mode detail views export all matching rows without it.
+   */
+  readonly onExportDetail?:
+    | ((
+        request: DetailExportRequest
+      ) => DetailData | undefined | Promise<DetailData | undefined>)
+    | undefined;
+  /**
+   * Loads the full data for a widget's detail view (widgets whose definition
+   * sets `detail`). Close over your own context. Return `undefined` for a
+   * widget you have no extra data for: a complete table or bar list card
+   * then shows its card data. Without `loadDetail`, those two still work and
+   * other widgets have no detail view.
+   */
+  readonly loadDetail?: DetailLoader | undefined;
+  /**
+   * Called with the widget key when the viewer opens a detail view, instead
+   * of the built-in dialog: navigate, or open your own. Gives every widget
+   * that has a `detail` setting a View button.
+   */
+  readonly onOpenDetail?: ((key: string) => void) | undefined;
+  /**
+   * Controlled: which detail view is open and what it shows (the widget key
+   * and the search, filters, sort and page). `null` means none is open. Give
+   * it to keep the open detail view in the URL: read it with
+   * `parseDetailLink`, write it with `serializeDetailLink` or `withDetailLink`
+   * from `onDetailChange`. Leave it out and `Dashboard` keeps this state
+   * itself. A key that is not one of the widgets, or has no detail view,
+   * shows nothing.
+   */
+  readonly detail?: DetailLink | null | undefined;
+  /** Initial detail view when uncontrolled. Default: none open. */
+  readonly defaultDetail?: DetailLink | null | undefined;
+  /**
+   * Called when the viewer opens, changes or closes a detail view, with the
+   * new link (or `null` when closed) and why.
+   */
+  readonly onDetailChange?:
+    | ((detail: DetailLink | null, reason: DetailChangeReason) => void)
+    | undefined;
   readonly className?: string | undefined;
 }
+
+/** Why `onDetailChange` was called. */
+export type DetailChangeReason = 'open' | 'query' | 'close';
 
 const DASHBOARD_PROPS: (keyof DashboardProps)[] = [
   'locale',
@@ -476,6 +555,15 @@ const DASHBOARD_PROPS: (keyof DashboardProps)[] = [
   'onBackup',
   'maxRows',
   'maxPages',
+  'filters',
+  'filterValues',
+  'onFilterChange',
+  'onExportDetail',
+  'loadDetail',
+  'onOpenDetail',
+  'detail',
+  'defaultDetail',
+  'onDetailChange',
   'className',
   ...CARD_PASS_THROUGH_PROPS,
 ];
@@ -485,6 +573,8 @@ interface DashboardModel {
   readonly effectiveWidgets: readonly DashboardWidget[];
   /** The authors' definitions, before the viewer's settings. */
   readonly authorDefinitions: ReadonlyMap<string, WidgetDefinition>;
+  /** The view each card loads, by widget key (what a detail view loads too). */
+  readonly loadedViews: ReadonlyMap<string, string>;
   readonly definitions: WidgetDefinition[];
   readonly layout: DashboardLayout;
   readonly byKey: ReadonlyMap<string, DashboardWidget>;
@@ -527,6 +617,20 @@ const DashboardInner = defineComponent(
     > = ref(undefined);
     /** The widget whose Options dialog is open. */
     const optionsKey: Ref<string | undefined> = ref(undefined);
+    /** The detail view this component keeps when `detail` is not given. */
+    const detailState: ShallowRef<DetailLink | null> = shallowRef(
+      props.defaultDetail ?? null
+    );
+    const openDetail: ComputedRef<DetailLink | null> = computed(() =>
+      props.detail !== undefined ? props.detail : detailState.value
+    );
+    function changeDetail(
+      next: DetailLink | null,
+      reason: DetailChangeReason
+    ): void {
+      if (props.detail === undefined) detailState.value = next;
+      props.onDetailChange?.(next, reason);
+    }
     const toggleButton: Ref<HTMLButtonElement | null> = ref(null);
     const resetButton: Ref<HTMLButtonElement | null> = ref(null);
     const gridRef: Ref<HTMLElement | null> = ref(null);
@@ -551,6 +655,7 @@ const DashboardInner = defineComponent(
       const { locale } = settings.value;
       // The viewer's titles, widths and view choices are applied on top of each
       // definition, except for widgets locked against options.
+      const loadedViews = new Map<string, string>();
       const effectiveWidgets: DashboardWidget[] = props.widgets.map((w) => {
         const viewer =
           !overrideLocks && isOptionsLocked(w.definition)
@@ -560,6 +665,10 @@ const DashboardInner = defineComponent(
           viewer === undefined
             ? w
             : { ...w, definition: applySettings(w.definition, viewer) };
+        loadedViews.set(
+          w.definition.key,
+          loadViewKey(w.definition, viewer?.view)
+        );
         return applyView(styled, viewer?.view, {
           ...(locale === undefined ? {} : { locale }),
         });
@@ -595,6 +704,7 @@ const DashboardInner = defineComponent(
         authorDefinitions: new Map(
           props.widgets.map((w) => [w.definition.key, w.definition])
         ),
+        loadedViews,
         definitions,
         layout,
         byKey: new Map(effectiveWidgets.map((w) => [w.definition.key, w])),
@@ -1044,12 +1154,37 @@ const DashboardInner = defineComponent(
       const authorTitle: string =
         props.widgets.find((w) => w.definition.key === key)?.definition.title ??
         definition.title;
+      const viewable: boolean =
+        resolveDetailOptions(definition) !== undefined &&
+        (props.onOpenDetail !== undefined ||
+          props.loadDetail !== undefined ||
+          (widget.status === 'ok' &&
+            deriveDetailData(widget.data) !== undefined));
       return h(
         ResolvedWidgetCard,
         {
           key,
           widget,
           defaultTitle: authorTitle,
+          ...(viewable
+            ? {
+                onView: () => {
+                  if (props.onOpenDetail !== undefined) {
+                    props.onOpenDetail(key);
+                    return;
+                  }
+                  const initial = initialDetailQuery(widget);
+                  changeDetail(
+                    {
+                      key,
+                      query: initial,
+                      defaultPageSize: initial.pageSize,
+                    },
+                    'open'
+                  );
+                },
+              }
+            : {}),
           ...spanProps(spans.value, key),
           ...widthProps(twelve, definition),
           minimized: isMinimized(view, key),
@@ -1088,6 +1223,20 @@ const DashboardInner = defineComponent(
         pageEditor.value?.key === activeKey ? pageEditor.value.mode : undefined;
       const maxPages: number | undefined = props.maxPages;
       const children: VNodeChild[] = [];
+
+      if (
+        props.filters !== undefined &&
+        props.filters.length > 0 &&
+        props.onFilterChange !== undefined
+      ) {
+        children.push(
+          h(FilterBar, {
+            filters: props.filters,
+            values: props.filterValues ?? {},
+            onChange: props.onFilterChange,
+          })
+        );
+      }
 
       if (editable.value && toggleMode.value && (props.toolbar ?? true)) {
         children.push(
@@ -1423,6 +1572,41 @@ const DashboardInner = defineComponent(
         );
       }
 
+      const detailLink: DetailLink | null = openDetail.value;
+      const detailWidget: DashboardWidget | undefined =
+        detailLink === null ? undefined : model.value.byKey.get(detailLink.key);
+      if (
+        detailLink !== null &&
+        detailWidget !== undefined &&
+        resolveDetailOptions(detailWidget.definition) !== undefined
+      ) {
+        children.push(
+          h(DetailHost, {
+            key: detailLink.key,
+            widget: detailWidget,
+            view: model.value.loadedViews.get(detailLink.key) ?? BASE_VIEW_KEY,
+            query: detailLink.query,
+            onQueryChange: (query: DetailLink['query']) =>
+              changeDetail(
+                {
+                  key: detailLink.key,
+                  query,
+                  ...(detailLink.defaultPageSize === undefined
+                    ? {}
+                    : { defaultPageSize: detailLink.defaultPageSize }),
+                },
+                'query'
+              ),
+            loadDetail: props.loadDetail,
+            onClose: () => changeDetail(null, 'close'),
+            exportFormats: props.exportFormats,
+            onExport: props.onExport,
+            onExportError: props.onExportError,
+            onExportDetail: props.onExportDetail,
+          })
+        );
+      }
+
       return h(
         'div',
         {
@@ -1445,8 +1629,8 @@ const DashboardInner = defineComponent(
  * hide/show and minimize controls when `onLayoutChange` is given, edit mode
  * (Customize, Done, Reset, Revert) with `editMode="toggle"`, and pages.
  * Settings (locale, link target, classNames, labels) apply to every widget
- * inside. The options dialog, clones, detail view, filters, drag and drop and
- * swipe are not in `/vue` yet.
+ * inside. The options dialog, clones, filter bar and detail view are here;
+ * drag and drop and swipe are not in `/vue` yet.
  */
 export const Dashboard = defineComponent(
   (props: DashboardProps) => {

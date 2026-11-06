@@ -8,14 +8,20 @@ Phase 2 is built: `WidgetGrid`, `Dashboard` (hide, show, minimize, move, locks,
 Customize/Done/Reset/Revert, `backup`, pages with the tab bar, add, rename, move
 and delete, Move to page), `WidgetEditMenu`, `InlineConfirm` and
 `useStoredLayout`. The Dashboard's saved viewer settings (title, width, view)
-are applied. Phase 3 is split in two. **3a is built**: `WidgetOptionsDialog`
+are applied. Phase 3 was split in two. **3a is built**: `WidgetOptionsDialog`
 and `OptionField` (title, width, Flexible, view, every declared option type,
 Apply / Cancel / Reset / Revert with confirmations, a clone's Delete and its
 suggested view title), the Options and Duplicate items of the Arrange menu, and
 the shared draft helpers moved into the core (`options-draft.ts`). **3b is
-planned**: the filter bar and the detail view (`WidgetDetail`, its dialog, client
-and server modes, page size and column choices, exports and deep links). Drag
-and drop and swipe are phase 4.
+built**: `FilterBar` and `useDashboardFilters` (and the `Dashboard` `filters`,
+`filterValues` and `onFilterChange` props), and the detail view: `WidgetDetail`
+(search and column filters, sortable table, paging, client and server modes,
+rows per page, column choices, CSV export), `WidgetDetailDialog` (native modal
+`<dialog>`), `useDetailData`, and the `Dashboard` wiring (`loadDetail`,
+`onOpenDetail`, controlled `detail` / `defaultDetail` / `onDetailChange`,
+`onExportDetail`, a View button on each card with a detail view). The shared
+types and `SERVER_INPUT_DEBOUNCE_MS` moved into the core (`detail.ts`); `./react`
+re-exports them. Drag and drop and swipe are phase 4.
 
 ## 1. Goal
 
