@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.37.0
+
+### Minor Changes
+
+- f4c2d9d: `/vue`: drag and drop and swipe between pages, which completes the Vue renderers. `Dashboard` takes `draggable`: while the layout controls are shown, each movable card has a drag handle. Press it with a mouse, pen or finger and drag (the card follows the pointer, the card it would drop onto shows an indicator, and the window scrolls near its edges), or use the keyboard (Space or Enter picks the card up, the arrow keys move it, Space or Enter drops it, Escape cancels), with live-region announcements. Nothing is saved until the drop. On a paged dashboard a card can be dropped onto another page's tab, with the same move and refusal message as Move to page, and a swipe left or right on a touch screen changes page (never from a control, a handle or a table that scrolls sideways). The pieces are exported for your own layouts: `usePointerReorder` and `usePageSwipe` (composables over the pure `core/reorder.ts` and `core/swipe.ts`), with the same behavior and markup as the React `Dashboard` (the parity tests compare them).
+
 ## 0.36.0
 
 ### Minor Changes
