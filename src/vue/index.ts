@@ -21,6 +21,18 @@ export {
   type WidgetGridProps,
 } from './dashboard.js';
 export {
+  SERVER_INPUT_DEBOUNCE_MS,
+  WidgetDetail,
+  WidgetDetailDialog,
+  useDetailData,
+  type DetailLoader,
+  type DetailLoadState,
+  type ServerDetailOptions,
+  type UseDetailDataResult,
+  type WidgetDetailDialogProps,
+  type WidgetDetailProps,
+} from './detail.js';
+export {
   EDIT_MENU_INITIAL_OPEN,
   WidgetEditMenu,
   type EditMenuItem,
@@ -32,6 +44,12 @@ export {
   buildChartModel,
   describeChart,
 } from './charts.js';
+export {
+  FilterBar,
+  useDashboardFilters,
+  type DashboardFilterState,
+  type FilterBarProps,
+} from './filters.js';
 export {
   FreshnessLine,
   RefreshButton,
