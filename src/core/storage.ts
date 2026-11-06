@@ -29,7 +29,6 @@ import { describeUnknownError } from './result.js';
 export {
   memoryAdapter,
   readOnly,
-  utf8Length,
   withEncoding,
   withFallback,
   withLogging,
@@ -46,6 +45,20 @@ export type {
   StoreResult,
   StoredValue,
 } from '@richardmcquiston01/storage-adapters';
+
+/**
+ * UTF-8 byte length without `TextEncoder` (no DOM or Node lib). Kept on this
+ * package's surface: `@richardmcquiston01/storage-adapters` stopped exporting
+ * it in 0.16.0.
+ */
+export function utf8Length(text: string): number {
+  let bytes = 0;
+  for (const char of text) {
+    const point: number = char.codePointAt(0) ?? 0;
+    bytes += point < 0x80 ? 1 : point < 0x800 ? 2 : point < 0x10000 ? 3 : 4;
+  }
+  return bytes;
+}
 
 function failure(
   code: StoreErrorCode,
