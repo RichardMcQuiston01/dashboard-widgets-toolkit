@@ -18,15 +18,18 @@ import {
   serverPage,
   visibleColumnIndexes,
   validateDetailData,
+  SERVER_INPUT_DEBOUNCE_MS,
   type DetailCell,
   type DetailColumn,
   type DetailData,
+  type DetailLoader,
+  type DetailLoadState,
   type DetailMode,
   type DetailPageCache,
-  type DetailProviderOptions,
   type DetailPage,
   type DetailQuery,
   type DetailSort,
+  type ServerDetailOptions,
 } from '../core/detail.js';
 import type { WidgetDefinition } from '../core/definition.js';
 import type { OptionValues } from '../core/options.js';
@@ -41,17 +44,6 @@ import {
   type ExportFormat,
 } from './download.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
-
-/**
- * Loads a widget's full detail data. Close over your own context (a Prisma
- * client, a fetch) here; the package never fetches. See `DetailProvider`.
- * Return `undefined` for a widget you have no extra data for: the card's own
- * data is used when it is complete (see `deriveDetailData`).
- */
-export type DetailLoader = (
-  definition: WidgetDefinition,
-  options: DetailProviderOptions
-) => DetailData | undefined | Promise<DetailData | undefined>;
 
 export interface WidgetDetailProps {
   /** Table caption: the widget's title. */
@@ -124,9 +116,6 @@ function withSort(
   const { sort: _previous, ...rest } = query;
   return sort === undefined ? { ...rest, page: 1 } : { ...rest, sort, page: 1 };
 }
-
-/** How long server mode waits after the last key before asking again. */
-export const SERVER_INPUT_DEBOUNCE_MS = 300;
 
 /**
  * A search box. With `debounceMs` above 0 it keeps what is typed locally and
@@ -636,24 +625,14 @@ export function WidgetDetailDialog({
   );
 }
 
+export {
+  SERVER_INPUT_DEBOUNCE_MS,
+  type DetailLoader,
+  type DetailLoadState,
+  type ServerDetailOptions,
+};
+
 const NO_OPTION_VALUES: OptionValues = Object.freeze({});
-
-export interface DetailLoadState {
-  readonly status: 'loading' | 'ok' | 'error';
-  readonly data?: DetailData;
-  readonly error?: string;
-  /**
-   * Server mode: a new query is loading and `data` is still the previous
-   * page. Show it as busy instead of replacing it with a spinner.
-   */
-  readonly refreshing?: boolean;
-}
-
-/** Server-mode inputs for `useDetailData`. */
-export interface ServerDetailOptions {
-  /** The current query. Every change asks the loader again. */
-  readonly query: DetailQuery;
-}
 
 /**
  * Loads a widget's detail data while `enabled`: calls `load` with an abort

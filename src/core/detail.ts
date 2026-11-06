@@ -142,6 +142,38 @@ export type DetailProviders<C = WidgetContext> = Readonly<
   Record<string, DetailProvider<C>>
 >;
 
+/**
+ * Loads a widget's full detail data. Close over your own context (a Prisma
+ * client, a fetch) here; the package never fetches. See `DetailProvider`.
+ * Return `undefined` for a widget you have no extra data for: the card's own
+ * data is used when it is complete (see `deriveDetailData`).
+ */
+export type DetailLoader = (
+  definition: WidgetDefinition,
+  options: DetailProviderOptions
+) => DetailData | undefined | Promise<DetailData | undefined>;
+
+/** Where a detail view's data load stands (what the renderers' hooks report). */
+export interface DetailLoadState {
+  readonly status: 'loading' | 'ok' | 'error';
+  readonly data?: DetailData;
+  readonly error?: string;
+  /**
+   * Server mode: a new query is loading and `data` is still the previous
+   * page. Show it as busy instead of replacing it with a spinner.
+   */
+  readonly refreshing?: boolean;
+}
+
+/** Server-mode inputs for the detail data hooks. */
+export interface ServerDetailOptions {
+  /** The current query. Every change asks the loader again. */
+  readonly query: DetailQuery;
+}
+
+/** How long server mode waits after the last key before asking again. */
+export const SERVER_INPUT_DEBOUNCE_MS = 300;
+
 export interface DetailPage {
   /** The rows of the requested page (after filtering and sorting). */
   readonly rows: readonly (readonly DetailCell[])[];

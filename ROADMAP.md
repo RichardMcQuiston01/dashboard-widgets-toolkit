@@ -112,8 +112,8 @@ Nothing is queued here right now: the planned work is under [Next](#next).
 
 - **Vue renderers, the rest** (`./vue`): the read-only dashboard, `Dashboard`
   with the layout controls and pages, `useStoredLayout`, the Options dialog and
-  clones are built; still planned are the filter bar and the detail view
-  (phase 3b) and drag and drop with swipe (phase 4). See
+  clones, the filter bar and the detail view are built; still planned are drag
+  and drop with swipe (phase 4). See
   [docs/design/vue-renderers.md](./docs/design/vue-renderers.md).
 - **Data sources and adapters**: payload builders and push (live) sources. See
   [docs/design/widget-extensions.md](./docs/design/widget-extensions.md).

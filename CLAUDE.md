@@ -111,13 +111,17 @@ src/
     edit-menu.ts        WidgetEditMenu: the Arrange menu on each card
     confirm.ts          InlineConfirm (✓ / ✕)
     options-dialog.ts   WidgetOptionsDialog, OptionField
+    filters.ts          FilterBar, useDashboardFilters (dashboard filters)
+    detail.ts           WidgetDetail, WidgetDetailDialog, useDetailData
+    detail-host.ts      DetailHost: the Dashboard's detail dialog, initialDetailQuery
     grid-spans.ts       useFillSpans: measured column spans for width-filling cards
     use-stored-layout.ts useStoredLayout composable: persistence, backup, active page
 test/
   core/*.test.ts        node:test + node:assert, run by bun test
   builder/*.test.ts     the Widget Builder
   react/*.test.tsx      react-dom/server renderToStaticMarkup, no DOM needed
-  vue/*.test.ts(x)      vue/server-renderer, plus parity.test.tsx: same markup as React
+  vue/*.test.ts(x)      vue/server-renderer, plus parity.test.tsx: same markup as React;
+                        mount.ts is a DOM-less renderer so onMounted and watchers run
 tsup.config.ts          entries index, core, builder, react, vue; copies styles.css
 ```
 
@@ -180,8 +184,9 @@ documented in the code and README, which win if they disagree.
 - `docs/design/vue-renderers.md`: Vue renderers. Phase 0 (shared chart model,
   labels, palette in the core), phase 1 (`./vue`: cards, renderers, chart,
   `useWidgets`) and phase 2 (`Dashboard`, `WidgetGrid`, layout controls, pages,
-  `useStoredLayout`) and phase 3a (the Options dialog and clones) are built. Not
-  built: the filter bar and the detail view (3b), drag and drop, swipe. Keep the Vue markup identical to React's
+  `useStoredLayout`), phase 3a (the Options dialog and clones) and phase 3b (the
+  filter bar and the detail view) are built. Not built: drag and drop, swipe
+  (phase 4). Keep the Vue markup identical to React's
   (`test/vue/parity.test.tsx` fails on drift).
 - `docs/design/widget-builder.md`: Widget Builder. Phase 1 is built: the headless
   `./builder` subpath (`SourceDescription`, `defineSource`, the edit functions,
