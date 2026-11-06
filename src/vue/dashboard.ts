@@ -2,6 +2,7 @@ import {
   computed,
   defineComponent,
   h,
+  nextTick,
   onMounted,
   ref,
   shallowRef,
@@ -79,6 +80,13 @@ import type {
 import { ResolvedWidgetCard } from './card.js';
 import { InlineConfirm } from './confirm.js';
 import { DetailHost, initialDetailQuery } from './detail-host.js';
+import {
+  dropPlacement,
+  listPosition,
+  reorderOnto,
+  type DropPlacement,
+} from '../core/reorder.js';
+import { adjacentPageKey } from '../core/swipe.js';
 import { WidgetEditMenu, type EditMenuItem } from './edit-menu.js';
 import { spanProps, useFillSpans, widthProps } from './grid-spans.js';
 import {
@@ -90,6 +98,8 @@ import {
 import { FilterBar } from './filters.js';
 import { WidgetOptionsDialog } from './options-dialog.js';
 import { WidgetTheme } from './theme.js';
+import { usePageSwipe, type PageSwipeProps } from './use-page-swipe.js';
+import { usePointerReorder } from './use-reorder.js';
 
 /** The "New page…" choice of a card's move-to-page menu. */
 const NEW_PAGE_VALUE = '__new-page__';
@@ -194,6 +204,11 @@ const PageTabs = defineComponent(
     readonly panelId: string;
     readonly announcement: string;
     readonly onSelect: (pageKey: string) => void;
+    /** Filled with the tab list element, for dropping a card on a tab. */
+    readonly tablistRef?: Ref<HTMLElement | null> | undefined;
+    /** The tab a dragged card is over, and whether dropping there is refused. */
+    readonly dropKey?: string | undefined;
+    readonly dropRefused?: boolean | undefined;
   }) => {
     const slot = useSlotClassName();
     const settings = useWidgetSettings();
@@ -255,6 +270,9 @@ const PageTabs = defineComponent(
             role: 'tablist',
             'aria-label': labels.pageBar,
             class: 'dwt-page-tabs',
+            ...(props.tablistRef === undefined
+              ? {}
+              : { ref: props.tablistRef }),
           },
           pages.map((page, index) => {
             const selected: boolean = page.key === activeKey;
@@ -279,7 +297,14 @@ const PageTabs = defineComponent(
                 title: page.title,
                 tabindex: selected ? 0 : -1,
                 'data-page-key': page.key,
-                class: slot('button', 'dwt-page-tab'),
+                class: slot(
+                  'button',
+                  'dwt-page-tab',
+                  props.dropKey === page.key &&
+                    (props.dropRefused === true
+                      ? 'dwt-page-tab--refused'
+                      : 'dwt-page-tab--drop')
+                ),
                 onClick: () => props.onSelect(page.key),
                 onKeydown: (event: KeyboardEvent) => onKeyDown(event, index),
               },
@@ -324,6 +349,9 @@ const PageTabs = defineComponent(
       'panelId',
       'announcement',
       'onSelect',
+      'tablistRef',
+      'dropKey',
+      'dropRefused',
     ],
   }
 );
@@ -486,6 +514,14 @@ export interface DashboardProps extends WidgetSettings, CardPassThrough {
    * yourself. Without it, server-mode detail views have no export button.
    * Client-mode detail views export all matching rows without it.
    */
+  /**
+   * Show a drag handle on each card (while the layout controls are shown) and
+   * let the viewer reorder by pointer, touch or keyboard: Space or Enter on the
+   * handle picks a card up, the arrow keys move it, Space or Enter drops it and
+   * Escape cancels. On a paged dashboard a card can also be dropped onto
+   * another page's tab. Locked widgets have no handle.
+   */
+  readonly draggable?: boolean | undefined;
   readonly onExportDetail?:
     | ((
         request: DetailExportRequest
@@ -558,6 +594,7 @@ const DASHBOARD_PROPS: (keyof DashboardProps)[] = [
   'filters',
   'filterValues',
   'onFilterChange',
+  'draggable',
   'onExportDetail',
   'loadDetail',
   'onOpenDetail',
@@ -569,6 +606,13 @@ const DASHBOARD_PROPS: (keyof DashboardProps)[] = [
 ];
 
 /** Everything the render function needs, derived from the props and state. */
+/** A keyboard drag: it works on a copy of the page's layout until it drops. */
+interface GrabState {
+  readonly key: string;
+  readonly pageKey: string;
+  readonly layout: DashboardLayout;
+}
+
 interface DashboardModel {
   readonly effectiveWidgets: readonly DashboardWidget[];
   /** The authors' definitions, before the viewer's settings. */
@@ -583,7 +627,12 @@ interface DashboardModel {
   readonly activePage: LayoutPage;
   readonly activeKey: string;
   readonly pageDefs: WidgetDefinition[];
+  /** The page's layout as shown: a keyboard drag's copy while one is going. */
   readonly view: DashboardLayout;
+  /** The page's layout as saved. */
+  readonly committedView: DashboardLayout;
+  /** The keyboard drag in progress on this page, if any. */
+  readonly grabbing: GrabState | undefined;
   readonly visible: WidgetDefinition[];
   readonly hidden: WidgetDefinition[];
   readonly minimized: WidgetDefinition[];
@@ -634,6 +683,9 @@ const DashboardInner = defineComponent(
     const toggleButton: Ref<HTMLButtonElement | null> = ref(null);
     const resetButton: Ref<HTMLButtonElement | null> = ref(null);
     const gridRef: Ref<HTMLElement | null> = ref(null);
+    const pageTabsRef: Ref<HTMLElement | null> = ref(null);
+    const grab: ShallowRef<GrabState | undefined> = shallowRef(undefined);
+    const dragAnnouncement: Ref<string> = ref('');
 
     const editable: ComputedRef<boolean> = computed(
       () => props.onLayoutChange !== undefined
@@ -648,6 +700,14 @@ const DashboardInner = defineComponent(
     const controlsShown: ComputedRef<boolean> = computed(
       () => editable.value && (!toggleMode.value || editing.value)
     );
+
+    const dragEnabled: ComputedRef<boolean> = computed(
+      () => (props.draggable ?? false) && controlsShown.value
+    );
+    // Without the controls there is nothing to drag with.
+    watch(dragEnabled, (on) => {
+      if (!on) grab.value = undefined;
+    });
 
     const model: ComputedRef<DashboardModel> = computed(() => {
       const savedLayout: DashboardLayout = props.layout ?? EMPTY_LAYOUT;
@@ -688,7 +748,13 @@ const DashboardInner = defineComponent(
       const activeKey: string = activePage.key;
       const pageDefs: WidgetDefinition[] =
         assignPages(definitions, layout).get(activeKey) ?? [];
-      const view: DashboardLayout = pageLayout(layout, activeKey) ?? layout;
+      const committedView: DashboardLayout =
+        pageLayout(layout, activeKey) ?? layout;
+      const grabbing: GrabState | undefined =
+        dragEnabled.value && grab.value?.pageKey === activeKey
+          ? grab.value
+          : undefined;
+      const view: DashboardLayout = grabbing?.layout ?? committedView;
       const visible: WidgetDefinition[] = visibleWidgets(pageDefs, view);
       // Minimized widgets leave the grid for their own bar. Without layout
       // controls there is no way to restore them, so a read-only dashboard
@@ -714,6 +780,8 @@ const DashboardInner = defineComponent(
         activeKey,
         pageDefs,
         view,
+        committedView,
+        grabbing,
         visible,
         hidden: hiddenWidgets(pageDefs, view),
         minimized,
@@ -1082,6 +1150,159 @@ const DashboardInner = defineComponent(
       ];
     }
 
+    function titleOf(key: string): string {
+      return model.value.byKey.get(key)?.definition.title ?? key;
+    }
+
+    const { drag, handleProps } = usePointerReorder({
+      enabled: () => dragEnabled.value,
+      gridRef,
+      placementFor: (dragged, target): DropPlacement | undefined => {
+        const { pageDefs, view } = model.value;
+        return reorderOnto(pageDefs, view, dragged, target) === view
+          ? undefined
+          : dropPlacement(pageDefs, view, dragged, target);
+      },
+      onDrop: (dragged, target): void => {
+        const { pageDefs, view } = model.value;
+        const next: DashboardLayout = reorderOnto(
+          pageDefs,
+          view,
+          dragged,
+          target
+        );
+        if (next === view) return;
+        changePage(next);
+        const where = listPosition(pageDefs, next, dragged);
+        if (where !== undefined) {
+          dragAnnouncement.value = settings.value.labels.dropped(
+            titleOf(dragged),
+            where.position,
+            where.total
+          );
+        }
+      },
+      tabsRef: pageTabsRef,
+      tabFor: (dragged, pageKey) => {
+        const { paged, activeKey, definitions, layout, roomOptions } =
+          model.value;
+        return !paged || pageKey === activeKey
+          ? undefined
+          : moveWidgetToPage(definitions, layout, dragged, pageKey, roomOptions)
+                .ok
+            ? 'allowed'
+            : 'refused';
+      },
+      // The same move as the Arrange menu's "Move to page", with its refusal
+      // message when the page has no room or the widget is locked.
+      onDropOnTab: (dragged, pageKey): void =>
+        moveWidgetAction(dragged, pageKey),
+      onStateChange: (event, key): void => {
+        if (event === 'cancel') {
+          dragAnnouncement.value = settings.value.labels.dragCancelled(
+            titleOf(key)
+          );
+        }
+      },
+    });
+
+    // Swipe left or right on a touch screen to change page; never mid-drag.
+    const pageSwipe: PageSwipeProps = usePageSwipe({
+      enabled: () => model.value.paged && drag.value === undefined,
+      onSwipe: (direction): void => {
+        const { pages, activeKey } = model.value;
+        const next: string | undefined = adjacentPageKey(
+          pages,
+          activeKey,
+          direction
+        );
+        if (next !== undefined) selectPage(next);
+      },
+    });
+
+    // Moving a card in the DOM can drop its focus; give it back to the handle.
+    watch(grab, (current) => {
+      if (current === undefined) return;
+      void nextTick(() => {
+        const handle: Element | null | undefined = gridRef.value?.querySelector(
+          `[data-widget-key="${CSS.escape(current.key)}"] .dwt-drag-handle`
+        );
+        if (
+          handle instanceof HTMLElement &&
+          document.activeElement !== handle
+        ) {
+          handle.focus();
+        }
+      });
+    });
+
+    function handleDragKeyDown(
+      event: KeyboardEvent,
+      key: string,
+      title: string
+    ): void {
+      const { labels } = settings.value;
+      const { pageDefs, committedView, grabbing, activeKey } = model.value;
+      const confirms: boolean = event.key === ' ' || event.key === 'Enter';
+      if (grabbing === undefined || grabbing.key !== key) {
+        if (!confirms) return;
+        event.preventDefault();
+        grab.value = { key, pageKey: activeKey, layout: committedView };
+        const where = listPosition(pageDefs, committedView, key);
+        if (where !== undefined) {
+          dragAnnouncement.value = labels.pickedUp(
+            title,
+            where.position,
+            where.total
+          );
+        }
+        return;
+      }
+      const step: number =
+        event.key === 'ArrowUp' || event.key === 'ArrowLeft'
+          ? -1
+          : event.key === 'ArrowDown' || event.key === 'ArrowRight'
+            ? 1
+            : 0;
+      if (step !== 0) {
+        event.preventDefault();
+        const next: DashboardLayout = moveWidgetBy(
+          pageDefs,
+          grabbing.layout,
+          key,
+          step
+        );
+        if (next !== grabbing.layout) {
+          grab.value = { ...grabbing, layout: next };
+          const where = listPosition(pageDefs, next, key);
+          if (where !== undefined) {
+            dragAnnouncement.value = labels.movedTo(
+              title,
+              where.position,
+              where.total
+            );
+          }
+        }
+      } else if (confirms) {
+        event.preventDefault();
+        grab.value = undefined;
+        changePage(grabbing.layout);
+        const where = listPosition(pageDefs, grabbing.layout, key);
+        if (where !== undefined) {
+          dragAnnouncement.value = labels.dropped(
+            title,
+            where.position,
+            where.total
+          );
+        }
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        grab.value = undefined;
+        dragAnnouncement.value = labels.dragCancelled(title);
+      }
+    }
+
     function renderCard(
       definition: WidgetDefinition,
       index: number
@@ -1102,8 +1323,77 @@ const DashboardInner = defineComponent(
         ? labels.lockedForViewers(title)
         : labels.locked(title);
       const items: EditMenuItem[] = editItems(definition, index, lock);
+      const { grabbing, shown, paged } = model.value;
+      // A lone widget has nothing to reorder, but on a paged dashboard it can
+      // still be dragged onto another page's tab.
+      const dragHandle: boolean =
+        dragEnabled.value && !lock.move && (shown.length > 1 || paged);
+      const dragged = drag.value;
+      const dragClass: string | undefined =
+        dragged?.key === key
+          ? 'dwt-card--dragging'
+          : dragged?.targetKey === key
+            ? dragged.placement === 'before'
+              ? 'dwt-card--drop-before'
+              : 'dwt-card--drop-after'
+            : grabbing?.key === key
+              ? 'dwt-card--grabbed'
+              : undefined;
       const actions = controlsShown.value
         ? (): VNodeChild[] => [
+            dragHandle
+              ? h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: slot(
+                      'button',
+                      'dwt-button',
+                      'dwt-icon-button',
+                      'dwt-drag-handle'
+                    ),
+                    'aria-label': labels.dragHandle(title),
+                    title: labels.dragHandle(title),
+                    'aria-pressed': grabbing?.key === key,
+                    onKeydown: (event: KeyboardEvent) =>
+                      handleDragKeyDown(event, key, title),
+                    onBlur: (event: FocusEvent) => {
+                      // Focus moving to another control ends a keyboard drag;
+                      // a DOM move while reordering has no related target.
+                      if (
+                        grabbing?.key === key &&
+                        event.relatedTarget !== null
+                      ) {
+                        grab.value = undefined;
+                        dragAnnouncement.value = labels.dragCancelled(title);
+                      }
+                    },
+                    ...handleProps(key),
+                  },
+                  [
+                    h(
+                      'svg',
+                      {
+                        viewBox: '0 0 16 16',
+                        width: '16',
+                        height: '16',
+                        'aria-hidden': 'true',
+                        focusable: 'false',
+                      },
+                      [
+                        h('g', { fill: 'currentColor' }, [
+                          h('circle', { cx: '6', cy: '4', r: '1.2' }),
+                          h('circle', { cx: '10', cy: '4', r: '1.2' }),
+                          h('circle', { cx: '6', cy: '8', r: '1.2' }),
+                          h('circle', { cx: '10', cy: '8', r: '1.2' }),
+                          h('circle', { cx: '6', cy: '12', r: '1.2' }),
+                          h('circle', { cx: '10', cy: '12', r: '1.2' }),
+                        ]),
+                      ]
+                    ),
+                  ]
+                )
+              : null,
             isLocked
               ? h(
                   'span',
@@ -1166,6 +1456,14 @@ const DashboardInner = defineComponent(
           key,
           widget,
           defaultTitle: authorTitle,
+          ...(dragClass === undefined ? {} : { className: dragClass }),
+          ...(dragged?.key === key
+            ? {
+                style: {
+                  transform: `translate(${dragged.dx}px, ${dragged.dy}px)`,
+                },
+              }
+            : {}),
           ...(viewable
             ? {
                 onView: () => {
@@ -1317,6 +1615,13 @@ const DashboardInner = defineComponent(
             panelId,
             announcement: pageAnnouncement.value,
             onSelect: selectPage,
+            tablistRef: pageTabsRef,
+            ...(drag.value?.tabKey === undefined
+              ? {}
+              : {
+                  dropKey: drag.value.tabKey,
+                  dropRefused: drag.value.tabRefused === true,
+                }),
           })
         );
       }
@@ -1509,6 +1814,19 @@ const DashboardInner = defineComponent(
           )
         );
       }
+      if (dragEnabled.value) {
+        children.push(
+          h(
+            'span',
+            {
+              class: 'dwt-visually-hidden',
+              role: 'status',
+              'aria-live': 'polite',
+            },
+            dragAnnouncement.value
+          )
+        );
+      }
       children.push(
         paged
           ? h(
@@ -1518,6 +1836,7 @@ const DashboardInner = defineComponent(
                 id: panelId,
                 'aria-labelledby': `${instanceId}-tab-${pages.findIndex((p) => p.key === activeKey)}`,
                 class: 'dwt-page-panel',
+                ...pageSwipe,
               },
               panel
             )
@@ -1629,8 +1948,8 @@ const DashboardInner = defineComponent(
  * hide/show and minimize controls when `onLayoutChange` is given, edit mode
  * (Customize, Done, Reset, Revert) with `editMode="toggle"`, and pages.
  * Settings (locale, link target, classNames, labels) apply to every widget
- * inside. The options dialog, clones, filter bar and detail view are here;
- * drag and drop and swipe are not in `/vue` yet.
+ * inside. The options dialog, clones, filter bar, detail view, drag and drop and
+ * swipe between pages are all here.
  */
 export const Dashboard = defineComponent(
   (props: DashboardProps) => {

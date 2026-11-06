@@ -1,0 +1,321 @@
+import { onBeforeUnmount, shallowRef, type Ref, type ShallowRef } from 'vue';
+
+import {
+  autoScrollStep,
+  dropTargetKey,
+  tabAtPoint,
+  type CardBox,
+  type DropPlacement,
+  type TabBox,
+} from '../core/reorder.js';
+
+/** Pixels the pointer must travel before a press on a handle becomes a drag. */
+export const DRAG_START_DISTANCE_PX = 4;
+
+/** What the dashboard renders while a card is being dragged with a pointer. */
+export interface PointerDragState {
+  /** The widget being dragged. */
+  readonly key: string;
+  /** How far the card is drawn from its place, in pixels. */
+  readonly dx: number;
+  readonly dy: number;
+  /** The card it would drop onto, and where the indicator goes. */
+  readonly targetKey?: string;
+  readonly placement?: DropPlacement;
+  /** The page tab under the pointer, when the drop would move it to that page. */
+  readonly tabKey?: string;
+  /** True when that move would be refused (the drop reports why). */
+  readonly tabRefused?: boolean;
+}
+
+/** Whether a card may be dropped onto a page tab. */
+export type TabDropStatus = 'allowed' | 'refused';
+
+export interface UsePointerReorderOptions {
+  /** Read on every press, so it can follow state (`() => draggable.value`). */
+  readonly enabled: () => boolean;
+  /** The element that contains the cards (`[data-widget-key]` children). */
+  readonly gridRef: Ref<HTMLElement | null>;
+  /**
+   * Whether `draggedKey` may drop onto `targetKey`, and where the indicator
+   * goes. Return undefined for a drop that is not allowed (a pinned slot).
+   */
+  readonly placementFor: (
+    draggedKey: string,
+    targetKey: string
+  ) => DropPlacement | undefined;
+  /** Called on release over an allowed target. */
+  readonly onDrop: (draggedKey: string, targetKey: string) => void;
+  /**
+   * The element that contains the page tabs (`[data-page-key]` children), so a
+   * card can be dropped onto another page's tab. Needs `tabFor`.
+   */
+  readonly tabsRef?: Ref<HTMLElement | null>;
+  /**
+   * Whether `draggedKey` may drop onto the tab of `pageKey`: `'allowed'`,
+   * `'refused'` (the drop still happens, so `onDropOnTab` can say why), or
+   * undefined when that tab is not a target (the page already showing).
+   */
+  readonly tabFor?: (
+    draggedKey: string,
+    pageKey: string
+  ) => TabDropStatus | undefined;
+  /** Called on release over a page tab that `tabFor` named a target. */
+  readonly onDropOnTab?: (draggedKey: string, pageKey: string) => void;
+  /** Called when a drag starts moving, ends, or is cancelled. */
+  readonly onStateChange?: (
+    event: 'start' | 'drop' | 'cancel',
+    key: string
+  ) => void;
+}
+
+/** Pointer listeners for a card's drag handle, in Vue's `on…` prop names. */
+export interface PointerHandleProps {
+  readonly onPointerdown: (event: PointerEvent) => void;
+  readonly onPointermove: (event: PointerEvent) => void;
+  readonly onPointerup: (event: PointerEvent) => void;
+  readonly onPointercancel: (event: PointerEvent) => void;
+}
+
+export interface UsePointerReorderResult {
+  /** The drag in progress, or undefined. Read it in the render function. */
+  readonly drag: ShallowRef<PointerDragState | undefined>;
+  /**
+   * Pointer handlers for a card's drag handle. Spread them on the handle
+   * `<button>` (give it `touch-action: none`, which `.dwt-drag-handle` does).
+   */
+  readonly handleProps: (key: string) => PointerHandleProps;
+}
+
+interface Session {
+  readonly key: string;
+  readonly pointerId: number;
+  readonly startX: number;
+  readonly startY: number;
+  readonly startScrollY: number;
+  active: boolean;
+  origin: CardBox | undefined;
+  /** The allowed drop target for the pointer's last position. */
+  targetKey: string | undefined;
+  /** The page tab under the pointer's last position, if it is a target. */
+  tabKey: string | undefined;
+  x: number;
+  y: number;
+}
+
+function boxOf(element: Element, key: string): CardBox {
+  const rect: DOMRect = element.getBoundingClientRect();
+  return {
+    key,
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+/** Every page tab in the bar. */
+function tabBoxes(bar: HTMLElement): TabBox[] {
+  const boxes: TabBox[] = [];
+  bar.querySelectorAll<HTMLElement>('[data-page-key]').forEach((tab) => {
+    const key: string | undefined = tab.dataset['pageKey'];
+    if (key !== undefined) boxes.push(boxOf(tab, key));
+  });
+  return boxes;
+}
+
+/** Every card in the grid, in document order. */
+function cardBoxes(grid: HTMLElement): CardBox[] {
+  const boxes: CardBox[] = [];
+  grid.querySelectorAll<HTMLElement>('[data-widget-key]').forEach((card) => {
+    const key: string | undefined = card.dataset['widgetKey'];
+    if (key !== undefined) boxes.push(boxOf(card, key));
+  });
+  return boxes;
+}
+
+/**
+ * Pointer (mouse, pen and touch) reordering of cards by their drag handle.
+ * The dragged card follows the pointer (a CSS transform, so nothing else
+ * reflows), the card it would drop onto gets an indicator, the window scrolls
+ * near its top and bottom edges, and Escape or a cancelled pointer aborts.
+ * The composable decides nothing about the layout: it reports the drop.
+ */
+export function usePointerReorder(
+  options: UsePointerReorderOptions
+): UsePointerReorderResult {
+  const drag: ShallowRef<PointerDragState | undefined> = shallowRef(undefined);
+  let session: Session | undefined;
+  let frame: number | undefined;
+
+  function stopScrolling(): void {
+    if (frame !== undefined) cancelAnimationFrame(frame);
+    frame = undefined;
+  }
+
+  function onKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      finish('cancel');
+    }
+  }
+
+  /** Re-measures and updates what the drag shows for the current pointer. */
+  function refresh(): void {
+    const current: Session | undefined = session;
+    const grid: HTMLElement | null = options.gridRef.value;
+    if (current === undefined || !current.active || grid === null) return;
+    const dy: number =
+      current.y - current.startY + (window.scrollY - current.startScrollY);
+    // A page tab under the pointer wins over the cards beneath it.
+    const bar: HTMLElement | null | undefined = options.tabsRef?.value;
+    if (bar != null && options.tabFor !== undefined) {
+      const hit: string | undefined = tabAtPoint(tabBoxes(bar), {
+        x: current.x,
+        y: current.y,
+      });
+      const status: TabDropStatus | undefined =
+        hit === undefined ? undefined : options.tabFor(current.key, hit);
+      if (hit !== undefined && status !== undefined) {
+        current.tabKey = hit;
+        current.targetKey = undefined;
+        drag.value = {
+          key: current.key,
+          dx: current.x - current.startX,
+          dy,
+          tabKey: hit,
+          tabRefused: status === 'refused',
+        };
+        return;
+      }
+    }
+    current.tabKey = undefined;
+    const target: string | undefined = dropTargetKey(
+      cardBoxes(grid),
+      current.key,
+      { x: current.x, y: current.y },
+      current.origin
+    );
+    const placement: DropPlacement | undefined =
+      target === undefined
+        ? undefined
+        : options.placementFor(current.key, target);
+    current.targetKey =
+      placement === undefined || target === undefined ? undefined : target;
+    drag.value = {
+      key: current.key,
+      dx: current.x - current.startX,
+      dy,
+      ...(placement === undefined || target === undefined
+        ? {}
+        : { targetKey: target, placement }),
+    };
+  }
+
+  function finish(outcome: 'drop' | 'cancel'): void {
+    const current: Session | undefined = session;
+    session = undefined;
+    stopScrolling();
+    window.removeEventListener('keydown', onKeyDown, true);
+    if (current === undefined || !current.active) return;
+    drag.value = undefined;
+    if (outcome === 'drop' && current.tabKey !== undefined) {
+      options.onDropOnTab?.(current.key, current.tabKey);
+      options.onStateChange?.('drop', current.key);
+    } else if (outcome === 'drop' && current.targetKey !== undefined) {
+      options.onDrop(current.key, current.targetKey);
+      options.onStateChange?.('drop', current.key);
+    } else {
+      options.onStateChange?.('cancel', current.key);
+    }
+  }
+
+  function scrollLoop(): void {
+    frame = undefined;
+    const current: Session | undefined = session;
+    if (current === undefined || !current.active) return;
+    const step: number = autoScrollStep(current.y, window.innerHeight);
+    if (step !== 0) {
+      window.scrollBy(0, step);
+      refresh();
+      frame = requestAnimationFrame(scrollLoop);
+    }
+  }
+
+  // A drag never outlives the component.
+  onBeforeUnmount(() => {
+    session = undefined;
+    stopScrolling();
+    window.removeEventListener('keydown', onKeyDown, true);
+  });
+
+  function handleProps(key: string): PointerHandleProps {
+    return {
+      onPointerdown: (event: PointerEvent): void => {
+        if (!options.enabled() || session !== undefined) return;
+        // Mouse: the main button only. Touch and pen have button 0 too.
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+        session = {
+          key,
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          startScrollY: window.scrollY,
+          active: false,
+          origin: undefined,
+          targetKey: undefined,
+          tabKey: undefined,
+          x: event.clientX,
+          y: event.clientY,
+        };
+      },
+      onPointermove: (event: PointerEvent): void => {
+        const current: Session | undefined = session;
+        if (current === undefined || current.pointerId !== event.pointerId) {
+          return;
+        }
+        current.x = event.clientX;
+        current.y = event.clientY;
+        if (!current.active) {
+          const travelled: number = Math.hypot(
+            current.x - current.startX,
+            current.y - current.startY
+          );
+          if (travelled < DRAG_START_DISTANCE_PX) return;
+          const card: Element | null | undefined =
+            options.gridRef.value?.querySelector(
+              `[data-widget-key="${CSS.escape(key)}"]`
+            );
+          current.active = true;
+          current.origin = card == null ? undefined : boxOf(card, key);
+          window.addEventListener('keydown', onKeyDown, true);
+          options.onStateChange?.('start', key);
+        }
+        event.preventDefault();
+        refresh();
+        if (frame === undefined) frame = requestAnimationFrame(scrollLoop);
+      },
+      onPointerup: (event: PointerEvent): void => {
+        const current: Session | undefined = session;
+        if (current === undefined || current.pointerId !== event.pointerId) {
+          return;
+        }
+        const handle = event.currentTarget as HTMLElement;
+        if (handle.hasPointerCapture(event.pointerId)) {
+          handle.releasePointerCapture(event.pointerId);
+        }
+        finish('drop');
+      },
+      onPointercancel: (event: PointerEvent): void => {
+        const current: Session | undefined = session;
+        if (current === undefined || current.pointerId !== event.pointerId) {
+          return;
+        }
+        finish('cancel');
+      },
+    };
+  }
+
+  return { drag, handleProps };
+}

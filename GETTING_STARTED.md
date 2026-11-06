@@ -219,9 +219,9 @@ move earlier or later, locks, Customize/Done/Reset/Revert, pages) with
 `useStoredLayout`, the Options dialog (`WidgetOptionsDialog`: title, width,
 view, declared options) and clones (Duplicate in the Arrange menu, Delete in
 the dialog), dashboard filters (`FilterBar`, `useDashboardFilters`) and the
-detail view (`WidgetDetail`, `WidgetDetailDialog`, `useDetailData`). Drag and
-drop and swipe are not in `/vue` yet; see `docs/design/vue-renderers.md` for
-the plan.
+detail view (`WidgetDetail`, `WidgetDetailDialog`, `useDetailData`), and drag
+and drop (`draggable`: pointer, touch and keyboard, and onto another page's tab)
+with swipe between pages. The design is in `docs/design/vue-renderers.md`.
 
 ```vue
 <script setup lang="ts">

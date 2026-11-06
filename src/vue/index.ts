@@ -89,6 +89,20 @@ export {
 } from './settings.js';
 export { WidgetTheme, type WidgetThemeProps } from './theme.js';
 export {
+  DRAG_START_DISTANCE_PX,
+  usePointerReorder,
+  type PointerDragState,
+  type PointerHandleProps,
+  type TabDropStatus,
+  type UsePointerReorderOptions,
+  type UsePointerReorderResult,
+} from './use-reorder.js';
+export {
+  usePageSwipe,
+  type PageSwipeProps,
+  type UsePageSwipeOptions,
+} from './use-page-swipe.js';
+export {
   useStoredLayout,
   type StoredLayoutConflict,
   type StoredLayoutStatus,
