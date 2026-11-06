@@ -8,7 +8,7 @@ Phase 2 is built: `WidgetGrid`, `Dashboard` (hide, show, minimize, move, locks,
 Customize/Done/Reset/Revert, `backup`, pages with the tab bar, add, rename, move
 and delete, Move to page), `WidgetEditMenu`, `InlineConfirm` and
 `useStoredLayout`. The Dashboard's saved viewer settings (title, width, view)
-are applied. Phase 3 was split in two. **3a is built**: `WidgetOptionsDialog`
+are applied. Phase 3 was split in two (both built). **3a is built**: `WidgetOptionsDialog`
 and `OptionField` (title, width, Flexible, view, every declared option type,
 Apply / Cancel / Reset / Revert with confirmations, a clone's Delete and its
 suggested view title), the Options and Duplicate items of the Arrange menu, and
@@ -21,7 +21,15 @@ rows per page, column choices, CSV export), `WidgetDetailDialog` (native modal
 `onOpenDetail`, controlled `detail` / `defaultDetail` / `onDetailChange`,
 `onExportDetail`, a View button on each card with a detail view). The shared
 types and `SERVER_INPUT_DEBOUNCE_MS` moved into the core (`detail.ts`); `./react`
-re-exports them. Drag and drop and swipe are phase 4.
+re-exports them. **Phase 4 is built**, so every phase is: `usePointerReorder`
+and `usePageSwipe` (composables over `core/reorder.ts` and `core/swipe.ts`) and
+the `Dashboard` wiring: the `draggable` prop, a drag handle on each movable card,
+pointer and touch dragging with the card following the pointer and a drop
+indicator, auto-scroll near the window edges, dropping a card on another page's
+tab (`tablistRef`, `dropKey` on the page tabs), the keyboard drag (Space or
+Enter picks up, arrows move on a copy of the page's layout, Space or Enter
+drops, Escape cancels) with its live-region announcements, and swipe between
+pages on a touch screen. Nothing is saved until a drop.
 
 ## 1. Goal
 

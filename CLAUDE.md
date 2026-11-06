@@ -115,6 +115,8 @@ src/
     detail.ts           WidgetDetail, WidgetDetailDialog, useDetailData
     detail-host.ts      DetailHost: the Dashboard's detail dialog, initialDetailQuery
     grid-spans.ts       useFillSpans: measured column spans for width-filling cards
+    use-reorder.ts      usePointerReorder: pointer/touch drag of cards by their handle
+    use-page-swipe.ts   usePageSwipe: touch swipe between pages
     use-stored-layout.ts useStoredLayout composable: persistence, backup, active page
 test/
   core/*.test.ts        node:test + node:assert, run by bun test
@@ -185,8 +187,8 @@ documented in the code and README, which win if they disagree.
   labels, palette in the core), phase 1 (`./vue`: cards, renderers, chart,
   `useWidgets`) and phase 2 (`Dashboard`, `WidgetGrid`, layout controls, pages,
   `useStoredLayout`), phase 3a (the Options dialog and clones) and phase 3b (the
-  filter bar and the detail view) are built. Not built: drag and drop, swipe
-  (phase 4). Keep the Vue markup identical to React's
+  filter bar and the detail view) and phase 4 (drag and drop, swipe) are built:
+  every phase is. Keep the Vue markup identical to React's
   (`test/vue/parity.test.tsx` fails on drift).
 - `docs/design/widget-builder.md`: Widget Builder. Phase 1 is built: the headless
   `./builder` subpath (`SourceDescription`, `defineSource`, the edit functions,

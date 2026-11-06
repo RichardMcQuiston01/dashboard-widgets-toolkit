@@ -188,3 +188,44 @@ void describe('Dashboard: Vue draws what React draws', () => {
     );
   });
 });
+
+void describe('draggable: drag handles and the announcement', () => {
+  parity('handles on every movable card', {
+    layout: { order: [], hidden: [], minimized: [] },
+    onLayoutChange,
+    draggable: true,
+  });
+  parity('no handles without the layout controls', {
+    layout: { order: [], hidden: [], minimized: [] },
+    draggable: true,
+  });
+  parity('no handles in toggle mode until Customize', {
+    layout: { order: [], hidden: [], minimized: [] },
+    onLayoutChange,
+    editMode: 'toggle',
+    draggable: true,
+  });
+  parity('handles while customizing', {
+    layout: { order: [], hidden: [], minimized: [] },
+    onLayoutChange,
+    editMode: 'toggle',
+    editing: true,
+    draggable: true,
+  });
+  parity('a pinned card has no handle', {
+    layout: arranged,
+    onLayoutChange,
+    draggable: true,
+  });
+  parity('on pages: handles, tabs and the panel', {
+    layout: twoPages,
+    onLayoutChange,
+    draggable: true,
+  });
+  parity('a lone widget on a page keeps its handle for the page tabs', {
+    layout: twoPages,
+    activePage: 'p2',
+    onLayoutChange,
+    draggable: true,
+  });
+});
