@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.36.0
+
+### Minor Changes
+
+- 2b5b882: `/vue`: dashboard filters and the detail view. `FilterBar` and `useDashboardFilters` (refs: `values`, `resolved`, `setValues`, `setFilter`, `reset`) draw the dashboard's filters with the same controls as the Options dialog, and `Dashboard` shows the bar for `filters`, `filterValues` and `onFilterChange`. The detail view is `WidgetDetail` (search and column filters, sortable table, paging, client and server modes with a debounced search, rows per page, a Columns menu, Download CSV), `WidgetDetailDialog` (a native modal `<dialog>`: focus is trapped, Esc and the backdrop close it, focus returns to the opener) and `useDetailData` (loads on mount, aborts stale requests, keeps the previous server page while the next loads, caches server pages). `Dashboard` gains `loadDetail`, `onOpenDetail`, `detail` / `defaultDetail` / `onDetailChange` (so the open detail view can live in the URL) and `onExportDetail`, and gives each card that has a detail view a View button, with the same props, labels and markup as the React `Dashboard` (the parity tests compare them). `DetailLoader`, `DetailLoadState`, `ServerDetailOptions` and `SERVER_INPUT_DEBOUNCE_MS` moved into the core so both renderers share them; `/react` still exports them. Drag and drop and swipe are not in `/vue` yet.
+
+### Patch Changes
+
+- 033514c: Switch the `funding` link in `package.json` (shown by `npm fund` and on the npm page) and the README donate link to Ko-fi. Add a `.github/FUNDING.yml` for the GitHub Sponsor button.
+- 7a6a71b: Use `@richardmcquiston01/storage-adapters` `^0.23.0` (was `^0.3.0`). Layout persistence behaves as before. That package stopped exporting `utf8Length` in 0.16.0, so the toolkit now defines it itself and still exports it from the root and `/core`.
+
 ## 0.35.1
 
 ### Patch Changes
