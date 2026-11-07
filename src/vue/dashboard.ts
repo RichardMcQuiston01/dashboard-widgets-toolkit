@@ -95,6 +95,7 @@ import {
   useWidgetSettings,
   type WidgetSettings,
 } from './settings.js';
+import { declareProps } from './props.js';
 import { FilterBar } from './filters.js';
 import { WidgetOptionsDialog } from './options-dialog.js';
 import { WidgetTheme } from './theme.js';
@@ -122,7 +123,6 @@ const CARD_PASS_THROUGH_PROPS: (keyof CardPassThrough)[] = [
   'exportFormats',
   'onExport',
   'onExportError',
-  'freshness',
   'onRefresh',
   'headingLevel',
 ];
@@ -191,25 +191,30 @@ export const WidgetGrid = defineComponent(
   },
   {
     name: 'WidgetGrid',
-    props: ['widgets', 'className', ...CARD_PASS_THROUGH_PROPS],
+    props: declareProps<WidgetGridProps>(
+      ['widgets', 'className', ...CARD_PASS_THROUGH_PROPS],
+      ['freshness']
+    ),
   }
 );
 
 /** The tab list of a paged dashboard: tabs on wide screens, dots on narrow. */
+interface PageTabsProps {
+  readonly pages: readonly LayoutPage[];
+  readonly activeKey: string;
+  readonly idPrefix: string;
+  readonly panelId: string;
+  readonly announcement: string;
+  readonly onSelect: (pageKey: string) => void;
+  /** Filled with the tab list element, for dropping a card on a tab. */
+  readonly tablistRef?: Ref<HTMLElement | null> | undefined;
+  /** The tab a dragged card is over, and whether dropping there is refused. */
+  readonly dropKey?: string | undefined;
+  readonly dropRefused?: boolean | undefined;
+}
+
 const PageTabs = defineComponent(
-  (props: {
-    readonly pages: readonly LayoutPage[];
-    readonly activeKey: string;
-    readonly idPrefix: string;
-    readonly panelId: string;
-    readonly announcement: string;
-    readonly onSelect: (pageKey: string) => void;
-    /** Filled with the tab list element, for dropping a card on a tab. */
-    readonly tablistRef?: Ref<HTMLElement | null> | undefined;
-    /** The tab a dragged card is over, and whether dropping there is refused. */
-    readonly dropKey?: string | undefined;
-    readonly dropRefused?: boolean | undefined;
-  }) => {
+  (props: PageTabsProps) => {
     const slot = useSlotClassName();
     const settings = useWidgetSettings();
     const tabs = new Map<string, HTMLElement>();
@@ -342,17 +347,19 @@ const PageTabs = defineComponent(
   },
   {
     name: 'PageTabs',
-    props: [
-      'pages',
-      'activeKey',
-      'idPrefix',
-      'panelId',
-      'announcement',
-      'onSelect',
-      'tablistRef',
-      'dropKey',
-      'dropRefused',
-    ],
+    props: declareProps<PageTabsProps>(
+      [
+        'pages',
+        'activeKey',
+        'idPrefix',
+        'panelId',
+        'announcement',
+        'onSelect',
+        'tablistRef',
+        'dropKey',
+      ],
+      ['dropRefused']
+    ),
   }
 );
 
@@ -566,6 +573,16 @@ export interface DashboardProps extends WidgetSettings, CardPassThrough {
 /** Why `onDetailChange` was called. */
 export type DetailChangeReason = 'open' | 'query' | 'close';
 
+/** Declared with Boolean casting, so a bare attribute means `true`. */
+const DASHBOARD_BOOLEAN_PROPS: (keyof DashboardProps)[] = [
+  'overrideLocks',
+  'editing',
+  'defaultEditing',
+  'toolbar',
+  'draggable',
+  'freshness',
+];
+
 const DASHBOARD_PROPS: (keyof DashboardProps)[] = [
   'locale',
   'linkTarget',
@@ -577,13 +594,9 @@ const DASHBOARD_PROPS: (keyof DashboardProps)[] = [
   'widgets',
   'layout',
   'onLayoutChange',
-  'overrideLocks',
   'editMode',
-  'editing',
-  'defaultEditing',
   'onEditingChange',
   'defaultLayout',
-  'toolbar',
   'activePage',
   'defaultActivePage',
   'onActivePageChange',
@@ -594,7 +607,6 @@ const DASHBOARD_PROPS: (keyof DashboardProps)[] = [
   'filters',
   'filterValues',
   'onFilterChange',
-  'draggable',
   'onExportDetail',
   'loadDetail',
   'onOpenDetail',
@@ -1940,7 +1952,13 @@ const DashboardInner = defineComponent(
       );
     };
   },
-  { name: 'DashboardInner', props: DASHBOARD_PROPS }
+  {
+    name: 'DashboardInner',
+    props: declareProps<DashboardProps>(
+      DASHBOARD_PROPS,
+      DASHBOARD_BOOLEAN_PROPS
+    ),
+  }
 );
 
 /**
@@ -1983,5 +2001,11 @@ export const Dashboard = defineComponent(
         : h(WidgetTheme, { theme }, { default: () => dashboard });
     };
   },
-  { name: 'Dashboard', props: DASHBOARD_PROPS }
+  {
+    name: 'Dashboard',
+    props: declareProps<DashboardProps>(
+      DASHBOARD_PROPS,
+      DASHBOARD_BOOLEAN_PROPS
+    ),
+  }
 );
