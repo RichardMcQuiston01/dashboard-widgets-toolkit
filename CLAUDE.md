@@ -117,6 +117,7 @@ src/
     grid-spans.ts       useFillSpans: measured column spans for width-filling cards
     use-reorder.ts      usePointerReorder: pointer/touch drag of cards by their handle
     use-page-swipe.ts   usePageSwipe: touch swipe between pages
+    props.ts            declareProps: runtime props with Boolean casting (bare `draggable`)
     use-stored-layout.ts useStoredLayout composable: persistence, backup, active page
 test/
   core/*.test.ts        node:test + node:assert, run by bun test
