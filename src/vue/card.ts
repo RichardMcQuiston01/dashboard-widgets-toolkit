@@ -25,6 +25,7 @@ import {
 } from '../react/download.js';
 import { FreshnessLine, RefreshButton } from './freshness.js';
 import { WidgetContent } from './renderers.js';
+import { declareProps } from './props.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
 export interface WidgetCardProps {
@@ -322,7 +323,10 @@ export const WidgetCard = defineComponent(
       );
     };
   },
-  { name: 'WidgetCard', props: CARD_PROPS }
+  {
+    name: 'WidgetCard',
+    props: declareProps<WidgetCardProps>(CARD_PROPS, ['minimized', 'editing']),
+  }
 );
 
 /** The title to show: alert lists add their total, e.g. "Low stock (3)". */
@@ -591,25 +595,28 @@ export const ResolvedWidgetCard = defineComponent(
   },
   {
     name: 'ResolvedWidgetCard',
-    props: [
-      'widget',
-      'defaultTitle',
-      'columnSpan',
-      'width',
-      'minimized',
-      'onToggleMinimized',
-      'onView',
-      'exportFormats',
-      'onExport',
-      'onExportError',
-      'freshness',
-      'onRefresh',
-      'onRetry',
-      'onSelect',
-      'editing',
-      'headingLevel',
-      'className',
-      'style',
-    ],
+    props: declareProps<ResolvedWidgetCardProps>(
+      [
+        'widget',
+        'defaultTitle',
+        'columnSpan',
+        'width',
+        'minimized',
+        'onToggleMinimized',
+        'onView',
+        'exportFormats',
+        'onExport',
+        'onExportError',
+        'freshness',
+        'onRefresh',
+        'onRetry',
+        'onSelect',
+        'editing',
+        'headingLevel',
+        'className',
+        'style',
+      ],
+      ['minimized', 'freshness', 'editing']
+    ),
   }
 );

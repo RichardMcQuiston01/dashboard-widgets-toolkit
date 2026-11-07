@@ -52,6 +52,7 @@ import {
   type ExportFile,
   type ExportFormat,
 } from '../react/download.js';
+import { declareProps } from './props.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
 export { SERVER_INPUT_DEBOUNCE_MS };
@@ -600,27 +601,30 @@ export const WidgetDetail = defineComponent(
   },
   {
     name: 'WidgetDetail',
-    props: [
-      'title',
-      'widgetKey',
-      'data',
-      'query',
-      'onQueryChange',
-      'status',
-      'error',
-      'onRetry',
-      'mode',
-      'busy',
-      'pageSizes',
-      'columnVisibility',
-      'headingLevel',
-      'headingId',
-      'exportFormats',
-      'onExportAll',
-      'onExport',
-      'onExportError',
-      'className',
-    ],
+    props: declareProps<WidgetDetailProps>(
+      [
+        'title',
+        'widgetKey',
+        'data',
+        'query',
+        'onQueryChange',
+        'status',
+        'error',
+        'onRetry',
+        'mode',
+        'busy',
+        'pageSizes',
+        'columnVisibility',
+        'headingLevel',
+        'headingId',
+        'exportFormats',
+        'onExportAll',
+        'onExport',
+        'onExportError',
+        'className',
+      ],
+      ['busy', 'columnVisibility']
+    ),
   }
 );
 
@@ -715,7 +719,13 @@ export const WidgetDetailDialog = defineComponent(
           : []
       );
   },
-  { name: 'WidgetDetailDialog', props: ['title', 'open', 'onClose'] }
+  {
+    name: 'WidgetDetailDialog',
+    props: declareProps<WidgetDetailDialogProps>(
+      ['title', 'onClose'],
+      ['open']
+    ),
+  }
 );
 
 const NO_OPTION_VALUES: OptionValues = Object.freeze({});

@@ -15,6 +15,14 @@ export {
 export { CellContent, type CellContentProps } from './cells.js';
 export { InlineConfirm } from './confirm.js';
 export {
+  downloadExportFile,
+  type BinaryExportFile,
+  type DetailExportRequest,
+  type ExportFile,
+  type ExportFormat,
+  type TextExportFile,
+} from '../react/download.js';
+export {
   Dashboard,
   WidgetGrid,
   type DashboardProps,

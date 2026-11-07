@@ -12,6 +12,7 @@ import {
   type VNode,
 } from 'vue';
 
+import { declareProps } from './props.js';
 import { useSlotClassName } from './settings.js';
 
 /**
@@ -213,5 +214,11 @@ export const WidgetEditMenu = defineComponent(
         ]
       );
   },
-  { name: 'WidgetEditMenu', props: ['label', 'items', 'initialOpen'] }
+  {
+    name: 'WidgetEditMenu',
+    props: declareProps<WidgetEditMenuProps>(
+      ['label', 'items'],
+      ['initialOpen']
+    ),
+  }
 );

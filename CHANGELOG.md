@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.37.1
+
+### Patch Changes
+
+- 0bd0513: Fix Vue boolean props written as bare attributes (`<Dashboard draggable />`, `freshness`, `editing`, `minimized` and the rest): they now cast to `true`. Export `ExportFile`, `ExportFormat`, `TextExportFile`, `BinaryExportFile`, `DetailExportRequest` and `downloadExportFile` from `./vue`, as `./react` does.
+
 ## 0.37.0
 
 ### Minor Changes

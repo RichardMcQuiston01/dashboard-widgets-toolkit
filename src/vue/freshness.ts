@@ -9,6 +9,7 @@ import {
 } from 'vue';
 
 import { formatAge, msUntilAgeChanges } from '../core/freshness.js';
+import { declareProps } from './props.js';
 import { useSlotClassName, useWidgetSettings } from './settings.js';
 
 export interface FreshnessLineProps {
@@ -83,13 +84,15 @@ export const FreshnessLine = defineComponent(
   { name: 'FreshnessLine', props: ['updatedAt', 'refreshError'] }
 );
 
+interface RefreshButtonProps {
+  readonly title: string;
+  readonly busy: boolean;
+  readonly onRefresh: () => void;
+}
+
 /** The refresh icon button in a card's header. */
 export const RefreshButton = defineComponent(
-  (props: {
-    readonly title: string;
-    readonly busy: boolean;
-    readonly onRefresh: () => void;
-  }) => {
+  (props: RefreshButtonProps) => {
     const slot = useSlotClassName();
     const settings = useWidgetSettings();
     return (): VNode => {
@@ -142,5 +145,8 @@ export const RefreshButton = defineComponent(
       );
     };
   },
-  { name: 'RefreshButton', props: ['title', 'busy', 'onRefresh'] }
+  {
+    name: 'RefreshButton',
+    props: declareProps<RefreshButtonProps>(['title', 'onRefresh'], ['busy']),
+  }
 );
