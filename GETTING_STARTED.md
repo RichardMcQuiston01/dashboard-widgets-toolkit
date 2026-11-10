@@ -1792,6 +1792,58 @@ function WidgetEditor({ source, definition, onSave }) {
 }
 ```
 
+**An admin screen in Vue.** `./vue` has the same blocks (`useWidgetDraft`,
+`WidgetOptionsForm`, `WidgetViewsForm`, `WidgetPreview`) with the same markup.
+`useWidgetDraft` returns an object of getters over reactive state, so read
+`draft.…` inside a template or render function (don't destructure it), and
+`source` and `policy` may be refs or getters:
+
+```vue
+<script setup lang="ts">
+import {
+  WidgetOptionsForm,
+  WidgetPreview,
+  WidgetViewsForm,
+  useWidgetDraft,
+} from '@richardmcquiston01/dashboard-widgets-toolkit/vue';
+
+const props = defineProps<{
+  source: SourceDescription;
+  definition: WidgetDefinition;
+}>();
+const emit = defineEmits<{ save: [definition: WidgetDefinition] }>();
+const draft = useWidgetDraft(() => props.source, props.definition);
+
+function save(): void {
+  const saved = draft.commit();
+  if (saved.ok) emit('save', saved.value);
+}
+</script>
+
+<template>
+  <label>
+    Title
+    <input
+      :value="draft.patch.title ?? draft.definition.title"
+      @input="
+        draft.setField('title', ($event.target as HTMLInputElement).value)
+      "
+    />
+  </label>
+  <p v-if="draft.problems['title']" role="alert">
+    {{ draft.problems['title'] }}
+  </p>
+
+  <WidgetOptionsForm :draft="draft" />
+  <WidgetViewsForm :draft="draft" />
+  <WidgetPreview :source="source" :definition="draft.candidate" />
+
+  <button :disabled="Object.keys(draft.problems).length > 0" @click="save">
+    Save
+  </button>
+</template>
+```
+
 Plain fields (`title`, `width`, `roles`, `locked`, ...) are edits waiting to be
 committed, so a half-typed title never becomes a definition; `draft.candidate`
 is what the definition would be with them, or the last valid one while they

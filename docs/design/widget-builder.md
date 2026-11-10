@@ -3,7 +3,7 @@
 - **Status:** Phase 1 (headless, 0.30.0) is built, with every recommendation in
   section 12 accepted by the maintainer. Phase 2's React building blocks
   (`useWidgetDraft`, `WidgetOptionsForm`, `WidgetViewsForm`, `WidgetPreview`) are
-  built, and so is the demo's admin tab. Phase 3 (viewer-created widgets) is
+  built, and so is the demo's admin tab; `./vue` has the same blocks. Phase 3 (viewer-created widgets) is
   built as proposed in section 14 (decisions V1 to V9 accepted), except the
   demo's Viewer mode.
 - **Date:** 2026-10-18
@@ -318,6 +318,14 @@ pending edits:
   widget's kind, apply client options by their defaults or chosen values, build
   a converted view) drawn with `ResolvedWidgetCard`. No provider call. A view
   only the provider builds can't be previewed, and the message says so.
+
+`./vue` has the same four (`useWidgetDraft`, `WidgetOptionsForm`,
+`WidgetViewsForm`, `WidgetPreview`) with the same markup (the parity tests compare
+them). `useWidgetDraft` there returns getters over a `shallowRef` of the draft
+state, so a render function that reads `draft.definition` re-runs on a change,
+and `source` and `policy` may be refs or getters. `BuilderLabels` and
+`DEFAULT_BUILDER_LABELS` moved to `./builder` (`labels.ts`) so both renderers
+share them; `./react` still re-exports them.
 
 The plain-field inputs (title, width, roles, lock) are the consumer's: they set
 fields with `draft.setField` and show `draft.problems[field]`. Words come from

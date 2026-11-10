@@ -13,6 +13,21 @@ export {
   type WidgetCardProps,
 } from './card.js';
 export { CellContent, type CellContentProps } from './cells.js';
+export {
+  DEFAULT_BUILDER_LABELS,
+  WidgetOptionsForm,
+  WidgetPreview,
+  WidgetViewsForm,
+  type BuilderFormProps,
+  type BuilderLabels,
+  type WidgetPreviewProps,
+} from './builder-forms.js';
+export {
+  useWidgetDraft,
+  type DraftLimits,
+  type UseWidgetDraftOptions,
+  type WidgetDraft,
+} from './use-widget-draft.js';
 export { InlineConfirm } from './confirm.js';
 export {
   downloadExportFile,

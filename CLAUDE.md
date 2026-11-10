@@ -72,6 +72,7 @@ src/
     draft.ts            DraftState: pending plain-field edits, draftProblems, commitDraft
     preview.ts          previewWidget: a definition over source.sample
     policy.ts           BuilderPolicy, validateViewerSave, parseViewerDefinitions (viewer-made widgets)
+    labels.ts           BuilderLabels, DEFAULT_BUILDER_LABELS (shared by the React and Vue forms)
   react/                subpath ./react: browser code, React >= 18 peer
     index.ts            barrel
     settings.tsx        WidgetSettingsProvider: locale, linkTarget, classNames, labels
@@ -118,6 +119,8 @@ src/
     use-reorder.ts      usePointerReorder: pointer/touch drag of cards by their handle
     use-page-swipe.ts   usePageSwipe: touch swipe between pages
     props.ts            declareProps: runtime props with Boolean casting (bare `draggable`)
+    use-widget-draft.ts useWidgetDraft: builder form state over the draft functions
+    builder-forms.ts    WidgetOptionsForm, WidgetViewsForm, WidgetPreview (Widget Builder)
     use-stored-layout.ts useStoredLayout composable: persistence, backup, active page
 test/
   core/*.test.ts        node:test + node:assert, run by bun test
@@ -195,7 +198,8 @@ documented in the code and README, which win if they disagree.
   `./builder` subpath (`SourceDescription`, `defineSource`, the edit functions,
   `parseDefinitions`) and `WidgetDefinition.source` / `providerKeyOf`. The React
   building blocks (`useWidgetDraft`, `WidgetOptionsForm`, `WidgetViewsForm`,
-  `WidgetPreview`, `previewWidget`) are built, and the demo has its admin tab.
+  `WidgetPreview`, `previewWidget`) are built, as are the Vue equivalents in
+  `./vue`, and the React demo has its admin tab.
   Viewer-created widgets (phase 3, section 14: `BuilderPolicy`,
   `validateViewerSave`, the draft hook's `policy`) are built. Not built: the
   demo's Viewer mode.
