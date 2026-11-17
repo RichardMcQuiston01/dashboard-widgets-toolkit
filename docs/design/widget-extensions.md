@@ -1,7 +1,9 @@
 # Design: drag and drop, asynchronous widget loading, data sources and adapters
 
 - **Status:** Asynchronous loading is built (`useWidgets`, `createWidgetLoader`,
-  0.3.0). Drag-and-drop reordering is built (`draggable`, `reorder.ts`, `use-reorder.ts`). Data sources and adapters are still planned.
+  0.3.0). Drag-and-drop reordering is built (`draggable`, `reorder.ts`, `use-reorder.ts`). Adapters and payload builders (phase 2: `DataSource`,
+  `defineAdapter`, `toKpi` and the other builders, `bindProviders`) are built.
+  Streams (`WidgetStream`) and the transports of D1 are still planned.
 - **Date:** 2026-10-06
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.2.0
 - **Author:** Richard McQuiston (drafted with Claude Code)
@@ -648,6 +650,40 @@ beyond a peer dependency on it.
   request (user, date range), or two viewers could share a response. The key
   is therefore `source.id` plus a consumer-supplied `scope(context)` string,
   defaulting to "no sharing across calls" when absent.
+
+### As built (phase 2)
+
+Where the build differs from or adds to the sketch above (`src/core/adapter.ts`,
+`src/core/builders.ts`):
+
+- **Sharing is opt-in on the source.** `DataSource.scope(context, options)`
+  returns the string that, with `id`, keys a running load; the sketch's
+  `scope(context)` only saw the context, but option values and filters change
+  a request too, so it sees the provider options as well. Without `scope`
+  nothing is shared. The shared load gets the first caller's options, and its
+  signal aborts only when every waiting caller has aborted (a caller that
+  arrives after the abort starts a fresh load).
+- **`Mapper` takes `(raw, context, options)`.** The third argument lets a
+  mapper read option values (`limit`) without a closure.
+- **`defineAdapter` returns an `Adapter`**: a `WidgetProvider` tagged with its
+  `kind` and `sourceId`, so `bindProviders` can check it. `NoInfer<K>` on the
+  mapper stops a mapper's return type from widening `K` (without it a table
+  adapter whose mapper returned a KPI inferred `'KPI' | 'TABLE'` and compiled).
+- **Kind checks at run time.** For the base view the adapter throws, naming
+  the widget and the source, when the widget's kind is not `kind` or the mapped
+  payload's kind is not. A view the provider supplies is a different kind, so
+  the checks skip it and such a widget needs a hand-written provider.
+- **`bindProviders` returns a `Result`** (not a bare map plus warnings: the
+  core has no console, and the package returns values the caller checks). The
+  error lists every problem at once: a widget with no provider (looked up by
+  `providerKeyOf`, so clones and builder widgets work), an adapter of the wrong
+  kind, and, unless `allowUnused: true`, a provider no widget uses.
+- **`toAlertList` never returns an empty state.** An alert list with nothing to
+  flag is good news with its own `emptyText` in the payload, so the builder
+  keeps that; `toTable`, `toBarList` and `toGraph` return an empty state for an
+  empty list, with an optional `emptyText`.
+- **Optional fields are left out**, not set to `undefined`, so a built payload
+  is plain JSON (`exactOptionalPropertyTypes`).
 
 ## 7. Cross-cutting concerns
 

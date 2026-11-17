@@ -61,6 +61,8 @@ src/
     url.ts              isSafeHref / isSafeImageUrl
     compat.ts           Maker Toolkit payload/definition upgrades
     result.ts           Result<T>
+    builders.ts         toKpi / toTable / toBarList / ...: payload builders (empty state for no rows)
+    adapter.ts          DataSource, defineAdapter, bindProviders: a source plus a mapper as a provider
     select.ts           WidgetSelection / SelectionTarget: what a viewer picked (onSelect)
   builder/              subpath ./builder: Widget Builder, runtime-neutral like the core
     index.ts            barrel
@@ -147,8 +149,8 @@ documented in the code and README, which win if they disagree.
   visibility shipped (`pageSizes`, `columnVisibility`, `DetailQuery.hidden`),
   and so is a detail view per provider view (`options.view`, GRAPH-derived detail).
 - `docs/design/widget-extensions.md`: async loading shipped (`useWidgets`,
-  `createWidgetLoader`). Still planned: adapters and payload builders,
-  push streams. Drag-and-drop reordering shipped (`reorder.ts`, `use-reorder.ts`).
+  `createWidgetLoader`). Adapters and payload builders shipped (`adapter.ts`,
+  `builders.ts`). Still planned: push streams. Drag-and-drop reordering shipped (`reorder.ts`, `use-reorder.ts`).
 - `docs/design/lock-and-edit-mode.md`: locked widgets (`locked`, pinned slots,
   `enforceLocks`, `overrideLocks`) and the Customize/Done edit mode
   (`editMode="toggle"`, Reset, Revert) and drag and drop (`draggable`) are built.
