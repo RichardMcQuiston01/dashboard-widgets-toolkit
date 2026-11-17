@@ -199,10 +199,9 @@ documented in the code and README, which win if they disagree.
   `parseDefinitions`) and `WidgetDefinition.source` / `providerKeyOf`. The React
   building blocks (`useWidgetDraft`, `WidgetOptionsForm`, `WidgetViewsForm`,
   `WidgetPreview`, `previewWidget`) are built, as are the Vue equivalents in
-  `./vue`, and the React demo has its admin tab.
-  Viewer-created widgets (phase 3, section 14: `BuilderPolicy`,
-  `validateViewerSave`, the draft hook's `policy`) are built. Not built: the
-  demo's Viewer mode.
+  `./vue`, and both demos have the Widget Builder tab. Viewer-created widgets
+  (phase 3, section 14: `BuilderPolicy`, `validateViewerSave`, the draft hook's
+  `policy`) are built, including the demos' Viewer mode. Nothing is planned.
 
 ## Commands (Bun only)
 

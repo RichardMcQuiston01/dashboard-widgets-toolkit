@@ -3,9 +3,10 @@
 - **Status:** Phase 1 (headless, 0.30.0) is built, with every recommendation in
   section 12 accepted by the maintainer. Phase 2's React building blocks
   (`useWidgetDraft`, `WidgetOptionsForm`, `WidgetViewsForm`, `WidgetPreview`) are
-  built, and so is the demo's admin tab; `./vue` has the same blocks. Phase 3 (viewer-created widgets) is
-  built as proposed in section 14 (decisions V1 to V9 accepted), except the
-  demo's Viewer mode.
+  built, and so is the demo's admin tab; `./vue` has the same blocks, and the Vue
+  demo has the same tab. Phase 3 (viewer-created widgets) is built as proposed in
+  section 14 (decisions V1 to V9 accepted), including the demos' Viewer mode.
+  Nothing is planned.
 - **Date:** 2026-10-18
 - **Applies to:** `@richardmcquiston01/dashboard-widgets-toolkit` 0.31.x
 - **Author:** Richard McQuiston (drafted with Claude Code)
@@ -416,7 +417,8 @@ Notes on how phase 1 was built, where it adds to the sketch above:
 ## 14. Phase 3: viewer-created widgets
 
 - **Status:** Part 3a (the headless policy and server check, and the draft
-  hook's `policy` option) is built; the demo's Viewer mode (3b) is not. The
+  hook's `policy` option) and 3b (the Viewer mode in the React demo's Widget
+  Builder tab, since the 0.32.0 upgrade, and in the Vue demo's) are built. The
   decisions at the end (V1 to V9) were accepted as recommended.
 
 ### 14.1 What it is
@@ -531,7 +533,7 @@ its docs say so.
 | Part | Version | Scope                                                                                                                                                                                                                                |
 | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 3a   | 0.32.0  | `BuilderPolicy`, `defineBuilderPolicy`, `validateViewerSave`, `viewerSources`, `viewerWidgetKey`, `parseViewerDefinitions` in `./builder`; the policy option of `useWidgetDraft` and the limits in the forms; tests; GETTING_STARTED |
-| 3b   | demo    | The Viewer mode in the demo's Widget Builder tab                                                                                                                                                                                     |
+| 3b   | demo    | The Viewer mode in the demo's Widget Builder tab (built: the React demo, then the Vue demo)                                                                                                                                          |
 
 ### 14.7 Decisions
 
