@@ -4,6 +4,8 @@
  * browsers): no DOM, no Node built-ins, no network, no storage.
  */
 
+export * from './adapter.js';
+export * from './builders.js';
 export * from './chart-model.js';
 export * from './clones.js';
 export * from './compat.js';

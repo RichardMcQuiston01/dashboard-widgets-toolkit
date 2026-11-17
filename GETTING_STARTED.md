@@ -1640,6 +1640,105 @@ stops the request. Existing two-argument providers keep working.
   `subscribe`/`getSnapshot`, `load`, `refresh` and `dispose`; `resolveWidget`
   and `resolveWidgets` accept `timeoutMs`, `signal` and `cache` too.
 
+### Adapters and payload builders
+
+A provider that reads an API usually does three things: fetch, map the response
+to a payload, and handle "nothing there". `defineAdapter` splits the first two
+and the builders do the third. The core still never fetches: the `fetch` (or the
+Prisma query) is yours, in a `DataSource`.
+
+```ts
+import {
+  bindProviders,
+  defineAdapter,
+  toTable,
+  type DataSource,
+  type Mapper,
+} from '@richardmcquiston01/dashboard-widgets-toolkit';
+
+interface OrdersResponse {
+  readonly orders: readonly {
+    id: string;
+    customerName: string;
+    totalCents: number;
+  }[];
+}
+
+// Gets raw data: transport, auth and errors are yours. Pass the signal on.
+const ordersSource: DataSource<ShopContext, OrdersResponse> = {
+  id: 'orders-recent',
+  async load(context, { signal }) {
+    const response = await fetch(`${context.apiBaseUrl}/orders?limit=5`, {
+      headers: { Authorization: `Bearer ${context.accessToken}` },
+      signal,
+    });
+    if (!response.ok) {
+      throw new Error(
+        `Orders API returned ${response.status} ${response.statusText}.`
+      );
+    }
+    return (await response.json()) as OrdersResponse;
+  },
+  // Optional: widgets that name the same id and scope share one running load.
+  scope: (context) => context.shopId,
+};
+
+// Pure: raw data in, payload out. Test it with a plain object.
+const ordersTable: Mapper<OrdersResponse, 'TABLE', ShopContext> = (
+  raw,
+  context
+) =>
+  toTable(raw.orders, [
+    { label: 'Order', cell: (order) => ({ text: `#${order.id}` }) },
+    { label: 'Customer', cell: (order) => ({ text: order.customerName }) },
+    {
+      label: 'Total',
+      numeric: true,
+      cell: (order) => ({
+        text: formatValue(order.totalCents / 100, 'currency', {
+          locale: context.locale,
+          currency: context.currency,
+        }),
+        value: order.totalCents,
+      }),
+    },
+  ]);
+
+const bound = bindProviders(definitions, {
+  'recent-orders': defineAdapter('TABLE', ordersSource, ordersTable),
+});
+if (!bound.ok) throw new Error(bound.error); // lists every mismatch at once
+// bound.value is a normal WidgetProviders: pass it to resolveWidgets or useWidgets.
+```
+
+- `defineAdapter(kind, source, mapper)` returns a normal provider. The mapper
+  may only return that kind's payload (or an empty state); the compiler checks
+  it, and at run time the adapter checks the widget's kind and the mapped
+  payload's kind too, naming the widget and the source. A thrown error from
+  `load` or the mapper shows on that card with the widget's key, and the
+  validator still checks the mapped payload with its field path.
+- `DataSource.scope(context, options)` is how sharing is opted in. Return a
+  string naming everything that changes the request (the user, a date range,
+  the option values it reads): while a load with the same `id` and scope is
+  running, another call waits for it instead of loading again. The shared load
+  gets the first caller's options, and its signal aborts only when every
+  waiting caller has aborted. Without `scope`, nothing is shared.
+- A view your provider supplies (a `views` entry without `convert`) is a
+  different kind from the adapter's, so those widgets need a hand-written
+  provider; the adapter's kind checks skip any view but the base one.
+- `bindProviders(definitions, providers)` returns a `Result`: every active
+  widget needs a provider under its `providerKeyOf` (clones and builder
+  widgets find theirs), an adapter must build the kind its widget is, and a
+  provider no widget uses is reported (a typo in a key) unless you pass
+  `{ allowUnused: true }`, which you want when the list is not every widget
+  that can exist (builder widgets, clones you add later).
+- The builders (`toText`, `toKpi`, `toGauge`, `toTable`, `toBarList`,
+  `toAlertList`, `toGraph`) only construct payloads. `toTable`, `toBarList` and
+  `toGraph` return an empty state for an empty list (with `emptyText` if you
+  give one). `toAlertList` never does: an empty alert list is good news, which
+  its payload carries as its own `emptyText`. Optional fields you leave out are
+  left out, not set to `undefined`.
+
 ### Widget Builder
 
 The `./builder` subpath lets an administrator (not a developer) make widgets
