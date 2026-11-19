@@ -13,6 +13,7 @@ import {
 import type { WidgetDefinition } from '../core/definition.js';
 import type { DashboardFilter } from '../core/filters.js';
 import { createWidgetLoader, type WidgetLoader } from '../core/loader.js';
+import type { StreamStatus, WidgetStreams } from '../core/stream.js';
 import {
   loadingWidgets,
   widgetsFor,
@@ -22,7 +23,25 @@ import {
   type WidgetProviders,
 } from '../core/resolve.js';
 
-export interface UseWidgetsOptions extends ResolveOptions {
+export interface UseWidgetsOptions<
+  C extends WidgetContext = WidgetContext,
+> extends ResolveOptions {
+  /**
+   * Live feeds by widget key (see `WidgetStream`). A key with a stream never
+   * calls its provider (which may then be left out); the card shows loading
+   * until the first emit. Keep it referentially stable, like `providers`: a
+   * changed value restarts loading. `refresh(key)` reconnects one feed;
+   * `refreshMs` polling leaves running feeds alone.
+   */
+  readonly streams?: WidgetStreams<C>;
+  /**
+   * Show at most one emitted payload per this many ms per widget, keeping the
+   * newest. Default 0: every emit.
+   */
+  readonly minIntervalMs?: number;
+  /** Called when a feed reports `connected` / `reconnecting`, and `closed` when it stops. */
+  readonly onStreamStatus?: (key: string, status: StreamStatus) => void;
+
   /**
    * When each widget's provider starts. `'mount'` (default): right after the
    * component mounts, so the page and the dashboard shell appear first and
@@ -93,9 +112,9 @@ export function useWidgets<C extends WidgetContext>(
   definitions: MaybeRefOrGetter<readonly WidgetDefinition[]>,
   providers: WidgetProviders<C>,
   context: C,
-  options: MaybeRefOrGetter<UseWidgetsOptions> = {}
+  options: MaybeRefOrGetter<UseWidgetsOptions<C>> = {}
 ): UseWidgetsResult {
-  const opts = (): UseWidgetsOptions => toValue(options);
+  const opts = (): UseWidgetsOptions<C> => toValue(options);
   const widgets: ShallowRef<readonly DashboardWidget[]> = shallowRef(
     loadingWidgets(widgetsFor(toValue(definitions), context.roles))
   );
@@ -119,11 +138,17 @@ export function useWidgets<C extends WidgetContext>(
   // One loader per mount, created in onMounted (never during setup) so server
   // rendering starts nothing.
   onMounted(() => {
-    const o: UseWidgetsOptions = opts();
+    const o: UseWidgetsOptions<C> = opts();
     const created: WidgetLoader = createWidgetLoader({
       definitions: toValue(definitions),
       providers,
       context,
+      ...(o.streams === undefined ? {} : { streams: o.streams }),
+      ...(o.minIntervalMs === undefined
+        ? {}
+        : { minIntervalMs: o.minIntervalMs }),
+      onStreamStatus: (key: string, status: StreamStatus): void =>
+        opts().onStreamStatus?.(key, status),
       ...(o.validate === undefined ? {} : { validate: o.validate }),
       ...(o.timeoutMs === undefined ? {} : { timeoutMs: o.timeoutMs }),
       ...(o.signal === undefined ? {} : { signal: o.signal }),
