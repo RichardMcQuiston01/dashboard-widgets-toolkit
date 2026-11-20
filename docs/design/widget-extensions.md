@@ -685,6 +685,37 @@ Where the build differs from or adds to the sketch above (`src/core/adapter.ts`,
 - **Optional fields are left out**, not set to `undefined`, so a built payload
   is plain JSON (`exactOptionalPropertyTypes`).
 
+### As built (phase 4)
+
+Where the build differs from the sketch (`src/core/stream.ts`, the stream
+branch of `src/core/loader.ts`):
+
+- **`StreamHandlers` also carries `status`, `options`, `view` and `filters`.**
+  `status(connected | reconnecting | closed)` feeds the loader's
+  `onStreamStatus(key, status)` (the loader itself reports `closed` when it
+  stops a feed). The resolved `options`, `view` and `filters` are the same as a
+  provider's `ProviderOptions`, so a stream can subscribe to the right topic.
+- **`streams`, `minIntervalMs` and `onStreamStatus` are loader options**, and
+  in both hooks fields of the options object (not a new positional argument),
+  so existing calls are unchanged.
+- **A failure keeps data.** `fail`, a malformed payload or a throw while
+  starting show an `error` card only when the widget has nothing to show;
+  otherwise the last good data stays with `refreshError`, as for a failed
+  refresh. The next valid `emit` clears it.
+- **Restarts.** A stream restarts like a provider reload (`refresh(key)`,
+  options, view or filters) after aborting the old one and running its
+  cleanup; late emits from the old feed are ignored. Polling and
+  `refresh(undefined, { skipInFlight: true })` skip running feeds. A stream is
+  not "in flight", so it never holds back prefetching.
+- **Coalescing.** Leading edge: the first emit after `minIntervalMs` of quiet
+  shows at once; emits inside the interval keep only the newest, shown when the
+  interval ends. A `fail` drops the held payload.
+- **Not applied to streams:** `timeoutMs` (a feed has no deadline) and cache
+  writes (reads still seed the first paint).
+- **Transports (D1)** are not part of this phase: the contract is in the core
+  and the concrete WebSocket, `EventSource` and HTTP poller are left to a
+  companion package.
+
 ## 7. Cross-cutting concerns
 
 - **Semver:** all four are additive. 0.x allows breaking changes, but nothing

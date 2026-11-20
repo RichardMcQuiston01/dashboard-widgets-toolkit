@@ -1640,6 +1640,54 @@ stops the request. Existing two-argument providers keep working.
   `subscribe`/`getSnapshot`, `load`, `refresh` and `dispose`; `resolveWidget`
   and `resolveWidgets` accept `timeoutMs`, `signal` and `cache` too.
 
+### Live widgets: streams
+
+A provider answers once. A stream keeps answering: it is handed `emit` and
+calls it whenever new data arrives (a WebSocket message, a server-sent event, a
+timer). The toolkit opens nothing itself; the stream function is yours, so
+credentials and transports stay in your code.
+
+```tsx
+import type { WidgetStreams } from '@richardmcquiston01/dashboard-widgets-toolkit/core';
+
+const streams: WidgetStreams<AppContext> = {
+  'live-orders': (context, definition, { emit, fail, status, signal }) => {
+    const socket = new WebSocket(context.ordersUrl);
+    socket.onopen = () => status('connected');
+    socket.onmessage = (message) => emit(toLiveKpi(JSON.parse(message.data)));
+    socket.onerror = () => fail(new Error('The orders feed dropped.'));
+    socket.onclose = () => status('closed');
+    return () => socket.close(); // runs when the feed must stop
+  },
+};
+
+const { widgets } = useWidgets(definitions, providers, context, {
+  streams, // keep it stable, like providers
+  minIntervalMs: 1000, // at most one repaint per second per card
+  onStreamStatus: (key, status) => console.debug(key, status),
+});
+```
+
+- A key in `streams` wins over the same key in `providers`, which may then be
+  left out. The card is `loading` until the first `emit`.
+- Every `emit` is validated like a provider result. A malformed message shows
+  an error on the card (or, if it already has data, keeps the data and sets
+  `refreshError`); the next good message recovers it. `fail(cause)` does the
+  same for a dropped connection.
+- `minIntervalMs` coalesces bursts: the first emit after a quiet spell shows at
+  once, later ones in the interval are held and only the newest is shown.
+- `refresh(key)` (the card's Refresh or Retry) stops the feed and starts it
+  again, which is a reconnect. A change to the widget's options, view or
+  filters does the same, and the handlers carry the new `options`, `view` and
+  `filters`. `refreshMs` polling skips running feeds.
+- The `signal` aborts and the returned cleanup runs when the feed stops:
+  refresh, removal, release of a far-away page, or leaving the page. Late
+  `emit` calls after that are ignored.
+- `timeoutMs` and the `cache` do not apply to a stream (the cache is still read
+  for the first paint but streams never write it).
+- Vue: the same `streams`, `minIntervalMs` and `onStreamStatus` options on
+  `useWidgets` from `./vue`; in the core, the same keys on `createWidgetLoader`.
+
 ### Adapters and payload builders
 
 A provider that reads an API usually does three things: fetch, map the response

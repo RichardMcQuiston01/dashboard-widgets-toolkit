@@ -63,6 +63,7 @@ src/
     result.ts           Result<T>
     builders.ts         toKpi / toTable / toBarList / ...: payload builders (empty state for no rows)
     adapter.ts          DataSource, defineAdapter, bindProviders: a source plus a mapper as a provider
+    stream.ts           WidgetStream, StreamHandlers, StreamStatus: live (push) feeds; the loader runs them
     select.ts           WidgetSelection / SelectionTarget: what a viewer picked (onSelect)
   builder/              subpath ./builder: Widget Builder, runtime-neutral like the core
     index.ts            barrel
@@ -150,7 +151,10 @@ documented in the code and README, which win if they disagree.
   and so is a detail view per provider view (`options.view`, GRAPH-derived detail).
 - `docs/design/widget-extensions.md`: async loading shipped (`useWidgets`,
   `createWidgetLoader`). Adapters and payload builders shipped (`adapter.ts`,
-  `builders.ts`). Still planned: push streams. Drag-and-drop reordering shipped (`reorder.ts`, `use-reorder.ts`).
+  `builders.ts`). Push streams shipped (`stream.ts`; `streams`, `minIntervalMs`,
+  `onStreamStatus` on the loader and both `useWidgets`). Still planned: concrete
+  transports (decision D1, a companion package). Drag-and-drop reordering
+  shipped (`reorder.ts`, `use-reorder.ts`).
 - `docs/design/lock-and-edit-mode.md`: locked widgets (`locked`, pinned slots,
   `enforceLocks`, `overrideLocks`) and the Customize/Done edit mode
   (`editMode="toggle"`, Reset, Revert) and drag and drop (`draggable`) are built.

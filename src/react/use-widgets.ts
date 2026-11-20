@@ -10,6 +10,7 @@ import {
 import type { WidgetDefinition } from '../core/definition.js';
 import type { DashboardFilter } from '../core/filters.js';
 import { createWidgetLoader, type WidgetLoader } from '../core/loader.js';
+import type { StreamStatus, WidgetStreams } from '../core/stream.js';
 import {
   loadingWidgets,
   widgetsFor,
@@ -19,7 +20,25 @@ import {
   type WidgetProviders,
 } from '../core/resolve.js';
 
-export interface UseWidgetsOptions extends ResolveOptions {
+export interface UseWidgetsOptions<
+  C extends WidgetContext = WidgetContext,
+> extends ResolveOptions {
+  /**
+   * Live feeds by widget key (see `WidgetStream`). A key with a stream never
+   * calls its provider (which may then be left out); the card shows loading
+   * until the first emit. Keep it referentially stable, like `providers`: a
+   * changed value restarts loading. `refresh(key)` reconnects one feed;
+   * `refreshMs` polling leaves running feeds alone.
+   */
+  readonly streams?: WidgetStreams<C>;
+  /**
+   * Show at most one emitted payload per this many ms per widget, keeping the
+   * newest. Default 0: every emit.
+   */
+  readonly minIntervalMs?: number;
+  /** Called when a feed reports `connected` / `reconnecting`, and `closed` when it stops. */
+  readonly onStreamStatus?: (key: string, status: StreamStatus) => void;
+
   /**
    * When each widget's provider starts. `'mount'` (default): right after the
    * first render, so the page and the dashboard shell appear first and each
@@ -124,7 +143,7 @@ export function useWidgets<C extends WidgetContext>(
   definitions: readonly WidgetDefinition[],
   providers: WidgetProviders<C>,
   context: C,
-  options: UseWidgetsOptions = {}
+  options: UseWidgetsOptions<C> = {}
 ): UseWidgetsResult {
   const {
     loadWhen = 'mount',
@@ -141,6 +160,9 @@ export function useWidgets<C extends WidgetContext>(
     viewValues,
     filters,
     filterValues,
+    streams,
+    minIntervalMs,
+    onStreamStatus,
   } = options;
 
   const placeholders: readonly DashboardWidget[] = useMemo(
@@ -163,6 +185,8 @@ export function useWidgets<C extends WidgetContext>(
     () => (filters === undefined ? undefined : filters),
     [filtersSignature]
   );
+  const onStreamStatusRef = useRef(onStreamStatus);
+  onStreamStatusRef.current = onStreamStatus;
   const filterValuesRef = useRef(filterValues);
   filterValuesRef.current = filterValues;
   // The latest definitions, for a loader created later; changing them never
@@ -178,6 +202,10 @@ export function useWidgets<C extends WidgetContext>(
       definitions: definitionsRef.current,
       providers,
       context,
+      ...(streams === undefined ? {} : { streams }),
+      ...(minIntervalMs === undefined ? {} : { minIntervalMs }),
+      onStreamStatus: (key: string, status: StreamStatus): void =>
+        onStreamStatusRef.current?.(key, status),
       ...(validate === undefined ? {} : { validate }),
       ...(timeoutMs === undefined ? {} : { timeoutMs }),
       ...(signal === undefined ? {} : { signal }),
@@ -211,6 +239,8 @@ export function useWidgets<C extends WidgetContext>(
     };
   }, [
     providers,
+    streams,
+    minIntervalMs,
     context,
     validate,
     timeoutMs,

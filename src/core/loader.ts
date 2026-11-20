@@ -17,6 +17,9 @@ import {
   sameOptionValues,
   type OptionValues,
 } from './options.js';
+import type { WidgetPayload } from './payload.js';
+import { describeUnknownError } from './result.js';
+import type { StreamStatus, WidgetStream, WidgetStreams } from './stream.js';
 import { loadViewKey } from './views.js';
 import {
   cacheKeyFor,
@@ -40,6 +43,19 @@ export interface WidgetLoaderOptions<
   readonly definitions: readonly WidgetDefinition[];
   readonly providers: WidgetProviders<C>;
   readonly context: C;
+  /**
+   * Live feeds by widget key. A key with a stream never calls its provider.
+   * `timeoutMs` and `cache` writes do not apply to streams.
+   */
+  readonly streams?: WidgetStreams<C>;
+  /**
+   * Shows at most one emitted payload per this many ms per widget, keeping the
+   * newest: a feed that emits 50 times a second renders a few times a second.
+   * The first emit after a quiet spell shows at once. Default 0 (every emit).
+   */
+  readonly minIntervalMs?: number;
+  /** Called when a stream reports its status, and with `closed` when it stops. */
+  readonly onStreamStatus?: (key: string, status: StreamStatus) => void;
 }
 
 export interface RefreshOptions {
@@ -129,7 +145,15 @@ export interface WidgetLoader {
 export function createWidgetLoader<C extends WidgetContext>(
   options: WidgetLoaderOptions<C>
 ): WidgetLoader {
-  const { definitions, providers, context, ...baseOptions } = options;
+  const {
+    definitions,
+    providers,
+    context,
+    streams = {},
+    minIntervalMs = 0,
+    onStreamStatus,
+    ...baseOptions
+  } = options;
   // What was chosen per widget; `setOptions` changes it.
   const chosen = new Map<string, Readonly<Record<string, unknown>>>(
     Object.entries(baseOptions.optionValues ?? {}).flatMap(([key, values]) =>
@@ -165,6 +189,8 @@ export function createWidgetLoader<C extends WidgetContext>(
   const started = new Set<string>();
   const generations = new Map<string, number>();
   const inFlight = new Map<string, AbortController>();
+  // Running streams by widget key: the controller that stops each one.
+  const streamRuns = new Map<string, AbortController>();
   let prefetchQueue: readonly string[] = [];
   let disposed = false;
 
@@ -187,9 +213,17 @@ export function createWidgetLoader<C extends WidgetContext>(
     );
   }
 
+  function stopStream(key: string, reason: unknown): void {
+    const controller: AbortController | undefined = streamRuns.get(key);
+    if (controller === undefined) return;
+    streamRuns.delete(key);
+    controller.abort(reason);
+  }
+
   function abortAll(reason: unknown): void {
     for (const controller of inFlight.values()) controller.abort(reason);
     inFlight.clear();
+    for (const key of [...streamRuns.keys()]) stopStream(key, reason);
   }
 
   resolveOptions.signal?.addEventListener(
@@ -197,6 +231,142 @@ export function createWidgetLoader<C extends WidgetContext>(
     () => abortAll(resolveOptions.signal?.reason),
     { once: true }
   );
+
+  /** Runs one widget's live feed until `controller` aborts. */
+  function startStream(
+    definition: WidgetDefinition,
+    stream: WidgetStream<C>,
+    runOptions: ResolveOptions,
+    values: OptionValues,
+    controller: AbortController,
+    isCurrent: () => boolean
+  ): void {
+    const key: string = definition.key;
+    const quotedKey: string = JSON.stringify(key);
+    streamRuns.set(key, controller);
+    const live = (): boolean => !controller.signal.aborted && isCurrent();
+    const report = (status: StreamStatus): void => {
+      try {
+        onStreamStatus?.(key, status);
+      } catch {
+        // A failing status listener must not stop the feed.
+      }
+    };
+    let lastShownAt: number = Number.NEGATIVE_INFINITY;
+    let newest: WidgetPayload | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const showFailure = (message: string): void => {
+      const kept: DashboardWidget | undefined = snapshot.find(
+        (widget) => widget.definition.key === key
+      );
+      if (kept?.status === 'ok') {
+        // The last good data stays, with a note, as for a failed refresh.
+        const { stale: _stale, ...rest } = kept;
+        replace(key, { ...rest, refreshError: message });
+        return;
+      }
+      unapplied.delete(key);
+      replace(key, { definition, status: 'error', error: message });
+    };
+
+    const show = (payload: WidgetPayload): void => {
+      lastShownAt = Date.now();
+      const resolved: ResolvedWidget = resolvePayload(
+        definition,
+        payload,
+        runOptions
+      );
+      if (resolved.status === 'error') {
+        showFailure(`Widget ${quotedKey}: stream sent ${resolved.error}`);
+        return;
+      }
+      const shown: ResolvedWidget =
+        resolved.status === 'ok'
+          ? { ...resolved, updatedAt: lastShownAt }
+          : resolved;
+      if (shown.status === 'ok') unapplied.set(key, shown);
+      else unapplied.delete(key);
+      replace(
+        key,
+        finalizeWidget(shown, values, filterValuesOf(definition, runOptions))
+      );
+    };
+
+    const emit = (payload: WidgetPayload): void => {
+      if (!live()) return;
+      const wait: number = lastShownAt + minIntervalMs - Date.now();
+      if (wait <= 0 && timer === undefined) {
+        show(payload);
+        return;
+      }
+      newest = payload;
+      if (timer !== undefined) return;
+      timer = setTimeout(
+        () => {
+          timer = undefined;
+          const latest: WidgetPayload | undefined = newest;
+          newest = undefined;
+          if (live() && latest !== undefined) show(latest);
+        },
+        Math.max(wait, 0)
+      );
+    };
+
+    controller.signal.addEventListener(
+      'abort',
+      () => {
+        if (timer !== undefined) clearTimeout(timer);
+        timer = undefined;
+        newest = undefined;
+        report('closed');
+      },
+      { once: true }
+    );
+
+    let cleanup: void | (() => void);
+    try {
+      cleanup = stream(context, definition, {
+        emit,
+        fail: (cause: unknown): void => {
+          if (!live()) return;
+          if (timer !== undefined) clearTimeout(timer);
+          timer = undefined;
+          newest = undefined;
+          showFailure(
+            `Widget ${quotedKey}: stream failed: ${describeUnknownError(cause)}`
+          );
+        },
+        status: (status: StreamStatus): void => {
+          if (live()) report(status);
+        },
+        signal: controller.signal,
+        options: values,
+        view: loadViewKey(definition, runOptions.viewValues?.[key]),
+        filters: filterValuesOf(definition, runOptions),
+      });
+    } catch (cause: unknown) {
+      if (live()) {
+        showFailure(
+          `Widget ${quotedKey}: stream failed to start: ${describeUnknownError(cause)}`
+        );
+      }
+      return;
+    }
+    if (typeof cleanup === 'function') {
+      const close: () => void = cleanup;
+      const runCleanup = (): void => {
+        try {
+          close();
+        } catch {
+          // A cleanup that throws must not break the loader.
+        }
+      };
+      if (controller.signal.aborted) runCleanup();
+      else
+        controller.signal.addEventListener('abort', runCleanup, { once: true });
+    }
+  }
 
   async function run(
     definition: WidgetDefinition,
@@ -207,6 +377,7 @@ export function createWidgetLoader<C extends WidgetContext>(
     const generation: number = (generations.get(key) ?? 0) + 1;
     generations.set(key, generation);
     inFlight.get(key)?.abort(new Error('Superseded by a newer load.'));
+    stopStream(key, new Error('Superseded by a newer load.'));
     const controller = new AbortController();
     inFlight.set(key, controller);
     const isCurrent = (): boolean =>
@@ -241,6 +412,23 @@ export function createWidgetLoader<C extends WidgetContext>(
     if (!isCurrent()) return;
 
     const providerKey: string = providerKeyOf(definition);
+    if (Object.prototype.hasOwnProperty.call(streams, providerKey)) {
+      const stream: WidgetStream<C> | undefined = streams[providerKey];
+      if (stream !== undefined) {
+        // A stream never finishes, so it must not hold prefetching back.
+        inFlight.delete(key);
+        startStream(
+          definition,
+          stream,
+          runOptions,
+          values,
+          controller,
+          isCurrent
+        );
+        runPrefetch();
+        return;
+      }
+    }
     const provider = Object.prototype.hasOwnProperty.call(
       providers,
       providerKey
@@ -316,7 +504,10 @@ export function createWidgetLoader<C extends WidgetContext>(
     for (const target of keys) {
       const definition: WidgetDefinition | undefined = definitionFor(target);
       if (definition === undefined) continue;
-      if (refreshOptions?.skipInFlight === true && inFlight.has(target)) {
+      if (
+        refreshOptions?.skipInFlight === true &&
+        (inFlight.has(target) || streamRuns.has(target))
+      ) {
         continue;
       }
       const current: DashboardWidget | undefined = snapshot.find(
@@ -425,6 +616,7 @@ export function createWidgetLoader<C extends WidgetContext>(
       if (keys.has(key)) continue;
       inFlight.get(key)?.abort(new Error('The widget was removed.'));
       inFlight.delete(key);
+      stopStream(key, new Error('The widget was removed.'));
       started.delete(key);
       unapplied.delete(key);
       chosen.delete(key);
@@ -455,6 +647,7 @@ export function createWidgetLoader<C extends WidgetContext>(
       if (definition === undefined) continue;
       inFlight.get(key)?.abort(new Error('The widget was released.'));
       inFlight.delete(key);
+      stopStream(key, new Error('The widget was released.'));
       started.delete(key);
       unapplied.delete(key);
       // A result that is still on its way must not bring the widget back.
