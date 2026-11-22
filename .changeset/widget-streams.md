@@ -1,5 +1,0 @@
----
-'@richardmcquiston01/dashboard-widgets-toolkit': minor
----
-
-Live widgets. A `WidgetStream` (`(context, definition, { emit, fail, status, signal, options, view, filters }) => cleanup`) is the push counterpart of a provider: give `createWidgetLoader`, and `useWidgets` in `./react` and `./vue`, a `streams` map keyed like `providers` and a key with a stream never calls its provider. Emitted payloads are validated like provider results (a malformed message becomes an error on that card, or `refreshError` when the card already has data, and the next good one recovers it), `minIntervalMs` shows at most one payload per interval per widget (the newest), and `onStreamStatus(key, 'connected' | 'reconnecting' | 'closed')` reports the connection. `refresh(key)` and a change of options, view or filters restart a feed; `refreshMs` polling leaves running feeds alone, and removing, releasing or disposing a widget aborts its feed and runs its cleanup. Nothing opens a socket: the stream function is yours.
